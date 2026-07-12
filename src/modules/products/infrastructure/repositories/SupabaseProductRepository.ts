@@ -50,7 +50,7 @@ export class SupabaseProductRepository implements IProductRepository {
             .from('products')
             .select('*')
             .eq('id', id)
-            .eq('tenant_id', actualTenant)
+            .eq('organization_id', actualTenant)
             .single();
             
         if (error || !data) return null;
@@ -63,7 +63,7 @@ export class SupabaseProductRepository implements IProductRepository {
         const { data, error } = await supabase
             .from('products')
             .select('*')
-            .eq('tenant_id', actualTenant)
+            .eq('organization_id', actualTenant)
             .order('created_at', { ascending: false });
             
         if (error || !data) return [];
@@ -75,12 +75,8 @@ export class SupabaseProductRepository implements IProductRepository {
         const actualTenant = await this.resolveTenantId(product.tenantId);
         
         // Resolve Mocked FKs
-        let finalSupplierId = product.supplierId;
         let finalCategoryId = product.categoryId;
         
-        if (!finalSupplierId || finalSupplierId === 'supplier-id' || finalSupplierId === 'mocked-supplier-id') {
-            finalSupplierId = await this.resolveSupplierId(actualTenant);
-        }
         if (!finalCategoryId || finalCategoryId === 'mocked-category-id') {
             // Check if it's a valid UUID, otherwise it's probably the category name from UI
             const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -91,15 +87,12 @@ export class SupabaseProductRepository implements IProductRepository {
 
         const payload = {
             id: product.id,
-            tenant_id: actualTenant,
-            supplier_id: finalSupplierId,
+            organization_id: actualTenant,
             category_id: finalCategoryId,
+            sku: product.sku,
             name: product.name,
             description: product.description,
-            sku: product.sku,
-            uom: product.uom,
-            price: product.price,
-            status: product.status,
+            unit: product.uom,
             updated_at: new Date().toISOString()
         };
 
@@ -119,7 +112,7 @@ export class SupabaseProductRepository implements IProductRepository {
             .from('products')
             .delete()
             .eq('id', id)
-            .eq('tenant_id', actualTenant);
+            .eq('organization_id', actualTenant);
             
         if (error) {
             console.error('Supabase delete product error:', error);
@@ -130,16 +123,16 @@ export class SupabaseProductRepository implements IProductRepository {
     private mapToDomain(row: any): Product {
         return new Product(
             row.id,
-            row.tenant_id,
-            row.supplier_id,
+            row.organization_id,
+            '', // supplier_id omitido
             row.category_id,
             row.name,
             row.description || '',
             row.sku,
-            row.uom,
-            row.manufacturer || '',
-            Number(row.price),
-            row.status as ProductStatus,
+            row.unit,
+            '', // manufacturer omitido
+            0, // price omitido
+            'Active', // status padrão
             new Date(row.created_at),
             new Date(row.updated_at)
         );
