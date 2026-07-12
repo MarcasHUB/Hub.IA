@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 
 import { SupabaseProductRepository } from '../../infrastructure/repositories/SupabaseProductRepository';
-import { Product, ProductStatus } from '../../domain/entities/Product';
+import { Product, ProductStatus } from '../../domain/entities/Product'; 
 
 const repo = new SupabaseProductRepository();
 const tenantId = '00000000-0000-0000-0000-000000000000'; // Mocked tenant ID

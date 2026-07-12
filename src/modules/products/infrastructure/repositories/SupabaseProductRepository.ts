@@ -11,23 +11,6 @@ export class SupabaseProductRepository implements IProductRepository {
         return data?.organization_id || tenantId;
     }
 
-    private async resolveSupplierId(actualTenant: string): Promise<string> {
-        // Find any existing supplier for this tenant
-        const { data } = await supabase.from('suppliers').select('id').eq('tenant_id', actualTenant).limit(1).single();
-        if (data) return data.id;
-        
-        // If none exists, create a default one
-        const newSupplierId = crypto.randomUUID();
-        await supabase.from('suppliers').insert({
-            id: newSupplierId,
-            tenant_id: actualTenant,
-            name: 'Fornecedor Padrão (Auto)',
-            document: '00.000.000/0001-00',
-            status: 'Approved'
-        });
-        return newSupplierId;
-    }
-
     private async resolveCategoryId(actualTenant: string): Promise<string> {
         // Find any existing category
         const { data } = await supabase.from('categories').select('id').eq('tenant_id', actualTenant).limit(1).single();
@@ -132,7 +115,7 @@ export class SupabaseProductRepository implements IProductRepository {
             row.unit,
             '', // manufacturer omitido
             0, // price omitido
-            'Active', // status padrão
+            ProductStatus.ACTIVE, // status padrão
             new Date(row.created_at),
             new Date(row.updated_at)
         );
