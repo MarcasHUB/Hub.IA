@@ -98,7 +98,6 @@ export class SupabaseProductRepository implements IProductRepository {
             description: product.description,
             sku: product.sku,
             uom: product.uom,
-            manufacturer: product.manufacturer,
             price: product.price,
             status: product.status,
             updated_at: new Date().toISOString()
