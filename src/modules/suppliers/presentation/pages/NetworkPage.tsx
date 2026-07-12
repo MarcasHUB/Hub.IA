@@ -109,7 +109,7 @@ export default function NetworkPage() {
   useEffect(() => {
     async function load() {
        try {
-         const data = await repo.findByOrganization(tenantId);
+         await repo.findByOrganization(tenantId);
          // Simulate loading from companies directory
          // For now we map empty as the repository isn't fully fetching companies directory yet
        } catch (e) {}

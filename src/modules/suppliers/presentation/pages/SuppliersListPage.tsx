@@ -10,10 +10,8 @@ import { Badge } from '@/shared/components/ui/Badge';
 import { useNavigate } from 'react-router-dom';
 import { useChatDrawer } from '@/modules/messages/presentation/context/ChatDrawerContext';
 import { SupabaseSupplierRepository } from '../../infrastructure/repositories/SupabaseSupplierRepository';
-import { SupabaseOrganizationConnectionRepository } from '../../infrastructure/repositories/SupabaseOrganizationConnectionRepository';
 
 const supplierRepo = new SupabaseSupplierRepository();
-const connectionRepo = new SupabaseOrganizationConnectionRepository();
 const tenantId = '00000000-0000-0000-0000-000000000000';
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────

@@ -26,7 +26,6 @@ interface Product {
 export default function ProductsListPage() {
   const navigate = useNavigate();
   const [products, setProducts] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(true);
 
   // Tenant ID mockado temporariamente (em produção virá do auth context)
   const tenantId = '00000000-0000-0000-0000-000000000000';
@@ -50,8 +49,6 @@ export default function ProductsListPage() {
         })));
       } catch (err) {
         console.error('Failed to load products', err);
-      } finally {
-        setLoading(false);
       }
     }
     loadProducts();

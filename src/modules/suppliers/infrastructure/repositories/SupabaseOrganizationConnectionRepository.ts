@@ -4,14 +4,24 @@ import { IOrganizationConnectionRepository } from '../../domain/repositories/IOr
 
 export class SupabaseOrganizationConnectionRepository implements IOrganizationConnectionRepository {
     
+    private async resolveTenantId(tenantId: string): Promise<string> {
+        if (tenantId !== '00000000-0000-0000-0000-000000000000') return tenantId;
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return tenantId;
+        const { data } = await supabase.from('users').select('organization_id').eq('id', user.id).single();
+        return data?.organization_id || tenantId;
+    }
+
     async save(connection: OrganizationConnection): Promise<void> {
+        const actualRequester = await this.resolveTenantId(connection.buyerOrganizationId);
+        
         let mappedStatus = 'pending';
         if (connection.status === 'Ativo') mappedStatus = 'accepted';
         else if (connection.status === 'Inativo' || connection.status === 'Bloqueado') mappedStatus = 'rejected';
 
         const payload = {
             id: connection.id,
-            requester_org_id: connection.buyerOrganizationId,
+            requester_org_id: actualRequester,
             target_org_id: connection.supplierOrganizationId,
             status: mappedStatus,
             message: connection.notes || '',
@@ -29,10 +39,11 @@ export class SupabaseOrganizationConnectionRepository implements IOrganizationCo
     }
 
     async findByOrganization(orgId: string): Promise<OrganizationConnection[]> {
+        const actualOrgId = await this.resolveTenantId(orgId);
         const { data, error } = await supabase
             .from('connection_requests')
             .select('*')
-            .or(`requester_org_id.eq.${orgId},target_org_id.eq.${orgId}`);
+            .or(`requester_org_id.eq.${actualOrgId},target_org_id.eq.${actualOrgId}`);
             
         if (error || !data) return [];
 
