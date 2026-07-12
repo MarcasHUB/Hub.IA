@@ -7,10 +7,35 @@ import { useNavigate } from 'react-router-dom';
 export default function LoginPage() {
   const navigate = useNavigate();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const [email, setEmail] = React.useState('');
+  const [password, setPassword] = React.useState('');
+  const [loading, setLoading] = React.useState(false);
+  const [errorMsg, setErrorMsg] = React.useState('');
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Simulate login
-    navigate('/dashboard');
+    setLoading(true);
+    setErrorMsg('');
+    
+    try {
+      const { supabase } = await import('@/infrastructure/supabase/client');
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) {
+        throw error;
+      }
+      
+      if (data.user) {
+        navigate('/dashboard');
+      }
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Erro ao realizar login');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -21,9 +46,21 @@ export default function LoginPage() {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
+        {errorMsg && (
+          <div className="p-3 text-sm font-medium text-red-800 bg-red-100 rounded-md">
+            {errorMsg}
+          </div>
+        )}
         <div className="space-y-2">
           <Label htmlFor="email">E-mail Corporativo</Label>
-          <Input id="email" type="email" placeholder="voce@empresa.com" required />
+          <Input 
+            id="email" 
+            type="email" 
+            placeholder="voce@empresa.com" 
+            required 
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
         </div>
         <div className="space-y-2">
           <div className="flex items-center justify-between">
@@ -32,11 +69,17 @@ export default function LoginPage() {
               Esqueceu a senha?
             </a>
           </div>
-          <Input id="password" type="password" required />
+          <Input 
+            id="password" 
+            type="password" 
+            required 
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
         </div>
 
-        <Button type="submit" className="w-full">
-          Entrar no Sistema
+        <Button type="submit" className="w-full" disabled={loading}>
+          {loading ? 'Entrando...' : 'Entrar no Sistema'}
         </Button>
       </form>
     </div>
