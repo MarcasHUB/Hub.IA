@@ -7,7 +7,7 @@ export class SupabaseProductRepository implements IProductRepository {
         if (tenantId !== '00000000-0000-0000-0000-000000000000') return tenantId;
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return tenantId;
-        const { data } = await supabase.from('users').select('organization_id').eq('id', user.id).single();
+        const { data } = await supabase.from('user_roles').select('organization_id').eq('user_id', user.id).single();
         return data?.organization_id || tenantId;
     }
 
