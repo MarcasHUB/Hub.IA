@@ -6,7 +6,6 @@ import { Building2, UserCircle, Briefcase, CheckCircle2, ChevronRight, ChevronLe
 import { OrganizationService } from '@/modules/organizations/application/services/OrganizationService';
 import { UserService } from '@/modules/auth/application/services/UserService';
 import { MembershipService } from '@/modules/organizations/application/services/MembershipService';
-import { InvitationService } from '@/modules/suppliers/application/services/InvitationService';
 import { ConnectionService } from '@/modules/suppliers/application/services/ConnectionService';
 import { Logo } from '@/shared/components/ui/Logo';
 

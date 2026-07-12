@@ -138,7 +138,11 @@ export function ChatDrawer() {
 
     const saved = localStorage.getItem('supplyhub_chat_messages');
     const messagesMap = saved ? JSON.parse(saved) : {};
+    
+    if (!partner) return;
+
     messagesMap[partner.id] = [...(messagesMap[partner.id] ?? []), quoteMsg];
+
     localStorage.setItem('supplyhub_chat_messages', JSON.stringify(messagesMap));
 
     setMessages(messagesMap);

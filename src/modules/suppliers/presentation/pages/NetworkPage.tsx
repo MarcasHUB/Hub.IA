@@ -162,9 +162,9 @@ export default function NetworkPage() {
         type: 'connection_request_received',
         title: 'Convite Enviado',
         message: `Convite de conexão enviado para ${company.name}.`,
-        is_read: false,
         action_url: '/suppliers',
         metadata: { company_name: company.name },
+        is_read: false,
       });
     }
   };
@@ -306,9 +306,9 @@ export default function NetworkPage() {
               addMockNotification({
                 title: 'Convite enviado!',
                 message: `O e-mail foi disparado para ${newCompEmail}.`,
-                type: 'info',
-                read: false,
-              });
+                type: 'connection_request_received',
+                is_read: false,
+                });
 
               // Reseta campos e fecha
               setNewCompName('');

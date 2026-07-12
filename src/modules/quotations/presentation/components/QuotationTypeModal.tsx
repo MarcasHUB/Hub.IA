@@ -49,7 +49,7 @@ const getCatalogProducts = (): CatalogProduct[] => {
 interface QuotationTypeModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (data: {
+  onSubmit?: (data: {
     type: 'BID' | 'DIRECT';
     code: string;
     productName: string;
@@ -65,8 +65,10 @@ interface QuotationTypeModalProps {
     draftId?: string;
   }) => void;
   defaultPartnerId?: string;
+  productNames?: string;
   prefilledProductName?: string;
   preselectedProductIds?: string[];
+  selectedProductIds?: string[];
   initialDraftData?: any; // Rascunho para continuar preenchendo
 }
 
@@ -272,7 +274,7 @@ export function QuotationTypeModal({
     const randomNum = Math.floor(Math.random() * 90000) + 10000;
     const code = type === 'BID' ? `RC-2026-${randomNum}` : `RCD-2026-${randomNum}`;
 
-    onSubmit({
+    onSubmit?.({
       type,
       code,
       productName: combinedNames,
