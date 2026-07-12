@@ -17,6 +17,12 @@ import {
   Plus
 } from 'lucide-react';
 
+import { SupabaseProductRepository } from '../../infrastructure/repositories/SupabaseProductRepository';
+import { Product, ProductStatus } from '../../domain/entities/Product';
+
+const repo = new SupabaseProductRepository();
+const tenantId = '00000000-0000-0000-0000-000000000000'; // Mocked tenant ID
+
 export default function ProductFormPage() {
   const navigate = useNavigate();
   const { id } = useParams();
@@ -43,72 +49,72 @@ export default function ProductFormPage() {
 
   // Load existing data if editing
   useEffect(() => {
-    if (isEditing) {
-      const saved = localStorage.getItem('supplyhub_products');
-      if (saved) {
-        const list = JSON.parse(saved);
-        const product = list.find((p: any) => p.id === id);
-        if (product) {
-          setBasicInfo(prev => ({
-            ...prev,
-            name: product.name || '',
-            sku: product.sku || '',
-            manufacturer: product.manufacturer || '',
-            description: product.description || '',
-            imageUrl: product.imageUrl || ''
-          }));
-          setClassification(prev => ({
-            ...prev,
-            category: product.category || '',
-            baseUom: product.medidas || product.uom || ''
-          }));
-          setCommercial(prev => ({
-            ...prev,
-            targetPrice: product.price?.toString() || ''
-          }));
-          
-          if (product.supplier) {
-             setSuppliers([{ name: product.supplier, sku: product.sku, price: product.price }]);
+    async function loadData() {
+      if (isEditing && id) {
+        try {
+          const product = await repo.findById(id, tenantId);
+          if (product) {
+            setBasicInfo(prev => ({
+              ...prev,
+              name: product.name || '',
+              sku: product.sku || '',
+              manufacturer: product.manufacturer || '',
+              description: product.description || '',
+              status: product.status === ProductStatus.DRAFT ? 'Draft' : 'Active'
+            }));
+            setClassification(prev => ({
+              ...prev,
+              category: product.categoryId || '',
+              baseUom: product.uom || ''
+            }));
+            setCommercial(prev => ({
+              ...prev,
+              targetPrice: product.price?.toString() || ''
+            }));
+            
+            // Mocked supplier mapping
+            if (product.supplierId) {
+               setSuppliers([{ name: 'Fornecedor', sku: product.sku, price: product.price }]);
+            }
           }
+        } catch (e) {
+          console.error(e);
         }
       }
     }
+    loadData();
   }, [id, isEditing]);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     // Basic validation
     if (!basicInfo.name.trim() || !basicInfo.sku.trim()) {
       alert("Nome e SKU são obrigatórios");
       return;
     }
 
-    const saved = localStorage.getItem('supplyhub_products');
-    let list = saved ? JSON.parse(saved) : [];
+    try {
+      const newProduct = new Product(
+        isEditing && id ? id : crypto.randomUUID(),
+        tenantId,
+        suppliers.length > 0 ? 'supplier-id' : 'mocked-supplier-id', // supplierId
+        classification.category || 'mocked-category-id', // categoryId
+        basicInfo.name,
+        basicInfo.description,
+        basicInfo.sku,
+        classification.baseUom || 'UN',
+        basicInfo.manufacturer,
+        Number(commercial.targetPrice) || 0,
+        basicInfo.status === 'Draft' ? ProductStatus.DRAFT : ProductStatus.ACTIVE,
+        new Date(),
+        new Date()
+      );
 
-    const productData = {
-      id: isEditing ? id : `prod-${Date.now()}`,
-      name: basicInfo.name,
-      sku: basicInfo.sku,
-      manufacturer: basicInfo.manufacturer,
-      description: basicInfo.description,
-      imageUrl: basicInfo.imageUrl,
-      category: classification.category,
-      medidas: classification.baseUom,
-      uom: classification.baseUom,
-      price: Number(commercial.targetPrice) || 0,
-      supplier: suppliers.length > 0 ? suppliers[0].name : 'Fornecedor Próprio',
-      status: basicInfo.status,
-      updatedAt: new Date().toISOString().split('T')[0]
-    };
-
-    if (isEditing) {
-      list = list.map((p: any) => p.id === id ? { ...p, ...productData } : p);
-    } else {
-      list.push(productData);
+      await repo.save(newProduct);
+      navigate('/products');
+    } catch (e) {
+      console.error(e);
+      alert("Erro ao salvar produto");
     }
-
-    localStorage.setItem('supplyhub_products', JSON.stringify(list));
-    navigate('/products');
   };
 
   const tabs = [

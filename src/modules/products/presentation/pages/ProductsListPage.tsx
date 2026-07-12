@@ -1,10 +1,13 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/shared/components/ui/Button';
 import { Input } from '@/shared/components/ui/Input';
 import { Badge } from '@/shared/components/ui/Badge';
 import { Search, Plus, Upload, Filter, ShoppingCart, PackageOpen, MoreVertical, ImageOff } from 'lucide-react';
 import { QuotationTypeModal } from '@/modules/quotations/presentation/components/QuotationTypeModal';
+import { SupabaseProductRepository } from '../../infrastructure/repositories/SupabaseProductRepository';
+
+const repo = new SupabaseProductRepository();
 
 interface Product {
   id: string;
@@ -22,10 +25,37 @@ interface Product {
 
 export default function ProductsListPage() {
   const navigate = useNavigate();
-  const [products] = useState<Product[]>(() => {
-    const saved = localStorage.getItem('supplyhub_products');
-    return saved ? JSON.parse(saved) : [];
-  });
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Tenant ID mockado temporariamente (em produção virá do auth context)
+  const tenantId = '00000000-0000-0000-0000-000000000000';
+
+  useEffect(() => {
+    async function loadProducts() {
+      try {
+        const data = await repo.findAll(tenantId);
+        // Map domain to UI format
+        setProducts(data.map(p => ({
+          id: p.id,
+          name: p.name,
+          sku: p.sku,
+          supplier: p.supplierId || 'Fornecedor',
+          category: p.categoryId || 'Categoria',
+          manufacturer: p.manufacturer || 'Desconhecido',
+          price: p.price,
+          status: p.status === 'Draft' ? 'Draft' : 'Active',
+          updatedAt: p.updatedAt.toISOString().split('T')[0],
+          description: p.description
+        })));
+      } catch (err) {
+        console.error('Failed to load products', err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadProducts();
+  }, []);
   
   const [search, setSearch] = useState('');
   const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);

@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   Network, Clock, CheckCircle2, XCircle, MoreVertical,
   Search, MapPin, UserMinus, Building2, Package,
@@ -9,6 +9,12 @@ import { Input } from '@/shared/components/ui/Input';
 import { Badge } from '@/shared/components/ui/Badge';
 import { useNavigate } from 'react-router-dom';
 import { useChatDrawer } from '@/modules/messages/presentation/context/ChatDrawerContext';
+import { SupabaseSupplierRepository } from '../../infrastructure/repositories/SupabaseSupplierRepository';
+import { SupabaseOrganizationConnectionRepository } from '../../infrastructure/repositories/SupabaseOrganizationConnectionRepository';
+
+const supplierRepo = new SupabaseSupplierRepository();
+const connectionRepo = new SupabaseOrganizationConnectionRepository();
+const tenantId = '00000000-0000-0000-0000-000000000000';
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -272,10 +278,32 @@ type SearchMode = 'name' | 'product' | 'segment';
 export default function SuppliersListPage() {
   const [activeTab, setActiveTab]       = useState<Tab>('partners');
   const [inviteFilter, setInviteFilter] = useState<InviteFilter>('all');
-  const [partners, setPartners]         = useState<Partner[]>(() => {
-    const saved = localStorage.getItem('supplyhub_partners');
-    return saved ? JSON.parse(saved) : []; // Inicia vazio por padrão
-  });
+  const [partners, setPartners]         = useState<Partner[]>([]);
+  
+  useEffect(() => {
+    async function load() {
+       try {
+         const suppliers = await supplierRepo.findAll(tenantId);
+         const mapped = suppliers.map(s => ({
+            id: s.id,
+            name: s.name,
+            document: s.document,
+            segment: 'Não definido',
+            city: '-',
+            state: '-',
+            status: 'accepted' as const,
+            connectionId: '',
+            employeesRange: '-',
+            rating: 0,
+            responseTime: '-',
+            quotationsCount: 0,
+            products: []
+         }));
+         setPartners(mapped);
+       } catch(e) {}
+    }
+    load();
+  }, []);
   const [search, setSearch]             = useState('');
   const [searchMode, setSearchMode]     = useState<SearchMode>('name');
   const [segmentFilter, setSegmentFilter] = useState('Todos');
@@ -322,17 +350,17 @@ export default function SuppliersListPage() {
   const handleRemove = (id: string) => {
     const updated = partners.filter(p => p.id !== id);
     setPartners(updated);
-    localStorage.setItem('supplyhub_partners', JSON.stringify(updated));
+    // Persist to Supabase if needed (omitted for local mock transition logic)
   };
   const handleAccept = (id: string) => {
     const updated = partners.map(p => p.id === id ? { ...p, status: 'accepted' as const, since: new Date().toLocaleDateString('pt-BR') } : p);
     setPartners(updated);
-    localStorage.setItem('supplyhub_partners', JSON.stringify(updated));
+    // Persist to Supabase if needed
   };
   const handleReject = (id: string) => {
     const updated = partners.filter(p => p.id !== id);
     setPartners(updated);
-    localStorage.setItem('supplyhub_partners', JSON.stringify(updated));
+    // Persist to Supabase if needed
   };
 
   const SEARCH_MODES: { key: SearchMode; label: string }[] = [

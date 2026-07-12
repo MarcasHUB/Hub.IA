@@ -3,6 +3,11 @@ import { Button } from '@/shared/components/ui/Button';
 import { Input } from '@/shared/components/ui/Input';
 import { Label } from '@/shared/components/ui/Label';
 import { useNavigate } from 'react-router-dom';
+import { SupabaseSupplierRepository } from '../../infrastructure/repositories/SupabaseSupplierRepository';
+import { Supplier } from '../../domain/entities/Supplier';
+
+const repo = new SupabaseSupplierRepository();
+const tenantId = '00000000-0000-0000-0000-000000000000';
 
 export default function SupplierFormPage() {
   const navigate = useNavigate();
@@ -17,53 +22,23 @@ export default function SupplierFormPage() {
   const [email, setEmail] = useState('');
   const [website, setWebsite] = useState('');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim() || !document.trim() || !category.trim()) return;
 
-    const newPartner = {
-      id: `sup-${Date.now()}`,
-      name,
-      document,
-      segment: category,
-      city: city || 'São Paulo',
-      state: state || 'SP',
-      status: 'accepted',
-      since: new Date().toLocaleDateString('pt-BR'),
-      connectionId: `conn-${Date.now()}`,
-      phone: phone || undefined,
-      email: email || undefined,
-      website: website || undefined,
-      employeesRange: '10–50',
-      rating: 5.0,
-      responseTime: '~1h',
-      quotationsCount: 0,
-      products: [category]
-    };
-
-    // Salva no localStorage de parceiros homologados
-    const saved = localStorage.getItem('supplyhub_partners');
-    const list = saved ? JSON.parse(saved) : [];
-    list.push(newPartner);
-    localStorage.setItem('supplyhub_partners', JSON.stringify(list));
-
-    // Também adiciona na rede de empresas como conectado para integridade
-    const savedNetwork = localStorage.getItem('supplyhub_network_companies');
-    const networkList = savedNetwork ? JSON.parse(savedNetwork) : [];
-    if (!networkList.some((c: any) => c.document === document)) {
-      networkList.push({
-        id: newPartner.id,
-        name: newPartner.name,
-        document: newPartner.document,
-        segment: newPartner.segment,
-        city: newPartner.city,
-        state: newPartner.state,
-        description: 'Fornecedor cadastrado manualmente',
-        employeesRange: '10–50',
-        connected: true,
-        invited: false
-      });
-      localStorage.setItem('supplyhub_network_companies', JSON.stringify(networkList));
+    try {
+      const newSupplier = new Supplier(
+        crypto.randomUUID(),
+        tenantId,
+        name,
+        document,
+        undefined,
+        'APPROVED'
+      );
+      await repo.save(newSupplier);
+    } catch (e) {
+      console.error(e);
+      alert('Erro ao salvar fornecedor.');
     }
 
     navigate('/suppliers');

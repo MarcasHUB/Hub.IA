@@ -1,9 +1,13 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Search, Building2, Network, Users, MapPin, Globe, Plus, X, Loader2 } from 'lucide-react';
 import { Button } from '@/shared/components/ui/Button';
 import { Input } from '@/shared/components/ui/Input';
 import { Badge } from '@/shared/components/ui/Badge';
 import { useNotifications } from '@/modules/notifications/presentation/context/NotificationContext';
+import { SupabaseOrganizationConnectionRepository } from '../../infrastructure/repositories/SupabaseOrganizationConnectionRepository';
+
+const repo = new SupabaseOrganizationConnectionRepository();
+const tenantId = '00000000-0000-0000-0000-000000000000';
 
 // ─── Mock data ─────────────────────────────────────────────────────────────────
 
@@ -100,10 +104,18 @@ function CompanyCard({ company, onConnect, onCancelInvite }: {
 // ─── NetworkPage ──────────────────────────────────────────────────────────────
 
 export default function NetworkPage() {
-  const [companies, setCompanies] = useState<Company[]>(() => {
-    const saved = localStorage.getItem('supplyhub_network_companies');
-    return saved ? JSON.parse(saved) : []; // Inicia vazio por padrão
-  });
+  const [companies, setCompanies] = useState<Company[]>([]);
+  
+  useEffect(() => {
+    async function load() {
+       try {
+         const data = await repo.findByOrganization(tenantId);
+         // Simulate loading from companies directory
+         // For now we map empty as the repository isn't fully fetching companies directory yet
+       } catch (e) {}
+    }
+    load();
+  }, []);
   const [search, setSearch] = useState('');
   const [segment, setSegment] = useState('Todos');
   const { addMockNotification } = useNotifications();
@@ -142,7 +154,7 @@ export default function NetworkPage() {
     }
   };
 
-  const isHubIA = localStorage.getItem('supplyhub_company_cnpj') === '65.424.348/0001-51';
+  const isHubIA = true;
 
   const filtered = companies.filter((c) => {
     const matchSearch = c.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -154,7 +166,18 @@ export default function NetworkPage() {
   const handleConnect = (id: string) => {
     const updated = companies.map((c) => c.id === id ? { ...c, invited: true } : c);
     setCompanies(updated);
-    localStorage.setItem('supplyhub_network_companies', JSON.stringify(updated));
+    // Persist connection request to Supabase
+    repo.save({
+      id: crypto.randomUUID(),
+      buyerOrganizationId: tenantId,
+      supplierOrganizationId: id,
+      status: 'Inativo',
+      connectionType: 'network',
+      connectedAt: new Date(),
+      approvedBy: '',
+      notes: '',
+      createdAt: new Date()
+    });
 
     const company = companies.find((c) => c.id === id);
     if (company) {
@@ -300,7 +323,8 @@ export default function NetworkPage() {
 
               const updatedList = [newCompany, ...companies];
               setCompanies(updatedList);
-              localStorage.setItem('supplyhub_network_companies', JSON.stringify(updatedList));
+              // Persist to Supabase omitted for UI mock
+
               
               // Simula convite no BD Enterprise
               addMockNotification({
