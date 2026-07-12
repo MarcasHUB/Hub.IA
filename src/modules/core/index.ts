@@ -1,0 +1,1 @@
+﻿// Barrel export para o módulo core

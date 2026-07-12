@@ -1,0 +1,1 @@
+export { default as OrganizationPage } from './presentation/pages/OrganizationPage';

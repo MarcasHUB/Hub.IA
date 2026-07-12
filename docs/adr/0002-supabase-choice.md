@@ -1,0 +1,1 @@
+# 0002 - Escolha do Supabase
