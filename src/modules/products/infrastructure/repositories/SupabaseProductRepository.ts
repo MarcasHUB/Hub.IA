@@ -24,11 +24,28 @@ export class SupabaseProductRepository implements IProductRepository {
 
         // If no category exists, create a default one using organization_id (if preferred) or fallback to tenant_id
         const newCategoryId = crypto.randomUUID();
-        const payload = res.error && res.error.code === 'PGRST204' ? 
-            { id: newCategoryId, tenant_id: actualTenant, name: 'Categoria Geral', status: 'Active' } :
-            { id: newCategoryId, organization_id: actualTenant, name: 'Categoria Geral', status: 'Active' };
+        const usesOrganizationId = !(res.error && res.error.code === 'PGRST204');
+        
+        let insertError;
+        
+        if (usesOrganizationId) {
+            const { error } = await supabase.from('categories').insert({ 
+                id: newCategoryId, 
+                organization_id: actualTenant, 
+                name: 'Categoria Geral', 
+                status: 'Active' 
+            });
+            insertError = error;
+        } else {
+            const { error } = await supabase.from('categories').insert({ 
+                id: newCategoryId, 
+                tenant_id: actualTenant, 
+                name: 'Categoria Geral', 
+                status: 'Active' 
+            });
+            insertError = error;
+        }
 
-        const { error: insertError } = await supabase.from('categories').insert(payload);
         if (insertError) {
              console.error('Failed to create default category:', insertError);
              // If creation fails, we must throw because we cannot proceed with an invalid FK
