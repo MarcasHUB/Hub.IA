@@ -12,18 +12,28 @@ export class SupabaseProductRepository implements IProductRepository {
     }
 
     private async resolveCategoryId(actualTenant: string): Promise<string> {
-        // Find any existing category
-        const { data } = await supabase.from('categories').select('id').eq('tenant_id', actualTenant).limit(1).single();
-        if (data) return data.id;
+        // Try with organization_id (assuming schema refactor)
+        let res = await supabase.from('categories').select('id').eq('organization_id', actualTenant).limit(1).single();
+        if (res.data) return res.data.id;
 
-        // Create default category
+        // If organization_id column does not exist, try tenant_id
+        if (res.error && res.error.code === 'PGRST204') {
+            res = await supabase.from('categories').select('id').eq('tenant_id', actualTenant).limit(1).single();
+            if (res.data) return res.data.id;
+        }
+
+        // If no category exists, create a default one using organization_id (if preferred) or fallback to tenant_id
         const newCategoryId = crypto.randomUUID();
-        await supabase.from('categories').insert({
-            id: newCategoryId,
-            tenant_id: actualTenant,
-            name: 'Categoria Geral',
-            status: 'Active'
-        });
+        const payload = res.error && res.error.code === 'PGRST204' ? 
+            { id: newCategoryId, tenant_id: actualTenant, name: 'Categoria Geral', status: 'Active' } :
+            { id: newCategoryId, organization_id: actualTenant, name: 'Categoria Geral', status: 'Active' };
+
+        const { error: insertError } = await supabase.from('categories').insert(payload);
+        if (insertError) {
+             console.error('Failed to create default category:', insertError);
+             // If creation fails, we must throw because we cannot proceed with an invalid FK
+             throw insertError;
+        }
         return newCategoryId;
     }
 
