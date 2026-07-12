@@ -79,6 +79,13 @@ export class SupabaseProductRepository implements IProductRepository {
             updated_at: new Date().toISOString()
         };
 
+        const { data: sessionData } = await supabase.auth.getSession();
+        const { data: userData } = await supabase.auth.getUser();
+
+        console.log('SESSION', sessionData);
+        console.log('USER', userData);
+        console.log('CURRENT PRODUCT PAYLOAD', payload);
+
         const { error } = await supabase
             .from('products')
             .upsert(payload, { onConflict: 'id' });
