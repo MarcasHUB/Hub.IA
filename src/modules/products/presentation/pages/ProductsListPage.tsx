@@ -99,7 +99,7 @@ export default function ProductsListPage() {
             <div className="flex items-center gap-3 shrink-0">
               <Button variant="outline" className="border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-200 h-10 px-4 font-bold shadow-sm">
                 <Upload className="h-4 w-4 mr-2 text-indigo-400" />
-                Importar CSV
+                Importar em Massa
               </Button>
               <Button onClick={() => navigate('/products/new')} className="bg-indigo-600 hover:bg-indigo-700 text-white h-10 px-5 font-bold shadow-md shadow-indigo-900/20">
                 <Plus className="h-4 w-4 mr-1.5" />

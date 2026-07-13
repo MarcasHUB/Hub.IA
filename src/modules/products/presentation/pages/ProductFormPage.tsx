@@ -18,9 +18,14 @@ import {
 } from 'lucide-react';
 
 import { SupabaseProductRepository } from '../../infrastructure/repositories/SupabaseProductRepository';
+import { SupabaseProductSupplierRepository } from '../../infrastructure/repositories/SupabaseProductSupplierRepository';
+import { SupabaseSupplierRepository } from '../../../suppliers/infrastructure/repositories/SupabaseSupplierRepository';
 import { Product, ProductStatus } from '../../domain/entities/Product'; 
+import { LinkSupplierModal } from '../components/LinkSupplierModal';
 
 const repo = new SupabaseProductRepository();
+const productSupplierRepo = new SupabaseProductSupplierRepository();
+const supplierRepo = new SupabaseSupplierRepository();
 const tenantId = '00000000-0000-0000-0000-000000000000'; // Mocked tenant ID
 
 export default function ProductFormPage() {
@@ -44,8 +49,9 @@ export default function ProductFormPage() {
     grossWeight: '', netWeight: '', width: '', height: '', length: '', leadTime: '', storage: ''
   });
   
-  // N:N relationships (mocked for UI)
-  const [suppliers, setSuppliers] = useState<{name: string, sku: string, price: number}[]>([]);
+  // N:N relationships
+  const [suppliers, setSuppliers] = useState<{id: string, name: string, document: string}[]>([]);
+  const [isLinkModalOpen, setIsLinkModalOpen] = useState(false);
 
   // Load existing data if editing
   useEffect(() => {
@@ -110,6 +116,14 @@ export default function ProductFormPage() {
       );
 
       await repo.save(newProduct);
+
+      // Salvar os fornecedores se houver vinculados e o ID já existir
+      // Se era um novo produto (não isEditing), o newProduct.id foi gerado e salvo
+      if (suppliers.length > 0) {
+         const supplierIds = suppliers.map(s => s.id);
+         await productSupplierRepo.linkSuppliers(newProduct.id, supplierIds);
+      }
+
       navigate('/products');
     } catch (e) {
       console.error(e);
@@ -413,11 +427,10 @@ export default function ProductFormPage() {
               </div>
             )}
 
-            {/* Outras abas (Fornecedores, Documentos, Histórico) */}
-            {['suppliers', 'documents', 'history'].includes(activeTab) && (
+            {/* Outras abas (Documentos, Histórico) */}
+            {['documents', 'history'].includes(activeTab) && (
               <div className="flex flex-col items-center justify-center py-20 text-center animate-in fade-in slide-in-from-bottom-2 duration-300">
                 <div className="h-16 w-16 bg-slate-50 rounded-full flex items-center justify-center mb-4">
-                  {activeTab === 'suppliers' && <Users className="h-8 w-8 text-slate-400" />}
                   {activeTab === 'documents' && <FileText className="h-8 w-8 text-slate-400" />}
                   {activeTab === 'history' && <History className="h-8 w-8 text-slate-400" />}
                 </div>
@@ -427,11 +440,6 @@ export default function ProductFormPage() {
                 <p className="text-slate-500 max-w-sm">
                   A visualização detalhada desta aba estará disponível na próxima etapa da implementação.
                 </p>
-                {activeTab === 'suppliers' && (
-                  <Button className="mt-6 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50">
-                    <Plus className="h-4 w-4 mr-2" /> Vincular Fornecedor
-                  </Button>
-                )}
                 {activeTab === 'documents' && (
                   <Button className="mt-6 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50">
                     <Plus className="h-4 w-4 mr-2" /> Upload de Documento Técnico
@@ -439,6 +447,72 @@ export default function ProductFormPage() {
                 )}
               </div>
             )}
+
+            {activeTab === 'suppliers' && (
+              <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+                <div className="flex justify-between items-center mb-6">
+                  <div>
+                    <h3 className="text-lg font-bold text-slate-900">Fornecedores Vinculados</h3>
+                    <p className="text-sm text-slate-500">Gerencie a base de fornecimento para este produto</p>
+                  </div>
+                  <Button onClick={() => setIsLinkModalOpen(true)} className="bg-indigo-600 hover:bg-indigo-700 text-white">
+                    <Plus className="h-4 w-4 mr-2" /> Vincular Fornecedor
+                  </Button>
+                </div>
+                
+                {suppliers.length === 0 ? (
+                  <div className="py-12 text-center border-2 border-dashed border-slate-200 rounded-xl bg-slate-50">
+                    <Users className="h-10 w-10 text-slate-300 mx-auto mb-3" />
+                    <h4 className="text-sm font-medium text-slate-900">Nenhum fornecedor vinculado</h4>
+                    <p className="text-sm text-slate-500 mt-1">Clique em "Vincular Fornecedor" para adicionar parceiros.</p>
+                  </div>
+                ) : (
+                  <div className="border rounded-xl bg-white overflow-hidden">
+                    <table className="w-full text-sm text-left">
+                      <thead className="bg-slate-50 border-b text-slate-600 font-medium">
+                        <tr>
+                          <th className="px-6 py-4">Nome do Fornecedor</th>
+                          <th className="px-6 py-4">Documento</th>
+                          <th className="px-6 py-4 text-right">Ações</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y">
+                        {suppliers.map(s => (
+                          <tr key={s.id} className="hover:bg-slate-50/50">
+                            <td className="px-6 py-4 font-medium text-slate-900">{s.name}</td>
+                            <td className="px-6 py-4 text-slate-500">{s.document}</td>
+                            <td className="px-6 py-4 text-right">
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                className="text-red-600 border-red-200 hover:bg-red-50"
+                                onClick={async () => {
+                                  if (isEditing && id) {
+                                    await productSupplierRepo.unlinkSupplier(id, s.id);
+                                  }
+                                  setSuppliers(prev => prev.filter(sup => sup.id !== s.id));
+                                }}
+                              >
+                                Desvincular
+                              </Button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            )}
+
+            <LinkSupplierModal 
+              isOpen={isLinkModalOpen}
+              onClose={() => setIsLinkModalOpen(false)}
+              alreadyLinkedIds={suppliers.map(s => s.id)}
+              onLink={(selected) => {
+                setSuppliers(prev => [...prev, ...selected]);
+              }}
+            />
 
           </div>
         </div>
