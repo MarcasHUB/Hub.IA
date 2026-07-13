@@ -25,6 +25,13 @@ export default function LoginPage() {
       });
 
       if (error) {
+        // Fallback apenas em ambiente local para testes visuais sem API Key
+        if (import.meta.env.DEV && error.message?.toLowerCase().includes('api key')) {
+          console.warn('Fallback DEV ativado: Chave Supabase inválida. Logando localmente.');
+          localStorage.setItem('supplyhub_company_name', 'Empresa de Teste (Offline)');
+          navigate('/dashboard');
+          return;
+        }
         throw error;
       }
       

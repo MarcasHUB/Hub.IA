@@ -64,12 +64,12 @@ export default function DashboardPage() {
     <div className="flex-1 bg-slate-50 min-h-full flex flex-col font-sans">
       
       {/* HEADER BANNER - Azul Escuro */}
-      <div className="bg-slate-900 rounded-[2rem] mx-4 sm:mx-6 mt-6 mb-2 px-6 pt-8 pb-12 shadow-xl">
+      <div className="bg-slate-900 rounded-2xl mx-6 mt-6 mb-4 px-8 pt-8 pb-12 shadow-md">
         <div className="max-w-[1600px] mx-auto space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
               <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white flex items-center gap-3">
-                Dashboard de Compras
+                Dashboard de Gestão
               </h1>
               <p className="text-slate-400 mt-1 text-sm max-w-2xl">
                 Visão geral do desempenho e inteligência de suprimentos.
@@ -91,11 +91,12 @@ export default function DashboardPage() {
             </div>
           </div>
 
+
           {/* Grid de KPIs dentro do Banner Azul */}
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
         
         {/* Fornecedores */}
-        <Card className="rounded-3xl border-slate-200 hover:border-indigo-200 hover:shadow-sm transition-all duration-150">
+        <Card className="rounded-2xl border-slate-200 hover:border-indigo-200 hover:shadow-sm transition-all duration-150">
           <CardHeader className="flex flex-row items-center justify-between pb-1.5">
             <CardTitle className="text-xs font-bold text-slate-400 uppercase tracking-wider">Fornecedores</CardTitle>
             <Users className="h-4 w-4 text-slate-400" />
@@ -107,7 +108,7 @@ export default function DashboardPage() {
         </Card>
         
         {/* Produtos */}
-        <Card className="rounded-3xl border-slate-200 hover:border-indigo-200 hover:shadow-sm transition-all duration-150">
+        <Card className="rounded-2xl border-slate-200 hover:border-indigo-200 hover:shadow-sm transition-all duration-150">
           <CardHeader className="flex flex-row items-center justify-between pb-1.5">
             <CardTitle className="text-xs font-bold text-slate-400 uppercase tracking-wider">Produtos</CardTitle>
             <Package className="h-4 w-4 text-slate-400" />
@@ -119,7 +120,7 @@ export default function DashboardPage() {
         </Card>
 
         {/* Pesquisas */}
-        <Card className="rounded-3xl border-slate-200 hover:border-indigo-200 hover:shadow-sm transition-all duration-150">
+        <Card className="rounded-2xl border-slate-200 hover:border-indigo-200 hover:shadow-sm transition-all duration-150">
           <CardHeader className="flex flex-row items-center justify-between pb-1.5">
             <CardTitle className="text-xs font-bold text-slate-400 uppercase tracking-wider">Pesquisas</CardTitle>
             <Search className="h-4 w-4 text-slate-400" />
@@ -131,7 +132,7 @@ export default function DashboardPage() {
         </Card>
 
         {/* Cotações */}
-        <Card className="rounded-3xl border-slate-200 hover:border-indigo-200 hover:shadow-sm transition-all duration-150">
+        <Card className="rounded-2xl border-slate-200 hover:border-indigo-200 hover:shadow-sm transition-all duration-150">
           <CardHeader className="flex flex-row items-center justify-between pb-1.5">
             <CardTitle className="text-xs font-bold text-slate-400 uppercase tracking-wider">Cotações</CardTitle>
             <FileText className="h-4 w-4 text-slate-400" />
@@ -143,7 +144,7 @@ export default function DashboardPage() {
         </Card>
 
         {/* Economia */}
-        <Card className="rounded-3xl border-green-200 bg-white hover:shadow-sm transition-all duration-150">
+        <Card className="rounded-2xl border-green-200 bg-white hover:shadow-sm transition-all duration-150">
           <CardHeader className="flex flex-row items-center justify-between pb-1.5">
             <CardTitle className="text-xs font-bold text-green-700 uppercase tracking-wider">Economia (Saving)</CardTitle>
             <TrendingDown className="h-4 w-4 text-green-600" />
@@ -159,8 +160,31 @@ export default function DashboardPage() {
 
       {/* Conteúdo Detalhado (abaixo do banner) */}
       <div className="flex-1 overflow-auto p-6 -mt-6">
-        <div className="max-w-[1600px] mx-auto grid gap-6 md:grid-cols-2 relative z-10">
-        <Card className="rounded-3xl border-slate-200 shadow-sm">
+        <div className="max-w-[1600px] mx-auto space-y-6 relative z-10">
+          
+          {/* HUB.IA ANALYTICA (Movido para fora do cabeçalho) */}
+          <Card className="rounded-2xl border-slate-200 bg-slate-50 shadow-sm overflow-hidden">
+            <CardContent className="p-6 flex flex-col sm:flex-row items-center justify-between gap-6">
+              <div>
+                <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                  Hub.IA
+                  <span className="bg-indigo-100 text-indigo-700 text-[9px] px-2 py-0.5 rounded uppercase tracking-wider font-bold">Oportunidade de Saving</span>
+                </h3>
+                <p className="text-sm text-slate-600 mt-2 max-w-3xl leading-relaxed">
+                  A Hub.IA identificou novos fornecedores de <strong className="text-slate-800">Peças Torneadas</strong> na sua região com score de qualidade superior aos seus atuais. Historicamente, essa troca pode gerar até <strong className="text-green-600">12% de saving</strong>.
+                </p>
+              </div>
+              <div className="shrink-0 relative group">
+                 <div className="absolute -inset-0.5 bg-indigo-500 rounded-lg blur opacity-30 group-hover:opacity-60 transition duration-1000 group-hover:duration-200 animate-pulse"></div>
+                 <button className="relative text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 px-6 py-2.5 rounded-lg transition-colors shadow-sm whitespace-nowrap">
+                    Pesquisar Fornecedores
+                 </button>
+              </div>
+            </CardContent>
+          </Card>
+
+          <div className="grid gap-6 md:grid-cols-2">
+            <Card className="rounded-2xl border-slate-200 shadow-sm">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-sm font-bold text-slate-800">
               <Search className="h-5 w-5 text-indigo-600" />
@@ -185,7 +209,7 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Card className="rounded-3xl border-slate-200 shadow-sm">
+        <Card className="rounded-2xl border-slate-200 shadow-sm">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-sm font-bold text-slate-800">
               <Clock className="h-5 w-5 text-indigo-600" />
@@ -212,6 +236,7 @@ export default function DashboardPage() {
             </div>
           </CardContent>
         </Card>
+      </div>
       </div>
       </div>
 

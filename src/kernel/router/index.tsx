@@ -34,6 +34,16 @@ export const router = createBrowserRouter([
     element: <LandingPage />,
   },
   {
+    path: '/preview-header',
+    element: <AppLayout />,
+    children: [
+      {
+        index: true,
+        element: <div className="p-8 h-[200vh] bg-slate-50 text-center text-slate-500">Conteúdo de Exemplo da Página</div>
+      }
+    ]
+  },
+  {
     element: <AuthLayout><Outlet /></AuthLayout>,
     children: [
       {

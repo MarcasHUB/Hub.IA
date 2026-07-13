@@ -87,7 +87,7 @@ function PartnerCard({ partner, onRemove, onAccept, onReject, highlight }: {
     : null;
 
   return (
-    <div className="relative flex flex-col bg-white border border-slate-200 rounded-3xl overflow-hidden hover:border-indigo-200 hover:shadow-lg transition-all duration-200 group">
+    <div className="relative flex flex-col bg-white border border-slate-200 rounded-2xl overflow-hidden hover:border-indigo-300 hover:shadow-md transition-all duration-200 group">
 
       {/* Faixa colorida topo */}
       <div className={`h-1.5 w-full bg-gradient-to-r ${gradient}`} />
@@ -371,7 +371,7 @@ export default function SuppliersListPage() {
     <div className="flex-1 bg-slate-50 min-h-full flex flex-col font-sans">
 
       {/* HEADER BANNER - Azul Escuro */}
-      <div className="bg-slate-900 rounded-[2rem] mx-4 sm:mx-6 mt-6 mb-2 px-6 py-8 shadow-xl">
+      <div className="bg-slate-900 rounded-2xl mx-6 mt-6 mb-4 px-8 py-8 shadow-md">
         <div className="max-w-[1600px] mx-auto space-y-6">
           <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
             <div>
@@ -402,7 +402,7 @@ export default function SuppliersListPage() {
                 }
                 value={search}
                 onChange={e => setSearch(e.target.value)}
-                className="pl-11 bg-slate-800 border-slate-700 text-white placeholder:text-slate-500 h-12 rounded-xl focus:border-indigo-500 shadow-inner"
+                className="pl-11 bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500 h-11 rounded-xl focus:border-indigo-500"
               />
             </div>
           </div>

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Button } from '@/shared/components/ui/Button';
 import { Card, CardContent } from '@/shared/components/ui/Card';
 import { Badge } from '@/shared/components/ui/Badge';
-import { Check, Trophy, AlertCircle, X, FileText, ShoppingBag, Bell, CheckCircle2, XCircle } from 'lucide-react';
+import { Check, Trophy, AlertCircle, X, FileText, ShoppingBag, Bell, CheckCircle2, XCircle, PackageOpen, Clock } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
@@ -550,6 +550,85 @@ export default function QuotationComparisonPage() {
         </CardContent>
       </Card>
 
+      {/* Detalhes da Cotação (Grids Modulares) */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Itens */}
+        <Card className="lg:col-span-2 rounded-2xl border-slate-200 shadow-sm overflow-hidden flex flex-col">
+          <div className="px-6 py-4 border-b border-slate-100 bg-slate-50">
+            <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+              <PackageOpen className="h-4 w-4 text-indigo-600" /> Itens da Cotação
+            </h3>
+          </div>
+          <div className="flex-1 overflow-x-auto">
+            <table className="w-full text-sm text-left">
+              <thead className="bg-white text-slate-400 text-[10px] uppercase font-bold border-b border-slate-100">
+                <tr>
+                  <th className="px-6 py-3">Produto</th>
+                  <th className="px-6 py-3">Referência</th>
+                  <th className="px-6 py-3 text-center">Qtd</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-50">
+                {qData.itemsRef.map((item, idx) => (
+                  <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
+                    <td className="px-6 py-3 font-semibold text-slate-700">{item.name}</td>
+                    <td className="px-6 py-3 text-xs text-slate-500 font-mono">{item.ref}</td>
+                    <td className="px-6 py-3 text-center font-bold text-slate-600">1</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+
+        {/* Lateral: Observações e Histórico */}
+        <div className="space-y-6">
+          <Card className="rounded-2xl border-slate-200 shadow-sm">
+            <div className="px-5 py-3 border-b border-slate-100 bg-slate-50">
+              <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                <FileText className="h-4 w-4 text-indigo-600" /> Observações
+              </h3>
+            </div>
+            <CardContent className="p-5">
+              <p className="text-xs text-slate-500 leading-relaxed">
+                Prioridade alta para itens de segurança. Condições de pagamento: Faturamento 30/60/90. Entrega direto na Obra Matriz (Galpão 3).
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="rounded-2xl border-slate-200 shadow-sm">
+            <div className="px-5 py-3 border-b border-slate-100 bg-slate-50">
+              <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                <Clock className="h-4 w-4 text-indigo-600" /> Histórico
+              </h3>
+            </div>
+            <CardContent className="p-5 space-y-4">
+              <div className="flex gap-3">
+                <div className="w-1.5 bg-indigo-500 rounded-full shrink-0" />
+                <div>
+                  <p className="text-xs font-bold text-slate-700">Cotação Enviada</p>
+                  <p className="text-[10px] text-slate-400">Ontem às 14:30</p>
+                </div>
+              </div>
+              <div className="flex gap-3">
+                <div className="w-1.5 bg-slate-200 rounded-full shrink-0" />
+                <div>
+                  <p className="text-xs font-bold text-slate-700">Aprovação Solicitada</p>
+                  <p className="text-[10px] text-slate-400">Ontem às 14:28</p>
+                </div>
+              </div>
+              <div className="flex gap-3">
+                <div className="w-1.5 bg-slate-200 rounded-full shrink-0" />
+                <div>
+                  <p className="text-xs font-bold text-slate-700">Rascunho Criado</p>
+                  <p className="text-[10px] text-slate-400">Ontem às 10:15</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
       {/* Matriz de Comparação de Preços */}
       <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden overflow-x-auto">
         <table className="w-full text-sm text-left">
@@ -558,14 +637,20 @@ export default function QuotationComparisonPage() {
               <th className="px-6 py-4 font-semibold">Produto (Qtd)</th>
               {qData.proposals.map((p) => (
                 <th key={p.supplierName} className={`px-6 py-4 font-semibold text-center border-l border-slate-200 ${p.isBest ? 'bg-indigo-50/50' : ''}`}>
-                  <div className="flex items-center justify-center gap-2 flex-wrap">
-                    {p.supplierName}
-                    <Badge className={p.rankColor}>{p.rank}</Badge>
-                    {winnerSupplier === p.supplierName && (
-                      <span className="inline-flex items-center gap-1 text-[9px] font-black px-1.5 py-0.5 rounded-full bg-green-100 text-green-700">
+                  <div className="flex flex-col items-center justify-center gap-1.5 flex-wrap">
+                    <div className="flex items-center gap-2">
+                      {p.supplierName}
+                      <Badge className={p.rankColor}>{p.rank}</Badge>
+                    </div>
+                    {winnerSupplier === p.supplierName ? (
+                      <span className="inline-flex items-center gap-1 text-[9px] font-black px-2 py-0.5 rounded-full bg-green-100 text-green-700 uppercase tracking-wider">
                         <Trophy className="h-3 w-3" /> Vencedor
                       </span>
-                    )}
+                    ) : p.isBest && status === 'open' ? (
+                      <span className="inline-flex items-center gap-1 text-[9px] font-black px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 uppercase tracking-wider">
+                        <Trophy className="h-3 w-3" /> Hub.IA Recomenda
+                      </span>
+                    ) : null}
                   </div>
                 </th>
               ))}

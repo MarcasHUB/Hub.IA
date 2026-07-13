@@ -59,7 +59,7 @@ export default function QuotationsListPage() {
     <div className="flex-1 bg-slate-50 min-h-full flex flex-col font-sans">
       
       {/* HEADER BANNER - Azul Escuro */}
-      <div className="bg-slate-900 rounded-[2rem] mx-4 sm:mx-6 mt-6 mb-4 px-6 pt-8 pb-0 shadow-xl overflow-hidden">
+      <div className="bg-slate-900 rounded-2xl mx-6 mt-6 mb-4 px-8 pt-8 pb-0 shadow-md overflow-hidden">
         <div className="max-w-[1600px] mx-auto space-y-6">
           <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
             <div>
@@ -86,7 +86,7 @@ export default function QuotationsListPage() {
                 placeholder="Busque por ID (ex: RC-2026) ou Título..." 
                 value={search}
                 onChange={e => setSearch(e.target.value)}
-                className="pl-11 bg-slate-800 border-slate-700 text-white placeholder:text-slate-500 h-12 rounded-xl focus:border-indigo-500 shadow-inner"
+                className="pl-11 bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500 h-11 rounded-xl focus:border-indigo-500"
               />
             </div>
           </div>

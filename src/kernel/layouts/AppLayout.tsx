@@ -87,128 +87,136 @@ export function AppLayout() {
       {/* ═══════════════════════════════════════════════════════════════════════
           NAVBAR ÚNICA NO TOPO
       ═══════════════════════════════════════════════════════════════════════ */}
-      <header className="h-14 bg-white border-b border-slate-200 flex items-center justify-between px-4 shrink-0 z-30 shadow-sm">
-        {/* Esquerda: Logo e Rede */}
-        <div className="flex items-center gap-4 shrink-0">
-          {/* Logo Hub.IA */}
-          <Link to="/dashboard" className="flex items-baseline gap-1.5 shrink-0">
-            <span className="text-xl font-extrabold text-indigo-700 leading-none">Hub.IA</span>
-            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-none hidden md:block">
+      <header className="bg-white border-b border-slate-200 h-16 flex justify-center shrink-0 z-30 sticky top-0 shadow-sm">
+        
+        {/* Container centralizador para evitar que espalhe em telas largas */}
+        <div className="w-full max-w-[1440px] px-6 flex items-center justify-between">
+          
+          {/* BLOCO DA ESQUERDA: Logo */}
+          <Link to="/" className="flex items-center hover:opacity-80 transition-opacity shrink-0">
+            <span className="text-[22px] font-extrabold text-indigo-700 tracking-tight leading-none">Hub.IA</span>
+            <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest leading-none ml-2 mt-1">
               Suprimentos
             </span>
           </Link>
-          <div className="h-5 w-px bg-slate-200 shrink-0" />
-          {/* Botão REDE DE EMPRESAS */}
-          <Link
-            to="/suppliers/network"
-            className={cn(
-              'flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wide border transition-colors shrink-0',
-              location.pathname.startsWith('/suppliers/network')
-                ? 'bg-indigo-600 text-white border-indigo-600'
-                : 'border-slate-300 text-slate-600 hover:border-indigo-400 hover:text-indigo-700 hover:bg-indigo-50'
-            )}
-          >
-            <Globe className="h-3 w-3" />
-            <span className="leading-tight text-center">REDE<br />EMPRESAS</span>
-          </Link>
-        </div>
 
-        {/* Centro: Navegação */}
-        <nav className="hidden lg:flex items-center justify-center flex-1 shrink-0 px-4">
-          <div className="flex items-center gap-1">
-            {NAV_ITEMS.map((item) => {
-              const isActive =
-                location.pathname === item.href ||
-                (item.href !== '/dashboard' && location.pathname.startsWith(item.href));
-              return (
-                <Link
-                  key={item.name}
-                  to={item.href}
-                  className={cn(
-                    'px-3 py-1.5 rounded-md text-sm transition-colors whitespace-nowrap',
-                    isActive
-                      ? 'font-bold text-slate-900'
-                      : 'font-medium text-slate-500 hover:text-slate-800 hover:bg-slate-50'
-                  )}
-                >
-                  {item.name}
-                </Link>
-              );
-            })}
-          </div>
-        </nav>
+          {/* BLOCO CENTRAL: Navegação e Rede */}
+          <nav className="hidden lg:flex items-center justify-center flex-1 shrink-0 px-8">
+            <div className="flex items-center gap-6">
+              
+              {/* Rede de Empresas Integrada como Item de Menu */}
+              <Link
+                to="/suppliers/network"
+                className={cn(
+                  'flex items-center gap-1 text-[12px] font-bold uppercase tracking-wide transition-colors',
+                  location.pathname.startsWith('/suppliers/network')
+                    ? 'text-indigo-700'
+                    : 'text-slate-500 hover:text-slate-900'
+                )}
+              >
+                <Globe className="h-[22px] w-[22px]" strokeWidth={2.5} />
+                <span>REDE DE EMPRESAS</span>
+              </Link>
 
-        {/* Direita: Empresa, Operador, Ações */}
-        <div className="flex items-center gap-4 shrink-0">
-          
-          {/* Bloco Empresa */}
-          <div className="flex items-center gap-2">
-            <CompanyLogo logo={companyLogo} />
-            <span className="text-xs font-bold text-slate-900 hidden md:block">{companyName}</span>
-          </div>
+              <div className="h-4 w-px bg-slate-300 shrink-0" />
 
-          <div className="h-5 w-px bg-slate-200 shrink-0 hidden md:block" />
-
-          {/* Bloco Operador e Configurações */}
-          <div className="hidden md:flex items-center gap-2">
-            <div className="flex flex-col text-right leading-none">
-              <span className="text-xs font-bold text-slate-900 text-right">{operatorName}</span>
-              <span className="text-[9px] text-slate-400 mt-0.5 font-medium">{operatorEmail}</span>
+              {NAV_ITEMS.map((item) => {
+                const isActive =
+                  location.pathname === item.href ||
+                  (item.href !== '/dashboard' && location.pathname.startsWith(item.href));
+                return (
+                  <Link
+                    key={item.name}
+                    to={item.href}
+                    className={cn(
+                      'text-sm transition-colors whitespace-nowrap',
+                      isActive
+                        ? 'font-bold text-indigo-700'
+                        : 'font-medium text-slate-500 hover:text-slate-900'
+                    )}
+                  >
+                    {item.name}
+                  </Link>
+                );
+              })}
             </div>
-            <Link
-              to="/organizations"
-              className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-full transition-colors"
-              title="Configurações da Empresa e Operadores"
-            >
-              <Settings className="h-4 w-4" />
+          </nav>
+
+          {/* BLOCO DA DIREITA: Empresa, Operador, Ações */}
+          <div className="flex items-center gap-5 shrink-0">
+            
+            <div className="h-5 w-px bg-slate-200 shrink-0 hidden md:block" />
+
+            {/* Card da Empresa Minimalista */}
+            <Link to="/organizations" className="hidden md:flex items-center gap-2 hover:opacity-80 transition-opacity" title="Configurações da Empresa">
+              <CompanyLogo logo={companyLogo} />
+              <span className="text-sm font-bold text-slate-800">{companyName}</span>
             </Link>
-          </div>
 
-          <div className="h-5 w-px bg-slate-200 shrink-0" />
+            <div className="h-5 w-px bg-slate-200 shrink-0 hidden md:block" />
 
-          {/* Ações (Chats, Carrinho, Notificações) */}
-          <div className="flex items-center gap-1.5">
-            <button
-              onClick={() => openChat('')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border transition-colors font-semibold text-xs shrink-0 ${
-                isChatOpen
-                  ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
-                  : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50 hover:border-slate-300'
-              }`}
-              title="Abrir Chat B2B"
+            {/* Operador Minimalista (Sem separador entre ele e a empresa) */}
+            <div className="hidden md:flex items-center gap-3">
+              <div className="flex flex-col text-right leading-tight">
+                <span className="text-sm font-bold text-slate-800">{operatorName}</span>
+                <span className="text-[10px] font-medium text-slate-400">{operatorEmail}</span>
+              </div>
+              <Link
+                to="/settings"
+                className="text-slate-400 hover:text-indigo-600 transition-colors"
+                title="Configurações do Usuário"
+              >
+                <Settings className="h-4 w-4" />
+              </Link>
+            </div>
+
+            <div className="h-5 w-px bg-slate-200 shrink-0" />
+
+            {/* Ações (Chats, Carrinho, Notificações) */}
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => openChat('')}
+                className={cn(
+                  "flex items-center gap-1.5 text-sm font-medium transition-colors",
+                  isChatOpen ? "text-indigo-700" : "text-slate-500 hover:text-indigo-600"
+                )}
+                title="Abrir Chat B2B"
+              >
+                <MessageSquare className="h-4 w-4" />
+                <span>Chats</span>
+              </button>
+
+              <button
+                onClick={() => setCartOpen(true)}
+                className="relative text-slate-500 hover:text-indigo-600 transition-colors"
+                title="Cotação Atual"
+              >
+                <ShoppingCart className="h-5 w-5" />
+                {items.length > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 h-4 w-4 rounded-full bg-indigo-600 text-white text-[9px] font-bold flex items-center justify-center shadow-sm">
+                    {items.length}
+                  </span>
+                )}
+              </button>
+
+              <div className="text-slate-500 hover:text-indigo-600 transition-colors">
+                <NotificationBell />
+              </div>
+            </div>
+
+            <div className="h-5 w-px bg-slate-200 shrink-0 mx-1" />
+
+            {/* Botão Sair */}
+            <button 
+              onClick={() => {
+                localStorage.clear();
+                window.location.href = '/login';
+              }}
+              className="text-sm font-semibold text-red-500 hover:text-red-700 transition-colors"
             >
-              <MessageSquare className="h-3.5 w-3.5" />
-              <span>Chats</span>
+              Sair
             </button>
-
-            <button
-              onClick={() => setCartOpen(true)}
-              className="relative p-2 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-full transition-colors"
-              title="Cotação Atual"
-            >
-              <ShoppingCart className="h-[18px] w-[18px]" />
-              {items.length > 0 && (
-                <span className="absolute top-0 right-0 h-3.5 w-3.5 rounded-full bg-indigo-600 text-white text-[8px] font-bold flex items-center justify-center">
-                  {items.length}
-                </span>
-              )}
-            </button>
-
-            <NotificationBell />
           </div>
-
-          <div className="h-5 w-px bg-slate-200 shrink-0" />
-
-          {/* Botão Sair */}
-          <button 
-            onClick={() => {
-              localStorage.clear();
-              window.location.href = '/login';
-            }}
-            className="text-xs font-semibold text-red-600 hover:text-red-700 hover:bg-red-50 border border-transparent hover:border-red-200 px-3 py-1.5 rounded-md transition-colors"
-          >
-            Sair
-          </button>
         </div>
       </header>
 
