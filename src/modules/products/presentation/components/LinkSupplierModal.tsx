@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/shared/components/ui/Dialog';
 import { Button } from '@/shared/components/ui/Button';
 import { Checkbox } from '@/shared/components/ui/Checkbox';
