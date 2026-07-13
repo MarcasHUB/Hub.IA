@@ -88,11 +88,12 @@ export function LinkSupplierModal({ isOpen, onClose, onLink, alreadyLinkedIds }:
               <div className="divide-y">
                 {filteredSuppliers.map(s => (
                   <div key={s.id} className="flex items-center space-x-3 p-3 hover:bg-slate-50 transition-colors">
-                    <Checkbox 
-                      id={s.id} 
-                      checked={selectedIds.has(s.id)}
-                      onCheckedChange={() => toggleSelection(s.id)}
-                    />
+                  <Checkbox
+                    id={s.id}
+                    checked={selectedIds.has(s.id)}
+                    onChange={() => toggleSelection(s.id)}
+                  />
+
                     <label htmlFor={s.id} className="flex-1 cursor-pointer text-sm font-medium">
                       {s.name}
                       <span className="block text-xs text-slate-500 mt-0.5">Doc: {s.document}</span>

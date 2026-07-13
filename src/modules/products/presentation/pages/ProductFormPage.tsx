@@ -19,13 +19,11 @@ import {
 
 import { SupabaseProductRepository } from '../../infrastructure/repositories/SupabaseProductRepository';
 import { SupabaseProductSupplierRepository } from '../../infrastructure/repositories/SupabaseProductSupplierRepository';
-import { SupabaseSupplierRepository } from '../../../suppliers/infrastructure/repositories/SupabaseSupplierRepository';
 import { Product, ProductStatus } from '../../domain/entities/Product'; 
 import { LinkSupplierModal } from '../components/LinkSupplierModal';
 
 const repo = new SupabaseProductRepository();
 const productSupplierRepo = new SupabaseProductSupplierRepository();
-const supplierRepo = new SupabaseSupplierRepository();
 const tenantId = '00000000-0000-0000-0000-000000000000'; // Mocked tenant ID
 
 export default function ProductFormPage() {
@@ -80,7 +78,7 @@ export default function ProductFormPage() {
             
             // Mocked supplier mapping
             if (product.supplierId) {
-               setSuppliers([{ name: 'Fornecedor', sku: product.sku, price: product.price }]);
+               setSuppliers([{ id: '', name: 'Fornecedor', document: '' }]);
             }
           }
         } catch (e) {
