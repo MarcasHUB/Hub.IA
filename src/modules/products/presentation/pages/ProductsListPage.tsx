@@ -187,12 +187,12 @@ export default function ProductsListPage() {
                 return (
                   <div 
                     key={product.id}
-                    className={`group relative bg-white border rounded-2xl overflow-hidden transition-all duration-200 ${isSelected ? 'border-indigo-500 shadow-md shadow-indigo-100 ring-1 ring-indigo-500' : 'border-slate-200 hover:border-slate-300 hover:shadow-sm'}`}
+                    className={`group relative bg-white border rounded-2xl transition-all duration-200 ${isSelected ? 'border-indigo-500 shadow-md shadow-indigo-100 ring-1 ring-indigo-500' : 'border-slate-200 hover:border-slate-300 hover:shadow-sm'}`}
                   >
                     {/* Imagem Cover / Placeholder */}
-                    <div className="aspect-[4/3] w-full bg-slate-50 border-b border-slate-100 flex flex-col items-center justify-center relative overflow-hidden group-hover:bg-slate-100/50 transition-colors">
+                    <div className="aspect-[4/3] w-full bg-slate-50 border-b border-slate-100 flex flex-col items-center justify-center relative rounded-t-2xl group-hover:bg-slate-100/50 transition-colors">
                       {product.imageUrl ? (
-                        <img src={product.imageUrl} alt={product.name} className="w-full h-full object-cover" />
+                        <img src={product.imageUrl} alt={product.name} className="w-full h-full object-cover rounded-t-2xl" />
                       ) : (
                         <>
                           <div className="absolute inset-0 opacity-[0.03] bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-slate-900 via-slate-900 to-transparent"></div>
@@ -219,7 +219,7 @@ export default function ProductsListPage() {
                                   onClick={() => navigate(`/products/${product.id}/edit`)}
                                   className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 hover:text-indigo-600 font-medium"
                                 >
-                                  Editar Produto
+                                  Editar Material
                                 </button>
                                 <button className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 font-medium">
                                   Excluir

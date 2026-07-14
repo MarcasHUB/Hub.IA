@@ -368,6 +368,7 @@ export default function OperatorsPage() {
   const [delegations, setDelegations] = useState<Delegation[]>([]);
   const [showInvite, setShowInvite] = useState(false);
   const [search, setSearch] = useState('');
+  const [activeMenu, setActiveMenu] = useState<string | null>(null);
 
   const orgId = localStorage.getItem('supplyhub_organization_id') || '00000000-0000-0000-0000-000000000000';
 
@@ -475,8 +476,8 @@ export default function OperatorsPage() {
 
       {/* TABELA */}
       <div className="px-6 pb-8">
-        <Card className="rounded-2xl border-slate-200 shadow-sm overflow-hidden">
-          <div className="overflow-x-auto">
+        <Card className="rounded-2xl border-slate-200 shadow-sm overflow-visible">
+          <div className="w-full">
             <table className="w-full text-sm text-left">
               <thead className="bg-slate-50 text-slate-500 text-[10px] uppercase font-bold border-b border-slate-200">
                 <tr>
@@ -558,9 +559,44 @@ export default function OperatorsPage() {
                           : op.status === 'pendente' ? 'Aguardando aceite' : '—'}
                       </td>
                       <td className="px-6 py-4 text-center">
-                        <button className="p-1.5 hover:bg-slate-100 rounded-full text-slate-400 hover:text-slate-600 transition-colors">
-                          <MoreVertical className="h-4 w-4" />
-                        </button>
+                        <div className="relative inline-block text-left">
+                          <button 
+                            onClick={() => setActiveMenu(activeMenu === op.id ? null : op.id)}
+                            className="p-1.5 hover:bg-slate-100 rounded-full text-slate-400 hover:text-slate-600 transition-colors"
+                          >
+                            <MoreVertical className="h-4 w-4" />
+                          </button>
+                          
+                          {activeMenu === op.id && (
+                            <>
+                              <div className="fixed inset-0 z-40" onClick={() => setActiveMenu(null)}></div>
+                              <div className="absolute right-0 z-50 mt-1 w-40 origin-top-right rounded-xl bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none overflow-hidden">
+                                <div className="py-1">
+                                  {op.status === 'pendente' && (
+                                    <>
+                                      <button onClick={() => setActiveMenu(null)} className="w-full text-left px-4 py-2 text-xs text-slate-700 hover:bg-slate-50 font-medium">Copiar Link</button>
+                                      <button onClick={() => setActiveMenu(null)} className="w-full text-left px-4 py-2 text-xs text-slate-700 hover:bg-slate-50 font-medium">Reenviar Convite</button>
+                                      <button onClick={() => setActiveMenu(null)} className="w-full text-left px-4 py-2 text-xs text-red-600 hover:bg-red-50 font-medium">Cancelar Convite</button>
+                                    </>
+                                  )}
+                                  {op.status === 'ativo' && (
+                                    <>
+                                      <button onClick={() => setActiveMenu(null)} className="w-full text-left px-4 py-2 text-xs text-slate-700 hover:bg-slate-50 font-medium">Editar Operador</button>
+                                      <button onClick={() => setActiveMenu(null)} className="w-full text-left px-4 py-2 text-xs text-slate-700 hover:bg-slate-50 font-medium">Delegar Funções</button>
+                                      <button onClick={() => setActiveMenu(null)} className="w-full text-left px-4 py-2 text-xs text-amber-600 hover:bg-amber-50 font-medium">Inativar Operador</button>
+                                    </>
+                                  )}
+                                  {op.status === 'inativo' && (
+                                    <>
+                                      <button onClick={() => setActiveMenu(null)} className="w-full text-left px-4 py-2 text-xs text-slate-700 hover:bg-slate-50 font-medium">Editar Operador</button>
+                                      <button onClick={() => setActiveMenu(null)} className="w-full text-left px-4 py-2 text-xs text-green-600 hover:bg-green-50 font-medium">Reativar Operador</button>
+                                    </>
+                                  )}
+                                </div>
+                              </div>
+                            </>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))

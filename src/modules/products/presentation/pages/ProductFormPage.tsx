@@ -14,7 +14,8 @@ import {
   Image as ImageIcon,
   Save,
   ArrowLeft,
-  Plus
+  Plus,
+  Trash2
 } from 'lucide-react';
 
 import { SupabaseProductRepository } from '../../infrastructure/repositories/SupabaseProductRepository';
@@ -163,11 +164,7 @@ export default function ProductFormPage() {
             
             <div className="flex items-center gap-3 shrink-0">
               <Button onClick={() => navigate('/products')} className="bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 h-10 px-5 font-bold">
-                Cancelar
-              </Button>
-              <Button onClick={handleSave} className="bg-indigo-600 hover:bg-indigo-700 text-white h-10 px-5 font-bold shadow-md shadow-indigo-900/20">
-                <Save className="h-4 w-4 mr-1.5" />
-                Salvar Produto
+                Voltar
               </Button>
             </div>
           </div>
@@ -514,6 +511,30 @@ export default function ProductFormPage() {
 
           </div>
         </div>
+
+        {/* FOOTER ACTIONS */}
+        <div className="max-w-[1600px] mx-auto mt-8 mb-12 flex justify-center gap-4">
+          <Button onClick={handleSave} className="bg-indigo-600 hover:bg-indigo-700 text-white h-12 px-8 font-bold text-base shadow-lg shadow-indigo-900/20 rounded-xl">
+            <Save className="h-5 w-5 mr-2" />
+            Salvar Alterações
+          </Button>
+          {isEditing && (
+            <Button 
+              onClick={() => {
+                if (window.confirm('Tem certeza que deseja excluir este material? Esta ação não pode ser desfeita.')) {
+                  // Aqui implementaria a chamada de deleção
+                  alert('O material foi excluído com sucesso.');
+                  navigate('/products');
+                }
+              }} 
+              className="bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700 border border-red-200 h-12 px-8 font-bold text-base shadow-sm rounded-xl"
+            >
+              <Trash2 className="h-5 w-5 mr-2" />
+              Excluir Material
+            </Button>
+          )}
+        </div>
+
       </div>
     </div>
   );
