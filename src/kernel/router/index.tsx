@@ -21,6 +21,10 @@ const OrganizationPage = React.lazy(() => import('../../modules/organizations/pr
 const MessagesPage = React.lazy(() => import('../../modules/messages/presentation/pages/MessagesPage'));
 const QuotationResponsePage = React.lazy(() => import('../../modules/quotations/presentation/pages/QuotationResponsePage'));
 const SettingsPage = React.lazy(() => import('../../modules/settings/presentation/pages/SettingsPage'));
+const MinhaEmpresaPage = React.lazy(() => import('../../modules/organizations/presentation/pages/MinhaEmpresaPage'));
+const OperatorsPage = React.lazy(() => import('../../modules/employees/presentation/pages/OperatorsPage'));
+const SegmentsPage = React.lazy(() => import('../../modules/employees/presentation/pages/SegmentsPage'));
+const AcceptInvitePage = React.lazy(() => import('../../modules/employees/presentation/pages/AcceptInvitePage'));
 
 const SuspenseWrapper = ({ children }: { children: React.ReactNode }) => (
   <Suspense fallback={<div className="p-8 flex justify-center text-slate-500">Carregando...</div>}>
@@ -55,6 +59,10 @@ export const router = createBrowserRouter([
   {
     path: '/onboarding',
     element: <SuspenseWrapper><OnboardingWizardPage /></SuspenseWrapper>,
+  },
+  {
+    path: '/aceitar-convite',
+    element: <SuspenseWrapper><AcceptInvitePage /></SuspenseWrapper>,
   },
   {
     element: <AppLayout />,
@@ -122,6 +130,26 @@ export const router = createBrowserRouter([
       {
         path: '/settings',
         element: <SuspenseWrapper><SettingsPage /></SuspenseWrapper>,
+      },
+      {
+        path: '/empresa',
+        element: <SuspenseWrapper><MinhaEmpresaPage /></SuspenseWrapper>,
+      },
+      {
+        path: '/empresa/operadores',
+        element: <SuspenseWrapper><OperatorsPage /></SuspenseWrapper>,
+      },
+      {
+        path: '/empresa/segmentos',
+        element: <SuspenseWrapper><SegmentsPage /></SuspenseWrapper>,
+      },
+      {
+        path: '/empresa/delegacoes',
+        element: <SuspenseWrapper><MinhaEmpresaPage /></SuspenseWrapper>,
+      },
+      {
+        path: '/empresa/logs',
+        element: <SuspenseWrapper><MinhaEmpresaPage /></SuspenseWrapper>,
       },
     ]
   }

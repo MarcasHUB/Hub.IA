@@ -1,6 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui/Card';
-import { Users, Package, FileText, TrendingDown, Clock, Search, Calendar } from 'lucide-react';
+import {
+  Users, Package, FileText, TrendingDown, Clock, Search, Calendar,
+  Sparkles, CheckSquare, X, Eye, RefreshCw
+} from 'lucide-react';
+import { SupabaseSignalRepository, HubIASignal, SignalCriticidade } from '../../infrastructure/repositories/SupabaseSignalRepository';
 
 type DateRange = '30' | '60' | '90';
 
@@ -59,6 +63,36 @@ const STATS_BY_RANGE: Record<DateRange, DashboardStats> = {
 export default function DashboardPage() {
   const [range, setRange] = useState<DateRange>('30');
   const stats = STATS_BY_RANGE[range];
+
+  const [signals, setSignals] = useState<HubIASignal[]>([]);
+  const [counters, setCounters] = useState({ criticos: 0, abertos: 0, resolvidos: 0 });
+  const [loading, setLoading] = useState(true);
+
+  const sigRepo = new SupabaseSignalRepository();
+  const orgId = localStorage.getItem('supplyhub_organization_id') || '00000000-0000-0000-0000-000000000000';
+
+  async function loadSignals() {
+    setLoading(true);
+    try {
+      const active = await sigRepo.listActiveSignals(orgId);
+      setSignals(active);
+      const counts = await sigRepo.getCounters(orgId);
+      setCounters(counts);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    loadSignals();
+  }, []);
+
+  const handleAction = async (id: string, status: 'lido' | 'resolvido' | 'ignorado') => {
+    await sigRepo.updateSignalStatus(id, status);
+    loadSignals();
+  };
 
   return (
     <div className="flex-1 bg-slate-50 min-h-full flex flex-col font-sans">
@@ -162,24 +196,106 @@ export default function DashboardPage() {
       <div className="flex-1 overflow-auto p-6 -mt-6">
         <div className="max-w-[1600px] mx-auto space-y-6 relative z-10">
           
-          {/* HUB.IA ANALYTICA (Movido para fora do cabeçalho) */}
-          <Card className="rounded-2xl border-slate-200 bg-slate-50 shadow-sm overflow-hidden">
-            <CardContent className="p-6 flex flex-col sm:flex-row items-center justify-between gap-6">
-              <div>
-                <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
-                  Hub.IA
-                  <span className="bg-indigo-100 text-indigo-700 text-[9px] px-2 py-0.5 rounded uppercase tracking-wider font-bold">Oportunidade de Saving</span>
-                </h3>
-                <p className="text-sm text-slate-600 mt-2 max-w-3xl leading-relaxed">
-                  A Hub.IA identificou novos fornecedores de <strong className="text-slate-800">Peças Torneadas</strong> na sua região com score de qualidade superior aos seus atuais. Historicamente, essa troca pode gerar até <strong className="text-green-600">12% de saving</strong>.
+          {/* HUB.IA ANALYTICA (Painel Inteligente) */}
+          <Card className="rounded-2xl border-slate-200 bg-white shadow-sm overflow-hidden">
+            <CardHeader className="bg-slate-900 px-6 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-800">
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-5 w-5 text-indigo-400 animate-pulse" />
+                <CardTitle className="text-white text-sm font-extrabold flex items-center gap-2">
+                  Hub.IA Analytica
+                  <span className="bg-indigo-500/25 text-indigo-300 text-[9px] px-2 py-0.5 rounded border border-indigo-500/30 uppercase tracking-widest font-black">
+                    IA Inteligente
+                  </span>
+                </CardTitle>
+              </div>
+
+              {/* Contadores da governança */}
+              <div className="flex items-center gap-4 text-[10px] font-extrabold text-slate-300">
+                <span className="flex items-center gap-1">
+                  <span className="h-2 w-2 rounded-full bg-red-500 animate-ping" />
+                  Críticos: <strong className="text-red-400">{counters.criticos}</strong>
+                </span>
+                <span className="h-3 w-px bg-slate-800" />
+                <span>Abertos: <strong className="text-white">{counters.abertos}</strong></span>
+                <span className="h-3 w-px bg-slate-800" />
+                <span className="text-green-400">Resolvidos: <strong>{counters.resolvidos}</strong></span>
+              </div>
+            </CardHeader>
+            <CardContent className="p-6 space-y-3">
+              {loading ? (
+                <p className="text-xs text-slate-400 font-semibold flex items-center gap-2 py-4">
+                  <RefreshCw className="h-3.5 w-3.5 animate-spin text-indigo-500" /> Carregando insights da Hub.IA...
                 </p>
-              </div>
-              <div className="shrink-0 relative group">
-                 <div className="absolute -inset-0.5 bg-indigo-500 rounded-lg blur opacity-30 group-hover:opacity-60 transition duration-1000 group-hover:duration-200 animate-pulse"></div>
-                 <button className="relative text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 px-6 py-2.5 rounded-lg transition-colors shadow-sm whitespace-nowrap">
-                    Pesquisar Fornecedores
-                 </button>
-              </div>
+              ) : signals.length === 0 ? (
+                <div className="py-6 text-center text-slate-400 space-y-1">
+                  <p className="text-xs font-bold text-slate-600">Conformidade Operacional 100%</p>
+                  <p className="text-[10px] text-slate-400">Nenhum alerta de governança pendente de resolução.</p>
+                </div>
+              ) : (
+                <div className="divide-y divide-slate-100">
+                  {signals.map(sig => {
+                    const borders: Record<SignalCriticidade, string> = {
+                      critico: 'border-l-4 border-l-red-500 bg-red-50/20 border-red-200',
+                      alto: 'border-l-4 border-l-amber-500 bg-amber-50/20 border-amber-200',
+                      medio: 'border-l-4 border-l-indigo-500 bg-indigo-50/20 border-indigo-200',
+                      informativo: 'border-l-4 border-l-slate-400 bg-slate-50/20 border-slate-200',
+                    };
+
+                    const criticidades: Record<SignalCriticidade, string> = {
+                      critico: 'text-red-700 bg-red-100 border-red-200',
+                      alto: 'text-amber-700 bg-amber-100 border-amber-200',
+                      medio: 'text-indigo-700 bg-indigo-100 border-indigo-200',
+                      informativo: 'text-slate-600 bg-slate-100 border-slate-200',
+                    };
+
+                    return (
+                      <div
+                        key={sig.id}
+                        className={`flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-4 rounded-xl border mb-2 transition-all ${borders[sig.criticidade]}`}
+                      >
+                        <div className="space-y-1.5">
+                          <div className="flex items-center gap-2">
+                            <span className={`text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded border ${criticidades[sig.criticidade]}`}>
+                              {sig.criticidade}
+                            </span>
+                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">
+                              {sig.categoria}
+                            </span>
+                          </div>
+                          <p className="text-xs font-semibold text-slate-800 leading-relaxed">
+                            {sig.descricao}
+                          </p>
+                        </div>
+
+                        {/* Ações de Descarte/Resolução */}
+                        <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-center">
+                          <button
+                            onClick={() => handleAction(sig.id, 'lido')}
+                            className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-slate-700 transition-colors flex items-center gap-1 text-[9px] font-bold"
+                            title="Marcar como lido"
+                          >
+                            <Eye className="h-3.5 w-3.5" /> Lido
+                          </button>
+                          <button
+                            onClick={() => handleAction(sig.id, 'resolvido')}
+                            className="p-1.5 hover:bg-green-55/10 rounded-lg text-green-650 hover:text-green-700 transition-colors flex items-center gap-1 text-[9px] font-extrabold"
+                            title="Marcar como resolvido"
+                          >
+                            <CheckSquare className="h-3.5 w-3.5" /> Resolver
+                          </button>
+                          <button
+                            onClick={() => handleAction(sig.id, 'ignorado')}
+                            className="p-1.5 hover:bg-red-50 rounded-lg text-red-500 hover:text-red-750 transition-colors flex items-center gap-1 text-[9px] font-bold"
+                            title="Ignorar alerta"
+                          >
+                            <X className="h-3.5 w-3.5" /> Ignorar
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </CardContent>
           </Card>
 

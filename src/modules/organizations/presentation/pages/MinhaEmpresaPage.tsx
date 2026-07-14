@@ -1,0 +1,353 @@
+import { useState } from 'react';
+import { Link, useLocation } from 'react-router-dom';
+import {
+  Building2, Users, Layers, ArrowLeftRight, ScrollText,
+  ChevronRight, Globe, Phone, Mail, Hash, Shield, UserCheck,
+  Save, CheckCircle2
+} from 'lucide-react';
+import { Button } from '@/shared/components/ui/Button';
+import { Input } from '@/shared/components/ui/Input';
+import { Card, CardContent } from '@/shared/components/ui/Card';
+import DelegationsPage from '../../../employees/presentation/pages/DelegationsPage';
+import AccessLogsPage from '../../../employees/presentation/pages/AccessLogsPage';
+
+// ─── Tipos ────────────────────────────────────────────────────────────────────
+type Tab = 'dados' | 'operadores' | 'segmentos' | 'delegacoes' | 'logs';
+
+// ─── Navegação lateral da seção Minha Empresa ─────────────────────────────────
+const EMPRESA_TABS: { id: Tab; label: string; icon: any; href: string; desc: string }[] = [
+  {
+    id: 'dados',
+    label: 'Dados da Empresa',
+    icon: Building2,
+    href: '/empresa',
+    desc: 'Razão social, CNPJ e contatos',
+  },
+  {
+    id: 'operadores',
+    label: 'Operadores',
+    icon: Users,
+    href: '/empresa/operadores',
+    desc: 'Convites, perfis e acessos',
+  },
+  {
+    id: 'segmentos',
+    label: 'Segmentos',
+    icon: Layers,
+    href: '/empresa/segmentos',
+    desc: 'Categorias e responsáveis',
+  },
+  {
+    id: 'delegacoes',
+    label: 'Delegações',
+    icon: ArrowLeftRight,
+    href: '/empresa/delegacoes',
+    desc: 'Férias e substituições temporárias',
+  },
+  {
+    id: 'logs',
+    label: 'Logs',
+    icon: ScrollText,
+    href: '/empresa/logs',
+    desc: 'Auditoria e acessos',
+  },
+];
+
+// ─── Sub-página: Dados da Empresa ─────────────────────────────────────────────
+function DadosEmpresaTab() {
+  const [form, setForm] = useState({
+    razao_social: localStorage.getItem('supplyhub_razao_social') || '',
+    nome_fantasia: localStorage.getItem('supplyhub_company_name') || '',
+    cnpj: localStorage.getItem('supplyhub_cnpj') || '',
+    email_corporativo: localStorage.getItem('supplyhub_email_corp') || '',
+    telefone: localStorage.getItem('supplyhub_telefone') || '',
+    gestor_principal: localStorage.getItem('supplyhub_gestor_principal') || '',
+  });
+  const [saved, setSaved] = useState(false);
+
+  const handleChange = (field: string, value: string) => {
+    setForm(f => ({ ...f, [field]: value }));
+  };
+
+  const handleSave = () => {
+    localStorage.setItem('supplyhub_razao_social', form.razao_social);
+    localStorage.setItem('supplyhub_company_name', form.nome_fantasia);
+    localStorage.setItem('supplyhub_cnpj', form.cnpj);
+    localStorage.setItem('supplyhub_email_corp', form.email_corporativo);
+    localStorage.setItem('supplyhub_telefone', form.telefone);
+    localStorage.setItem('supplyhub_gestor_principal', form.gestor_principal);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 3000);
+  };
+
+  const Field = ({
+    label, icon: Icon, field, type = 'text', placeholder, hint,
+  }: {
+    label: string; icon: any; field: string; type?: string; placeholder?: string; hint?: string;
+  }) => (
+    <div className="space-y-1.5">
+      <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1">
+        <Icon className="h-3 w-3" /> {label}
+      </label>
+      <Input
+        type={type}
+        value={(form as any)[field]}
+        onChange={e => handleChange(field, e.target.value)}
+        placeholder={placeholder}
+        className="h-10 text-sm"
+      />
+      {hint && <p className="text-[10px] text-slate-400">{hint}</p>}
+    </div>
+  );
+
+  return (
+    <div className="space-y-6 max-w-2xl">
+      <div>
+        <h2 className="text-lg font-bold text-slate-900">Dados da Empresa</h2>
+        <p className="text-sm text-slate-500 mt-0.5">
+          Informações institucionais utilizadas em convites, notificações e relatórios da Hub.IA.
+        </p>
+      </div>
+
+      <Card className="rounded-2xl border-slate-200 shadow-sm">
+        <CardContent className="p-6 space-y-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Field
+              label="Razão Social"
+              icon={Hash}
+              field="razao_social"
+              placeholder="Ex: Empresa Tecnologia Ltda"
+            />
+            <Field
+              label="Nome Fantasia"
+              icon={Building2}
+              field="nome_fantasia"
+              placeholder="Ex: SupplyHub"
+              hint="Exibido no menu superior"
+            />
+            <Field
+              label="CNPJ"
+              icon={Hash}
+              field="cnpj"
+              placeholder="00.000.000/0001-00"
+            />
+            <Field
+              label="Telefone"
+              icon={Phone}
+              field="telefone"
+              placeholder="(11) 3000-0000"
+            />
+          </div>
+
+          <Field
+            label="E-mail Corporativo"
+            icon={Mail}
+            field="email_corporativo"
+            type="email"
+            placeholder="contato@empresa.com.br"
+            hint="Usado para convites institucionais e notificações da Hub.IA"
+          />
+
+          <Field
+            label="Gestor Principal"
+            icon={UserCheck}
+            field="gestor_principal"
+            placeholder="Nome do responsável máximo"
+          />
+
+          <div className="flex justify-end pt-2">
+            {saved && (
+              <span className="flex items-center gap-1.5 text-xs font-bold text-green-600 mr-4">
+                <CheckCircle2 className="h-4 w-4" /> Salvo com sucesso!
+              </span>
+            )}
+            <Button
+              onClick={handleSave}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white h-10 px-6 text-sm font-bold flex items-center gap-2"
+            >
+              <Save className="h-4 w-4" /> Salvar Alterações
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Card de aviso Hub.IA */}
+      <Card className="rounded-2xl border-indigo-100 bg-indigo-50/50 shadow-sm">
+        <CardContent className="p-5 flex items-start gap-4">
+          <div className="h-9 w-9 rounded-xl bg-indigo-100 flex items-center justify-center shrink-0">
+            <Shield className="h-4 w-4 text-indigo-600" />
+          </div>
+          <div>
+            <p className="text-sm font-bold text-indigo-900">Base da Inteligência Hub.IA</p>
+            <p className="text-xs text-indigo-700 mt-0.5 leading-relaxed">
+              Estes dados alimentam os modelos de inteligência da Hub.IA para recomendações de fornecedores,
+              alertas de saving e análises de cobertura de segmentos.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// ─── Card de acesso rápido para sub-módulos ────────────────────────────────────
+function ModuleCard({
+  icon: Icon, label, desc, href, count,
+}: {
+  icon: any; label: string; desc: string; href: string; count?: number;
+}) {
+  return (
+    <Link
+      to={href}
+      className="block p-5 rounded-2xl border border-slate-200 bg-white hover:border-indigo-300 hover:shadow-sm transition-all duration-150 group"
+    >
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="h-10 w-10 rounded-xl bg-indigo-50 group-hover:bg-indigo-100 transition-colors flex items-center justify-center shrink-0">
+            <Icon className="h-5 w-5 text-indigo-600" />
+          </div>
+          <div>
+            <p className="text-sm font-bold text-slate-900 group-hover:text-indigo-700 transition-colors">
+              {label}
+              {count !== undefined && (
+                <span className="ml-2 text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700">
+                  {count}
+                </span>
+              )}
+            </p>
+            <p className="text-xs text-slate-500 mt-0.5">{desc}</p>
+          </div>
+        </div>
+        <ChevronRight className="h-4 w-4 text-slate-400 group-hover:text-indigo-500 transition-colors" />
+      </div>
+    </Link>
+  );
+}
+
+// ─── MinhaEmpresaPage ─────────────────────────────────────────────────────────
+export default function MinhaEmpresaPage() {
+  const location = useLocation();
+
+  // Determinar tab ativa pela URL
+  const activeTab: Tab = (() => {
+    if (location.pathname.includes('/operadores')) return 'operadores';
+    if (location.pathname.includes('/segmentos')) return 'segmentos';
+    if (location.pathname.includes('/delegacoes')) return 'delegacoes';
+    if (location.pathname.includes('/logs')) return 'logs';
+    return 'dados';
+  })();
+
+  const companyName = localStorage.getItem('supplyhub_company_name') || 'SupplyHub B2B';
+
+  return (
+    <div className="flex-1 bg-slate-50 min-h-full flex flex-col font-sans">
+
+      {/* HEADER BANNER */}
+      <div className="bg-slate-900 rounded-2xl mx-6 mt-6 mb-6 px-8 pt-8 pb-8 shadow-md">
+        <div className="max-w-[1600px] mx-auto">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white flex items-center gap-3">
+                <Globe className="h-7 w-7 text-indigo-400" />
+                Minha Empresa
+              </h1>
+              <p className="text-slate-400 mt-1 text-sm max-w-2xl">
+                Governança de operadores, segmentos, acessos e inteligência Hub.IA para{' '}
+                <strong className="text-white">{companyName}</strong>.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* CONTEÚDO */}
+      <div className="flex-1 px-6 pb-8">
+        <div className="max-w-[1600px] mx-auto flex gap-6">
+
+          {/* Sidebar de navegação */}
+          <aside className="w-56 shrink-0 space-y-1">
+            {EMPRESA_TABS.map(tab => {
+              const Icon = tab.icon;
+              const isActive = activeTab === tab.id;
+              return (
+                <Link
+                  key={tab.id}
+                  to={tab.href}
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+                    isActive
+                      ? 'bg-indigo-600 text-white shadow-sm'
+                      : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                  }`}
+                >
+                  <Icon className="h-4 w-4 shrink-0" />
+                  {tab.label}
+                </Link>
+              );
+            })}
+          </aside>
+
+          {/* Área de conteúdo */}
+          <main className="flex-1 min-w-0">
+            {activeTab === 'dados' && <DadosEmpresaTab />}
+            {activeTab === 'delegacoes' && <DelegationsPage />}
+            {activeTab === 'logs' && <AccessLogsPage />}
+
+            {activeTab !== 'dados' && activeTab !== 'delegacoes' && activeTab !== 'logs' && (
+              <div className="space-y-6">
+                {/* Heading da seção */}
+                {(() => {
+                  const tab = EMPRESA_TABS.find(t => t.id === activeTab)!;
+                  const Icon = tab.icon;
+                  return (
+                    <div>
+                      <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                        <Icon className="h-5 w-5 text-indigo-600" />
+                        {tab.label}
+                      </h2>
+                      <p className="text-sm text-slate-500 mt-0.5">{tab.desc}</p>
+                    </div>
+                  );
+                })()}
+
+                {/* Placeholder para sub-páginas em construção */}
+                <Card className="rounded-2xl border-dashed border-slate-300 bg-white shadow-none">
+                  <CardContent className="p-12 text-center">
+                    <div className="h-14 w-14 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-4">
+                      {(() => {
+                        const tab = EMPRESA_TABS.find(t => t.id === activeTab)!;
+                        const Icon = tab.icon;
+                        return <Icon className="h-7 w-7 text-slate-400" />;
+                      })()}
+                    </div>
+                    <p className="text-sm font-bold text-slate-600">Módulo em construção</p>
+                    <p className="text-xs text-slate-400 mt-1 max-w-xs mx-auto">
+                      Este módulo será ativado progressivamente ao longo da Sprint 12B.
+                    </p>
+                  </CardContent>
+                </Card>
+
+                {/* Cards de acesso rápido para outros módulos */}
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">
+                    Outros módulos de governança
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {EMPRESA_TABS.filter(t => t.id !== activeTab && t.id !== 'dados').map(tab => (
+                      <ModuleCard
+                        key={tab.id}
+                        icon={tab.icon}
+                        label={tab.label}
+                        desc={tab.desc}
+                        href={tab.href}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+          </main>
+        </div>
+      </div>
+    </div>
+  );
+}

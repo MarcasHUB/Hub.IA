@@ -14,6 +14,7 @@ const NAV_ITEMS = [
   { name: 'Meus Parceiros', href: '/suppliers' },
   { name: 'Produtos',       href: '/products' },
   { name: 'Cotações',       href: '/quotations' },
+  { name: 'Minha Empresa',  href: '/empresa' },
 ];
 
 // ─── CompanyLogo (logo da empresa ou iniciais) ────────────────────────────────
@@ -62,6 +63,11 @@ export function AppLayout() {
   });
 
   useEffect(() => {
+    // Forçar limpeza de org-1 legado do localStorage
+    if (localStorage.getItem('supplyhub_organization_id') === 'org-1') {
+      localStorage.setItem('supplyhub_organization_id', '00000000-0000-0000-0000-000000000000');
+    }
+
     const handleUpdate = () => {
       setCompanyLogo(localStorage.getItem('supplyhub_company_logo'));
       setCompanyName(localStorage.getItem('supplyhub_company_name') || 'SupplyHub B2B');
@@ -75,6 +81,37 @@ export function AppLayout() {
     window.addEventListener('company_profile_updated', handleUpdate);
     return () => window.removeEventListener('company_profile_updated', handleUpdate);
   }, []);
+
+  // Verificação periódica de Sessão Única
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const savedOperator = localStorage.getItem('supplyhub_logged_operator');
+      if (!savedOperator) return;
+
+      const sessionToken = localStorage.getItem('supplyhub_session_token');
+
+      const rawSessions = localStorage.getItem('supplyhub_sessions_v2') || '[]';
+      const sessions = JSON.parse(rawSessions);
+
+      // Procurar nossa sessão
+      const currentSession = sessions.find((s: any) => s.token_hash === sessionToken);
+      
+      if (currentSession && currentSession.status === 'encerrada') {
+        // Desconectar o operador
+        localStorage.removeItem('supplyhub_logged_operator');
+        localStorage.removeItem('supplyhub_session_token');
+        
+        // Limpar cookies/sessão Supabase
+        import('@/infrastructure/supabase/client').then(({ supabase }) => {
+          supabase.auth.signOut();
+        });
+
+        navigate('/login?reason=session_terminated');
+      }
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [navigate]);
 
   const handleFinishQuotation = () => {
     setCartOpen(false);
