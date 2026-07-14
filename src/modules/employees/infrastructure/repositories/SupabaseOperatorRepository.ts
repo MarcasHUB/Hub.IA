@@ -1,8 +1,9 @@
 import { supabase } from '@/infrastructure/supabase/client';
 import { Operator } from '../../domain/entities/Operator';
 import { Invitation } from '../../domain/entities/Invitation';
+import { IOperatorRepository } from '../../domain/repositories/IOperatorRepository';
 
-export class SupabaseOperatorRepository {
+export class SupabaseOperatorRepository implements IOperatorRepository {
   /**
    * Invoca a Edge Function para criar e convidar o operador com segurança (admin logic)
    */

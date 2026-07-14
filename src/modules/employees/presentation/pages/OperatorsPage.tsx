@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Users, UserPlus, Shield, UserCheck, Search,
   Mail, MoreVertical,
@@ -10,41 +11,6 @@ import { Card } from '@/shared/components/ui/Card';
 import { Operator, OperatorPerfil, OperatorStatus, operatorFullName } from '@/modules/employees/domain/entities/Operator';
 import { SupabaseOperatorRepository } from '../../infrastructure/repositories/SupabaseOperatorRepository';
 import { SupabaseDelegationRepository } from '../../infrastructure/repositories/SupabaseDelegationRepository';
-import { Delegation } from '../../domain/entities/Delegation';
-
-// ─── Dados iniciais (localStorage + mock seed) ────────────────────────────────
-const SEED_OPERATORS: Operator[] = [
-  {
-    id: 'op-1',
-    organization_id: '00000000-0000-0000-0000-000000000000',
-    nome: 'Vinicius',
-    sobrenome: 'Cordebello',
-    email: 'vinicius@supplyhub.com.br',
-    telefone: '(11) 91234-5678',
-    cargo: 'Administrador',
-    perfil: 'administrador',
-    status: 'ativo',
-    invited_at: '2026-01-01T00:00:00Z',
-    accepted_at: '2026-01-01T00:00:00Z',
-    last_login_at: new Date().toISOString(),
-    created_at: '2026-01-01T00:00:00Z',
-    updated_at: '2026-01-01T00:00:00Z',
-    todos_segmentos: true,
-  },
-];
-
-function loadOperators(): Operator[] {
-  try {
-    const raw = localStorage.getItem('supplyhub_operators_v2');
-    return raw ? JSON.parse(raw) : SEED_OPERATORS;
-  } catch {
-    return SEED_OPERATORS;
-  }
-}
-
-function saveOperators(ops: Operator[]) {
-  localStorage.setItem('supplyhub_operators_v2', JSON.stringify(ops));
-}
 
 // ─── Badges ───────────────────────────────────────────────────────────────────
 const STATUS_CONFIG: Record<OperatorStatus, { label: string; dot: string; badge: string }> = {
@@ -364,26 +330,28 @@ function InviteModal({ onClose, onInvite }: { onClose: () => void; onInvite: (op
 
 // ─── OperatorsPage ────────────────────────────────────────────────────────────
 export default function OperatorsPage() {
-  const [operators, setOperators] = useState<Operator[]>(loadOperators);
-  const [delegations, setDelegations] = useState<Delegation[]>([]);
+  const queryClient = useQueryClient();
+  const orgId = localStorage.getItem('supplyhub_organization_id') || '00000000-0000-0000-0000-000000000000';
+
+  const { data: operators = [], isLoading: isLoadingOps } = useQuery({
+    queryKey: ['operators', orgId],
+    queryFn: async () => {
+      const repo = new SupabaseOperatorRepository();
+      return repo.listOperators(orgId);
+    }
+  });
+
+  const { data: delegations = [] } = useQuery({
+    queryKey: ['delegations', orgId],
+    queryFn: async () => {
+      const delRepo = new SupabaseDelegationRepository();
+      return delRepo.listDelegations(orgId);
+    }
+  });
+
   const [showInvite, setShowInvite] = useState(false);
   const [search, setSearch] = useState('');
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
-
-  const orgId = localStorage.getItem('supplyhub_organization_id') || '00000000-0000-0000-0000-000000000000';
-
-  useEffect(() => {
-    async function loadDelegations() {
-      try {
-        const delRepo = new SupabaseDelegationRepository();
-        const dels = await delRepo.listDelegations(orgId);
-        setDelegations(dels);
-      } catch (err) {
-        console.error(err);
-      }
-    }
-    loadDelegations();
-  }, []);
 
   const getActiveDelegationStatus = (opId: string): 'origem' | 'substituto' | null => {
     const today = new Date();
@@ -409,10 +377,8 @@ export default function OperatorsPage() {
     op.email.toLowerCase().includes(search.toLowerCase())
   );
 
-  const handleInvite = (op: Operator) => {
-    const updated = [...operators, op];
-    setOperators(updated);
-    saveOperators(updated);
+  const handleInvite = () => {
+    queryClient.invalidateQueries({ queryKey: ['operators', orgId] });
     setShowInvite(false);
   };
 
@@ -491,7 +457,16 @@ export default function OperatorsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {filtered.length === 0 ? (
+                {isLoadingOps ? (
+                  <tr>
+                    <td colSpan={7} className="px-6 py-12 text-center text-slate-400 text-sm">
+                      <div className="flex justify-center items-center gap-2">
+                        <div className="h-4 w-4 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+                        Carregando operadores...
+                      </div>
+                    </td>
+                  </tr>
+                ) : filtered.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="px-6 py-12 text-center text-slate-400 text-sm">
                       Nenhum operador encontrado.

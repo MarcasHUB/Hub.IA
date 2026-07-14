@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import {
   Calendar, User, Filter,
   RefreshCw, Info, Terminal, Eye
@@ -6,12 +7,9 @@ import {
 import { Card, CardContent } from '@/shared/components/ui/Card';
 import { Input } from '@/shared/components/ui/Input';
 import { Button } from '@/shared/components/ui/Button';
-import { SupabaseLogRepository, AccessLog, OperationLog } from '../../infrastructure/repositories/SupabaseLogRepository';
+import { SupabaseLogRepository } from '../../infrastructure/repositories/SupabaseLogRepository';
 
 export default function AccessLogsPage() {
-  const [accessLogs, setAccessLogs] = useState<AccessLog[]>([]);
-  const [operationLogs, setOperationLogs] = useState<OperationLog[]>([]);
-  const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'acesso' | 'operacao'>('acesso');
 
   // Filtros
@@ -26,22 +24,13 @@ export default function AccessLogsPage() {
   const logRepo = new SupabaseLogRepository();
   const orgId = localStorage.getItem('supplyhub_organization_id') || '00000000-0000-0000-0000-000000000000';
 
-  async function loadLogs() {
-    setLoading(true);
-    try {
-      const { accessLogs: acc, operationLogs: ope } = await logRepo.listLogs(orgId);
-      setAccessLogs(acc);
-      setOperationLogs(ope);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  }
+  const { data: logsData, isLoading: loading } = useQuery({
+    queryKey: ['logs', orgId],
+    queryFn: () => logRepo.listLogs(orgId),
+  });
 
-  useEffect(() => {
-    loadLogs();
-  }, []);
+  const accessLogs = logsData?.accessLogs || [];
+  const operationLogs = logsData?.operationLogs || [];
 
   // Filtragem
   const filteredAccess = accessLogs.filter(log => {

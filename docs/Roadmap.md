@@ -299,3 +299,4 @@
 5. Preencher barrel exports dos módulos
 6. Preencher `core/config/` (constants, permissions, roles, features)
 7. Testes unitários e de integração
+8. Alinhar histórico de migrations Supabase (reparar histórico local vs remoto)

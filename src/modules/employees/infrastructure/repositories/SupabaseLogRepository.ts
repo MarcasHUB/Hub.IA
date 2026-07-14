@@ -25,113 +25,62 @@ export interface OperationLog {
 }
 
 export class SupabaseLogRepository {
-  private getLocalAccessLogs(): AccessLog[] {
-    try {
-      const raw = localStorage.getItem('supplyhub_access_logs_v2');
-      return raw ? JSON.parse(raw) : [];
-    } catch {
-      return [];
-    }
-  }
-
-  private saveLocalAccessLogs(logs: AccessLog[]) {
-    localStorage.setItem('supplyhub_access_logs_v2', JSON.stringify(logs));
-  }
-
-  private getLocalOperationLogs(): OperationLog[] {
-    try {
-      const raw = localStorage.getItem('supplyhub_operation_logs_v2');
-      return raw ? JSON.parse(raw) : [];
-    } catch {
-      return [];
-    }
-  }
-
-  private saveLocalOperationLogs(logs: OperationLog[]) {
-    localStorage.setItem('supplyhub_operation_logs_v2', JSON.stringify(logs));
-  }
-
   /**
    * Grava um log de acesso (IP, User-Agent, Data/Hora)
    */
   async logAccess(log: Omit<AccessLog, 'id' | 'created_at'>): Promise<AccessLog> {
-    const newLog: AccessLog = {
-      ...log,
-      id: `acc-${Date.now()}`,
-      created_at: new Date().toISOString(),
-    };
+    const { data, error } = await supabase.from('access_logs').insert({
+      operator_id: log.operator_id || null,
+      organization_id: log.organization_id,
+      tipo: log.tipo,
+      ip: log.ip || null,
+      user_agent: log.user_agent || null,
+      resultado: log.resultado,
+    }).select().single();
 
-    const local = this.getLocalAccessLogs();
-    local.push(newLog);
-    this.saveLocalAccessLogs(local);
+    if (error) {
+      throw error;
+    }
 
-    try {
-      await supabase.from('access_logs').insert({
-        operator_id: log.operator_id || null,
-        organization_id: log.organization_id,
-        tipo: log.tipo,
-        ip: log.ip || null,
-        user_agent: log.user_agent || null,
-        resultado: log.resultado,
-      });
-    } catch {}
-
-    return newLog;
+    return data as AccessLog;
   }
+
+
 
   /**
    * Grava um log de operação
    */
   async logOperation(log: Omit<OperationLog, 'id' | 'created_at'>): Promise<OperationLog> {
-    const newLog: OperationLog = {
-      ...log,
-      id: `ope-${Date.now()}`,
-      created_at: new Date().toISOString(),
-    };
+    const { data, error } = await supabase.from('operation_logs').insert({
+      operator_id: log.operator_id || null,
+      organization_id: log.organization_id,
+      entidade: log.entidade,
+      acao: log.acao,
+      payload_antes: log.payload_antes || null,
+      payload_depois: log.payload_depois || null,
+    }).select().single();
 
-    const local = this.getLocalOperationLogs();
-    local.push(newLog);
-    this.saveLocalOperationLogs(local);
+    if (error) {
+      throw error;
+    }
 
-    try {
-      await supabase.from('operation_logs').insert({
-        operator_id: log.operator_id || null,
-        organization_id: log.organization_id,
-        entidade: log.entidade,
-        acao: log.acao,
-        payload_antes: log.payload_antes || null,
-        payload_depois: log.payload_depois || null,
-      });
-    } catch {}
-
-    return newLog;
+    return data as OperationLog;
   }
 
   /**
    * Retorna a listagem unificada de logs de acesso e operação para a tela de Logs
    */
   async listLogs(organizationId: string): Promise<{ accessLogs: AccessLog[]; operationLogs: OperationLog[] }> {
-    let accessLogs = this.getLocalAccessLogs().filter(l => l.organization_id === organizationId);
-    let operationLogs = this.getLocalOperationLogs().filter(l => l.organization_id === organizationId);
+    const [accResult, opeResult, opsResult] = await Promise.all([
+      supabase.from('access_logs').select('*').eq('organization_id', organizationId),
+      supabase.from('operation_logs').select('*').eq('organization_id', organizationId),
+      supabase.from('operators').select('id, nome, sobrenome').eq('organization_id', organizationId)
+    ]);
 
-    try {
-      const { data: accData } = await supabase
-        .from('access_logs')
-        .select('*')
-        .eq('organization_id', organizationId);
-      
-      const { data: opeData } = await supabase
-        .from('operation_logs')
-        .select('*')
-        .eq('organization_id', organizationId);
+    let accessLogs = (accResult.data as AccessLog[]) || [];
+    let operationLogs = (opeResult.data as OperationLog[]) || [];
+    const ops = opsResult.data || [];
 
-      if (accData) accessLogs = accData as AccessLog[];
-      if (opeData) operationLogs = opeData as OperationLog[];
-    } catch {}
-
-    // Injetar nomes aproximados de operadores para exibição offline
-    const rawOps = localStorage.getItem('supplyhub_operators_v2') || '[]';
-    const ops = JSON.parse(rawOps);
     const opMap = new Map<string, string>(ops.map((o: any) => [o.id, `${o.nome} ${o.sobrenome}`]));
 
     accessLogs = accessLogs.map(l => ({

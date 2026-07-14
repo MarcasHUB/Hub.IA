@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   ArrowLeftRight, Plus,
   Clock, Trash2, RefreshCw
@@ -6,7 +7,6 @@ import {
 import { Button } from '@/shared/components/ui/Button';
 import { Card, CardContent } from '@/shared/components/ui/Card';
 import { Delegation } from '../../domain/entities/Delegation';
-import { Operator } from '../../domain/entities/Operator';
 import { SupabaseDelegationRepository } from '../../infrastructure/repositories/SupabaseDelegationRepository';
 import { SupabaseOperatorRepository } from '../../infrastructure/repositories/SupabaseOperatorRepository';
 import { DelegationModal } from '../components/DelegationModal';
@@ -14,9 +14,7 @@ import { DelegationModal } from '../components/DelegationModal';
 type FilterType = 'all' | 'active' | 'future' | 'ended';
 
 export default function DelegationsPage() {
-  const [delegations, setDelegations] = useState<Delegation[]>([]);
-  const [operators, setOperators] = useState<Operator[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [filter, setFilter] = useState<FilterType>('all');
   const [showModal, setShowModal] = useState(false);
 
@@ -25,23 +23,24 @@ export default function DelegationsPage() {
 
   const orgId = localStorage.getItem('supplyhub_organization_id') || '00000000-0000-0000-0000-000000000000';
 
-  async function loadData() {
-    setLoading(true);
-    try {
-      const ops = await opRepo.listOperators(orgId);
-      setOperators(ops);
-      const list = await delRepo.listDelegations(orgId);
-      setDelegations(list);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  }
+  const { data: operators = [], isLoading: loadingOps } = useQuery({
+    queryKey: ['operators', orgId],
+    queryFn: () => opRepo.listOperators(orgId),
+  });
 
-  useEffect(() => {
-    loadData();
-  }, []);
+  const { data: delegations = [], isLoading: loadingDels } = useQuery({
+    queryKey: ['delegations', orgId],
+    queryFn: () => delRepo.listDelegations(orgId),
+  });
+
+  const loading = loadingOps || loadingDels;
+
+  const cancelMutation = useMutation({
+    mutationFn: (id: string) => delRepo.cancelDelegation(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['delegations', orgId] });
+    }
+  });
 
   const getOperatorName = (id: string) => {
     const op = operators.find(o => o.id === id);
@@ -72,10 +71,9 @@ export default function DelegationsPage() {
     return 'active';
   };
 
-  const handleCancel = async (id: string) => {
+  const handleCancel = (id: string) => {
     if (confirm('Deseja realmente cancelar esta delegação de permissões?')) {
-      await delRepo.cancelDelegation(id);
-      loadData();
+      cancelMutation.mutate(id);
     }
   };
 
@@ -92,7 +90,7 @@ export default function DelegationsPage() {
           onClose={() => setShowModal(false)}
           onSuccess={() => {
             setShowModal(false);
-            loadData();
+            queryClient.invalidateQueries({ queryKey: ['delegations', orgId] });
           }}
         />
       )}
