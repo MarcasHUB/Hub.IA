@@ -22,8 +22,6 @@ const MessagesPage = React.lazy(() => import('../../modules/messages/presentatio
 const QuotationResponsePage = React.lazy(() => import('../../modules/quotations/presentation/pages/QuotationResponsePage'));
 const SettingsPage = React.lazy(() => import('../../modules/settings/presentation/pages/SettingsPage'));
 const MinhaEmpresaPage = React.lazy(() => import('../../modules/organizations/presentation/pages/MinhaEmpresaPage'));
-const OperatorsPage = React.lazy(() => import('../../modules/employees/presentation/pages/OperatorsPage'));
-const SegmentsPage = React.lazy(() => import('../../modules/employees/presentation/pages/SegmentsPage'));
 const AcceptInvitePage = React.lazy(() => import('../../modules/employees/presentation/pages/AcceptInvitePage'));
 
 const SuspenseWrapper = ({ children }: { children: React.ReactNode }) => (
@@ -137,11 +135,11 @@ export const router = createBrowserRouter([
       },
       {
         path: '/empresa/operadores',
-        element: <SuspenseWrapper><OperatorsPage /></SuspenseWrapper>,
+        element: <SuspenseWrapper><MinhaEmpresaPage /></SuspenseWrapper>,
       },
       {
         path: '/empresa/segmentos',
-        element: <SuspenseWrapper><SegmentsPage /></SuspenseWrapper>,
+        element: <SuspenseWrapper><MinhaEmpresaPage /></SuspenseWrapper>,
       },
       {
         path: '/empresa/delegacoes',

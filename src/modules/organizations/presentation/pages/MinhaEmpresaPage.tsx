@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
   Building2, Users, Layers, ArrowLeftRight, ScrollText,
-  ChevronRight, Globe, Phone, Mail, Hash, Shield, UserCheck,
+  Globe, Phone, Mail, Hash, Shield, UserCheck,
   Save, CheckCircle2
 } from 'lucide-react';
 import { Button } from '@/shared/components/ui/Button';
@@ -10,6 +10,8 @@ import { Input } from '@/shared/components/ui/Input';
 import { Card, CardContent } from '@/shared/components/ui/Card';
 import DelegationsPage from '../../../employees/presentation/pages/DelegationsPage';
 import AccessLogsPage from '../../../employees/presentation/pages/AccessLogsPage';
+import OperatorsPage from '../../../employees/presentation/pages/OperatorsPage';
+import SegmentsPage from '../../../employees/presentation/pages/SegmentsPage';
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 type Tab = 'dados' | 'operadores' | 'segmentos' | 'delegacoes' | 'logs';
@@ -190,39 +192,6 @@ function DadosEmpresaTab() {
   );
 }
 
-// ─── Card de acesso rápido para sub-módulos ────────────────────────────────────
-function ModuleCard({
-  icon: Icon, label, desc, href, count,
-}: {
-  icon: any; label: string; desc: string; href: string; count?: number;
-}) {
-  return (
-    <Link
-      to={href}
-      className="block p-5 rounded-2xl border border-slate-200 bg-white hover:border-indigo-300 hover:shadow-sm transition-all duration-150 group"
-    >
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-xl bg-indigo-50 group-hover:bg-indigo-100 transition-colors flex items-center justify-center shrink-0">
-            <Icon className="h-5 w-5 text-indigo-600" />
-          </div>
-          <div>
-            <p className="text-sm font-bold text-slate-900 group-hover:text-indigo-700 transition-colors">
-              {label}
-              {count !== undefined && (
-                <span className="ml-2 text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700">
-                  {count}
-                </span>
-              )}
-            </p>
-            <p className="text-xs text-slate-500 mt-0.5">{desc}</p>
-          </div>
-        </div>
-        <ChevronRight className="h-4 w-4 text-slate-400 group-hover:text-indigo-500 transition-colors" />
-      </div>
-    </Link>
-  );
-}
 
 // ─── MinhaEmpresaPage ─────────────────────────────────────────────────────────
 export default function MinhaEmpresaPage() {
@@ -289,62 +258,10 @@ export default function MinhaEmpresaPage() {
           {/* Área de conteúdo */}
           <main className="flex-1 min-w-0">
             {activeTab === 'dados' && <DadosEmpresaTab />}
+            {activeTab === 'operadores' && <OperatorsPage />}
+            {activeTab === 'segmentos' && <SegmentsPage />}
             {activeTab === 'delegacoes' && <DelegationsPage />}
             {activeTab === 'logs' && <AccessLogsPage />}
-
-            {activeTab !== 'dados' && activeTab !== 'delegacoes' && activeTab !== 'logs' && (
-              <div className="space-y-6">
-                {/* Heading da seção */}
-                {(() => {
-                  const tab = EMPRESA_TABS.find(t => t.id === activeTab)!;
-                  const Icon = tab.icon;
-                  return (
-                    <div>
-                      <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-                        <Icon className="h-5 w-5 text-indigo-600" />
-                        {tab.label}
-                      </h2>
-                      <p className="text-sm text-slate-500 mt-0.5">{tab.desc}</p>
-                    </div>
-                  );
-                })()}
-
-                {/* Placeholder para sub-páginas em construção */}
-                <Card className="rounded-2xl border-dashed border-slate-300 bg-white shadow-none">
-                  <CardContent className="p-12 text-center">
-                    <div className="h-14 w-14 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-4">
-                      {(() => {
-                        const tab = EMPRESA_TABS.find(t => t.id === activeTab)!;
-                        const Icon = tab.icon;
-                        return <Icon className="h-7 w-7 text-slate-400" />;
-                      })()}
-                    </div>
-                    <p className="text-sm font-bold text-slate-600">Módulo em construção</p>
-                    <p className="text-xs text-slate-400 mt-1 max-w-xs mx-auto">
-                      Este módulo será ativado progressivamente ao longo da Sprint 12B.
-                    </p>
-                  </CardContent>
-                </Card>
-
-                {/* Cards de acesso rápido para outros módulos */}
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">
-                    Outros módulos de governança
-                  </p>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {EMPRESA_TABS.filter(t => t.id !== activeTab && t.id !== 'dados').map(tab => (
-                      <ModuleCard
-                        key={tab.id}
-                        icon={tab.icon}
-                        label={tab.label}
-                        desc={tab.desc}
-                        href={tab.href}
-                      />
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
           </main>
         </div>
       </div>
