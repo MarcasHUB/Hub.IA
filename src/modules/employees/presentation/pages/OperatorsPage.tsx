@@ -419,14 +419,30 @@ export default function OperatorsPage() {
     if (!window.confirm(`Deseja realmente cancelar o convite de ${op.nome} ${op.sobrenome}? O operador e seu token de acesso serão removidos.`)) {
       return;
     }
+    
+    // Guardar backup do cache anterior em caso de falha na requisição
+    const previousOperators = queryClient.getQueryData<Operator[]>(['operators', orgId]);
+    
+    // Atualização otimista imediata na grid
+    queryClient.setQueryData(['operators', orgId], (old: Operator[] | undefined) => {
+      if (!old) return [];
+      return old.filter(item => item.id !== op.id);
+    });
+
     try {
       const repo = new SupabaseOperatorRepository();
       await repo.cancelInvite(op.email, op.id);
       alert(`Convite de ${op.nome} cancelado com sucesso.`);
-      queryClient.invalidateQueries({ queryKey: ['operators', orgId] });
     } catch (err: any) {
       console.error(err);
       alert("Erro ao cancelar o convite.");
+      // Se deu erro, reverte o estado na tela
+      if (previousOperators) {
+        queryClient.setQueryData(['operators', orgId], previousOperators);
+      }
+    } finally {
+      // Garante sincronismo forçando invalidação
+      await queryClient.invalidateQueries({ queryKey: ['operators'] });
     }
   };
 

@@ -154,7 +154,7 @@ export default function ProductFormPage({
   ];
 
   return (
-    <div className="flex-1 bg-slate-50 min-h-full flex flex-col font-sans">
+    <div className={`flex-1 flex flex-col font-sans ${onClose ? '' : 'bg-slate-50 min-h-full'}`}>
       {!onClose && (
         <div className="bg-slate-900 rounded-[2rem] mx-4 sm:mx-6 mt-6 mb-4 px-6 pt-8 pb-8 shadow-xl">
           <div className="max-w-[1600px] mx-auto">
@@ -186,8 +186,8 @@ export default function ProductFormPage({
       )}
 
       {/* CONTENT WITH TABS */}
-      <div className="flex-1 px-4 sm:px-6 pb-12">
-        <div className="max-w-[1600px] mx-auto flex flex-col lg:flex-row gap-6">
+      <div className={`flex-1 ${onClose ? 'pb-6' : 'px-4 sm:px-6 pb-12'}`}>
+        <div className={`mx-auto flex flex-col lg:flex-row gap-6 ${onClose ? 'w-full' : 'max-w-[1600px]'}`}>
           
           {/* SIDEBAR TABS */}
           <div className="w-full lg:w-64 shrink-0">

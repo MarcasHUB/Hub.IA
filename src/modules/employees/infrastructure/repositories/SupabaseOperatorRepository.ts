@@ -89,7 +89,7 @@ export class SupabaseOperatorRepository implements IOperatorRepository {
     const { data, error } = await supabase
       .from('operator_invitations')
       .select('*')
-      .eq('email', email)
+      .ilike('email', email)
       .eq('status', 'pendente')
       .limit(1)
       .maybeSingle();
@@ -105,7 +105,7 @@ export class SupabaseOperatorRepository implements IOperatorRepository {
     const { error: errInv } = await supabase
       .from('operator_invitations')
       .update({ status: 'cancelado' })
-      .eq('email', email)
+      .ilike('email', email)
       .eq('status', 'pendente');
 
     if (errInv) throw errInv;
@@ -125,7 +125,7 @@ export class SupabaseOperatorRepository implements IOperatorRepository {
         sent_at: new Date().toISOString(),
         expires_at: new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString()
       })
-      .eq('email', email)
+      .ilike('email', email)
       .eq('status', 'pendente');
 
     if (error) throw error;
