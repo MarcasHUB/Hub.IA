@@ -14,6 +14,8 @@ interface Product {
   id: string;
   name: string;
   sku: string;
+  unit: string;
+  partNumber: string;
   supplier: string;
   category: string;
   manufacturer: string;
@@ -40,8 +42,10 @@ export default function ProductsListPage() {
         id: p.id,
         name: p.name,
         sku: p.sku,
+        unit: p.uom || 'UN',
+        partNumber: 'PN-' + p.sku,
         supplier: p.supplierId || 'Fornecedor',
-        category: p.categoryId || 'Categoria',
+        category: p.categoryName || p.categoryId || 'Categoria',
         manufacturer: p.manufacturer || 'Desconhecido',
         price: p.price,
         status: p.status === 'Draft' ? 'Draft' : 'Active',
@@ -194,6 +198,13 @@ export default function ProductsListPage() {
                   >
                     {/* Imagem Cover / Placeholder */}
                     <div className="aspect-[4/3] w-full bg-slate-50 border-b border-slate-100 flex flex-col items-center justify-center relative rounded-t-2xl group-hover:bg-slate-100/50 transition-colors">
+                      {/* Categoria Badge - Top Left */}
+                      <div className="absolute top-3 left-3 z-10">
+                        <Badge variant="outline" className="bg-white text-indigo-600 border-slate-200 font-medium px-2 py-0.5 rounded-lg shadow-sm text-[10px]">
+                          {product.category}
+                        </Badge>
+                      </div>
+
                       {product.imageUrl ? (
                         <img src={product.imageUrl} alt={product.name} className="w-full h-full object-cover rounded-t-2xl" />
                       ) : (
@@ -205,7 +216,7 @@ export default function ProductsListPage() {
                       )}
                       
                       <div className="absolute top-3 right-3 flex gap-2">
-                        <div className="relative">
+                        <div className="relative z-20">
                           <button 
                             onClick={(e) => { e.stopPropagation(); setActiveMenu(activeMenu === product.id ? null : product.id); }}
                             className="h-8 w-8 rounded-full bg-white/90 backdrop-blur-sm border border-slate-200 shadow-sm flex items-center justify-center text-slate-500 hover:text-indigo-600 transition-colors"
@@ -216,8 +227,8 @@ export default function ProductsListPage() {
                           {/* Dropdown Menu */}
                           {activeMenu === product.id && (
                             <>
-                              <div className="fixed inset-0 z-10" onClick={() => setActiveMenu(null)}></div>
-                              <div className="absolute right-0 top-10 w-40 bg-white border border-slate-200 rounded-xl shadow-xl z-20 py-1 overflow-hidden">
+                              <div className="fixed inset-0 z-10" onClick={(e) => { e.stopPropagation(); setActiveMenu(null); }}></div>
+                              <div className="absolute right-0 top-10 w-40 bg-white border border-slate-200 rounded-xl shadow-xl z-30 py-1 overflow-hidden" onClick={e => e.stopPropagation()}>
                                 <button 
                                   onClick={() => {
                                     setActiveMenu(null);
@@ -252,31 +263,41 @@ export default function ProductsListPage() {
                       </div>
                     </div>
 
-                    <div className="p-5 flex flex-col h-full">
-                      <div className="mb-3">
-                        <div className="flex items-center gap-2 mb-2">
-                          <Badge variant="outline" className="text-[10px] font-bold bg-slate-50 text-slate-600 border-slate-200 uppercase tracking-wider">
-                            SKU: {product.sku}
-                          </Badge>
-                          <Badge variant="outline" className="text-[10px] font-bold bg-blue-50 text-blue-600 border-blue-200">
-                            {product.category}
-                          </Badge>
-                        </div>
-                        <h3 className="font-bold text-slate-900 leading-snug line-clamp-2" title={product.name}>
+                    <div className="p-4 flex flex-col h-full">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">SKU: {product.sku}</span>
+                        <Badge variant="outline" className="text-[10px] font-bold bg-slate-50 text-slate-600 border-slate-200">
+                          {product.unit}
+                        </Badge>
+                      </div>
+
+                      <div className="mb-2.5">
+                        <h3 
+                          className="font-bold text-slate-900 leading-snug line-clamp-2 hover:text-indigo-600 cursor-pointer transition-colors" 
+                          title={product.name}
+                          onClick={() => setEditingProductId(product.id)}
+                        >
                           {product.name}
                         </h3>
                       </div>
+                      
+                      <div className="flex flex-wrap gap-1.5 mb-2.5">
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded border border-slate-200 bg-white text-[9px] font-medium text-slate-500">Fab: {product.manufacturer || 'ND'}</span>
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded border border-slate-200 bg-white text-[9px] font-medium text-slate-500">PN: {product.partNumber || 'ND'}</span>
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded border border-slate-200 bg-white text-[9px] font-medium text-slate-500">Fornec: {product.supplier || 'ND'}</span>
+                      </div>
 
-                      <div className="mt-auto space-y-3 pt-4 border-t border-slate-100">
-                        <div className="flex justify-between items-center">
-                          <span className="text-xs text-slate-500">Fab: <strong className="text-slate-700">{product.manufacturer}</strong></span>
-                        </div>
-                        
+                      {product.description && (
+                        <p className="text-xs text-slate-500 mb-3 line-clamp-1">{product.description}</p>
+                      )}
+
+                      <div className="mt-auto pt-2">
                         <Button 
                           onClick={() => handleToggleSelect(product.id)}
-                          className={`w-full font-bold h-10 ${isSelected ? 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border-indigo-200' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300'}`}
+                          className={`w-full font-bold h-9 transition-all ${isSelected ? 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200 border-indigo-300 ring-1 ring-indigo-500/20 shadow-sm' : 'bg-indigo-50/70 text-indigo-600 hover:bg-indigo-100 border-transparent'}`}
                           variant="outline"
                         >
+                          <ShoppingCart className="h-4 w-4 mr-2" />
                           {isSelected ? 'Na Requisição' : 'Adicionar à RC'}
                         </Button>
                       </div>
@@ -299,11 +320,11 @@ export default function ProductsListPage() {
       {/* OVERLAY / MODAL CENTRAL DE EDIÇÃO DE MATERIAL */}
       {editingProductId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 transition-all duration-300">
-          <div className="w-full max-w-5xl h-[85vh] bg-slate-50 rounded-2xl shadow-2xl flex flex-col animate-in fade-in zoom-in-95 duration-200 overflow-hidden border border-slate-200">
+          <div className="w-full max-w-5xl h-[85vh] bg-white rounded-2xl shadow-2xl flex flex-col animate-in fade-in zoom-in-95 duration-200 overflow-hidden border border-slate-200">
             {/* Header */}
             <div className="px-6 py-4 bg-white border-b border-slate-100 flex justify-between items-center shrink-0">
               <div className="flex items-center gap-2">
-                <PackageOpen className="h-5 w-5 text-indigo-650" />
+                <PackageOpen className="h-5 w-5 text-slate-800" />
                 <h3 className="font-extrabold text-slate-800 text-lg">Editar Material</h3>
               </div>
               <button 
@@ -315,7 +336,7 @@ export default function ProductsListPage() {
               </button>
             </div>
             {/* Content */}
-            <div className="flex-1 overflow-y-auto p-6">
+            <div className="flex-1 overflow-y-auto p-0">
               <ProductFormPage 
                 productId={editingProductId} 
                 onClose={() => setEditingProductId(null)}

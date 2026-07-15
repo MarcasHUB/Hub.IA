@@ -84,7 +84,7 @@ export default function DelegationsPage() {
   });
 
   return (
-    <div className="flex-1 bg-slate-50 min-h-full flex flex-col font-sans">
+    <div className="space-y-6 font-sans">
       {showModal && (
         <DelegationModal
           onClose={() => setShowModal(false)}
@@ -95,29 +95,10 @@ export default function DelegationsPage() {
         />
       )}
 
-      {/* HEADER */}
-      <div className="bg-slate-900 rounded-2xl mx-6 mt-6 mb-6 px-8 pt-8 pb-8 shadow-md">
-        <div className="max-w-[1600px] mx-auto space-y-5">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white flex items-center gap-3">
-                <ArrowLeftRight className="h-7 w-7 text-indigo-400" />
-                Delegações Temporárias
-              </h1>
-              <p className="text-slate-400 mt-1 text-sm max-w-2xl">
-                Agende a substituição e o espelhamento de permissões de operadores durante férias ou licenças.
-              </p>
-            </div>
-            <Button
-              onClick={() => setShowModal(true)}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white h-10 px-5 text-sm font-bold flex items-center gap-2 shrink-0"
-            >
-              <Plus className="h-4 w-4" /> Programar Delegação
-            </Button>
-          </div>
-
-          {/* Filtros */}
-          <div className="flex flex-wrap gap-2 pt-2">
+      {/* Filtros e Ações */}
+      <Card className="rounded-2xl border-slate-200 shadow-sm bg-white">
+        <CardContent className="p-5 flex flex-col sm:flex-row gap-4 items-center justify-between">
+          <div className="flex flex-wrap gap-2">
             {[
               { id: 'all', label: 'Todas' },
               { id: 'active', label: 'Ativas' },
@@ -127,21 +108,27 @@ export default function DelegationsPage() {
               <button
                 key={f.id}
                 onClick={() => setFilter(f.id as FilterType)}
-                className={`px-4 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
                   filter === f.id
-                    ? 'bg-white text-slate-900 shadow-sm'
-                    : 'text-slate-400 hover:text-white bg-slate-800/40'
+                    ? 'bg-slate-900 text-white shadow-sm'
+                    : 'text-slate-500 hover:text-slate-900 bg-slate-100 hover:bg-slate-200'
                 }`}
               >
                 {f.label}
               </button>
             ))}
           </div>
-        </div>
-      </div>
+          <Button
+            onClick={() => setShowModal(true)}
+            className="bg-indigo-600 hover:bg-indigo-700 text-white h-10 px-5 text-sm font-bold flex items-center gap-2 shrink-0 w-full sm:w-auto rounded-xl"
+          >
+            <Plus className="h-4 w-4" /> Programar Delegação
+          </Button>
+        </CardContent>
+      </Card>
 
       {/* CONTEÚDO */}
-      <div className="px-6 pb-8 max-w-[1600px] mx-auto w-full">
+      <div>
         {loading ? (
           <div className="p-12 text-center text-slate-400 text-sm font-semibold flex items-center justify-center gap-2">
             <RefreshCw className="h-4 w-4 animate-spin text-indigo-500" />

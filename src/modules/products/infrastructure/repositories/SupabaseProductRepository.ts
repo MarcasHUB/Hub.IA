@@ -58,7 +58,7 @@ export class SupabaseProductRepository implements IProductRepository {
         const actualTenant = await this.resolveTenantId(tenantId);
         const { data, error } = await supabase
             .from('products')
-            .select('*')
+            .select(`*, segments(nome)`)
             .eq('id', id)
             .eq('organization_id', actualTenant)
             .single();
@@ -72,7 +72,7 @@ export class SupabaseProductRepository implements IProductRepository {
         const actualTenant = await this.resolveTenantId(tenantId);
         const { data, error } = await supabase
             .from('products')
-            .select('*')
+            .select(`*, segments(nome)`)
             .eq('organization_id', actualTenant)
             .order('created_at', { ascending: false });
             
@@ -131,6 +131,13 @@ export class SupabaseProductRepository implements IProductRepository {
     }
 
     private mapToDomain(row: any): Product {
+        // Tratar o retorno do join (pode ser array dependendo da modelagem no Supabase, 
+        // mas assumindo relação FK 1:N onde 1 produto -> 1 segmento)
+        let categoryName: string | undefined;
+        if (row.segments) {
+            categoryName = Array.isArray(row.segments) ? row.segments[0]?.nome : row.segments?.nome;
+        }
+
         return new Product(
             row.id,
             row.organization_id,
@@ -144,7 +151,8 @@ export class SupabaseProductRepository implements IProductRepository {
             0, // price omitido
             ProductStatus.ACTIVE, // status padrão
             new Date(row.created_at),
-            new Date(row.updated_at)
+            new Date(row.updated_at),
+            categoryName
         );
     }
 }

@@ -78,7 +78,7 @@ export default function ProductFormPage({
             }));
             setClassification(prev => ({
               ...prev,
-              category: product.categoryId || '',
+              category: product.categoryName || product.categoryId || '',
               baseUom: product.uom || ''
             }));
             setCommercial(prev => ({
@@ -186,29 +186,25 @@ export default function ProductFormPage({
       )}
 
       {/* CONTENT WITH TABS */}
-      <div className={`flex-1 ${onClose ? 'pb-6' : 'px-4 sm:px-6 pb-12'}`}>
-        <div className={`mx-auto flex flex-col lg:flex-row gap-6 ${onClose ? 'w-full' : 'max-w-[1600px]'}`}>
+      <div className={`flex-1 ${onClose ? 'p-6' : 'px-4 sm:px-6 pb-12'}`}>
+        <div className={`mx-auto flex flex-col gap-6 ${onClose ? 'w-full' : 'max-w-[1600px]'}`}>
           
-          {/* SIDEBAR TABS */}
-          <div className="w-full lg:w-64 shrink-0">
-            <div className="bg-white rounded-2xl border border-slate-200 p-2 shadow-sm sticky top-6">
-              <nav className="space-y-1">
-                {tabs.map(tab => (
-                  <button
-                    key={tab.id}
-                    onClick={() => setActiveTab(tab.id)}
-                    className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-semibold rounded-xl transition-colors ${
-                      activeTab === tab.id 
-                        ? 'bg-indigo-50 text-indigo-700' 
-                        : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-                    }`}
-                  >
-                    <tab.icon className={`h-5 w-5 ${activeTab === tab.id ? 'text-indigo-600' : 'text-slate-400'}`} />
-                    {tab.label}
-                  </button>
-                ))}
-              </nav>
-            </div>
+          {/* HORIZONTAL TABS */}
+          <div className="flex border-b border-slate-200 gap-6 w-full overflow-x-auto px-2">
+            {tabs.map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`pb-3 text-sm font-bold border-b-2 transition-all flex items-center gap-2 whitespace-nowrap ${
+                  activeTab === tab.id 
+                    ? 'border-indigo-600 text-indigo-900' 
+                    : 'border-transparent text-slate-400 hover:text-slate-600'
+                }`}
+              >
+                <tab.icon className={`h-4 w-4 ${activeTab === tab.id ? 'text-indigo-600' : 'text-slate-400'}`} />
+                {tab.label}
+              </button>
+            ))}
           </div>
 
           {/* TAB CONTENT */}

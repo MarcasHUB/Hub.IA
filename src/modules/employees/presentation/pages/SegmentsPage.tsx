@@ -160,7 +160,7 @@ export default function SegmentsPage() {
   const inativos = segments.filter(s => s.status === 'inativo').length;
 
   return (
-    <div className="flex-1 bg-slate-50 min-h-full flex flex-col font-sans">
+    <div className="space-y-6 font-sans">
       {modal.open && (
         <SegmentModal
           seg={modal.seg}
@@ -169,56 +169,46 @@ export default function SegmentsPage() {
         />
       )}
 
-      {/* HEADER BANNER */}
-      <div className="bg-slate-900 rounded-2xl mx-6 mt-6 mb-6 px-8 pt-8 pb-8 shadow-md">
-        <div className="max-w-[1600px] mx-auto space-y-5">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white flex items-center gap-3">
-                <Layers className="h-7 w-7 text-indigo-400" />
-                Segmentos
-              </h1>
-              <p className="text-slate-400 mt-1 text-sm max-w-2xl">
-                Base de categorização para produtos, fornecedores, operadores e inteligência Hub.IA.
-              </p>
-            </div>
-            <Button
-              onClick={() => setModal({ open: true })}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white h-10 px-5 text-sm font-bold flex items-center gap-2 shrink-0"
-            >
-              <Plus className="h-4 w-4" /> Novo Segmento
-            </Button>
-          </div>
+      {/* KPIs */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        {[
+          { label: 'Total de Segmentos', value: segments.length, color: 'text-slate-900', desc: 'Segmentos cadastrados' },
+          { label: 'Ativos', value: ativos, color: 'text-green-600', desc: 'Segmentos em uso' },
+          { label: 'Inativos', value: inativos, color: 'text-slate-400', desc: 'Segmentos desativados' },
+        ].map(item => (
+          <Card key={item.label} className="rounded-2xl border-slate-200 shadow-sm bg-white">
+            <CardContent className="p-5">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{item.label}</p>
+              <p className={`text-2xl font-extrabold mt-1 ${item.color}`}>{item.value}</p>
+              <p className="text-[10px] text-slate-400 mt-1">{item.desc}</p>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
 
-          {/* KPIs */}
-          <div className="grid grid-cols-3 gap-3">
-            {[
-              { label: 'Total', value: segments.length, color: 'text-white' },
-              { label: 'Ativos', value: ativos, color: 'text-green-400' },
-              { label: 'Inativos', value: inativos, color: 'text-slate-400' },
-            ].map(item => (
-              <div key={item.label} className="bg-white/5 border border-white/10 rounded-xl px-4 py-3">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{item.label}</p>
-                <p className={`text-2xl font-extrabold mt-0.5 ${item.color}`}>{item.value}</p>
-              </div>
-            ))}
-          </div>
-
-          {/* Busca */}
-          <div className="relative max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
+      {/* Filtros e Ações */}
+      <Card className="rounded-2xl border-slate-200 shadow-sm bg-white">
+        <CardContent className="p-5 flex flex-col sm:flex-row gap-4 items-center justify-between">
+          <div className="relative w-full sm:max-w-md">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
             <Input
               placeholder="Buscar segmento..."
               value={search}
               onChange={e => setSearch(e.target.value)}
-              className="pl-10 bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500 h-10 rounded-xl focus:border-indigo-500"
+              className="pl-10 h-10 text-sm"
             />
           </div>
-        </div>
-      </div>
+          <Button
+            onClick={() => setModal({ open: true })}
+            className="bg-indigo-600 hover:bg-indigo-700 text-white h-10 px-5 text-sm font-bold flex items-center gap-2 shrink-0 w-full sm:w-auto rounded-xl"
+          >
+            <Plus className="h-4 w-4" /> Novo Segmento
+          </Button>
+        </CardContent>
+      </Card>
 
       {/* GRID DE SEGMENTOS */}
-      <div className="px-6 pb-8">
+      <div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {filtered.map(seg => (
             <Card

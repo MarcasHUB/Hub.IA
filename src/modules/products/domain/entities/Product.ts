@@ -1,4 +1,4 @@
-﻿export enum ProductStatus {
+export enum ProductStatus {
     DRAFT = 'Draft',
     ACTIVE = 'Active',
     INACTIVE = 'Inactive'
@@ -25,6 +25,7 @@ export class Product {
         // public lastPriceUpdate?: Date,
         
         public readonly createdAt: Date = new Date(),
-        public updatedAt: Date = new Date()
+        public updatedAt: Date = new Date(),
+        public readonly categoryName?: string
     ) {}
 }
