@@ -28,21 +28,19 @@ export class SupabaseLogRepository {
   /**
    * Grava um log de acesso (IP, User-Agent, Data/Hora)
    */
-  async logAccess(log: Omit<AccessLog, 'id' | 'created_at'>): Promise<AccessLog> {
-    const { data, error } = await supabase.from('access_logs').insert({
+  async logAccess(log: Omit<AccessLog, 'id' | 'created_at'>): Promise<void> {
+    const { error } = await supabase.from('access_logs').insert({
       operator_id: log.operator_id || null,
       organization_id: log.organization_id,
       tipo: log.tipo,
       ip: log.ip || null,
       user_agent: log.user_agent || null,
       resultado: log.resultado,
-    }).select().single();
+    });
 
     if (error) {
       throw error;
     }
-
-    return data as AccessLog;
   }
 
 
@@ -50,21 +48,19 @@ export class SupabaseLogRepository {
   /**
    * Grava um log de operação
    */
-  async logOperation(log: Omit<OperationLog, 'id' | 'created_at'>): Promise<OperationLog> {
-    const { data, error } = await supabase.from('operation_logs').insert({
+  async logOperation(log: Omit<OperationLog, 'id' | 'created_at'>): Promise<void> {
+    const { error } = await supabase.from('operation_logs').insert({
       operator_id: log.operator_id || null,
       organization_id: log.organization_id,
       entidade: log.entidade,
       acao: log.acao,
       payload_antes: log.payload_antes || null,
       payload_depois: log.payload_depois || null,
-    }).select().single();
+    });
 
     if (error) {
       throw error;
     }
-
-    return data as OperationLog;
   }
 
   /**
