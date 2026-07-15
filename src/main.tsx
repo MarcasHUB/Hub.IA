@@ -4,6 +4,12 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import App from './App.tsx';
 import './index.css';
 
+// Tratamento global para erros de lazy loading de módulos (novo deploy durante uso)
+window.addEventListener('vite:preloadError', (event) => {
+  console.warn('Falha no lazy load do Vite, forçando reload da página para obter novos assets.', event);
+  window.location.reload();
+});
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
