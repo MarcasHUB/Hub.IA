@@ -24,6 +24,9 @@ export interface IOperatorRepository {
   getInvitationByToken(token: string): Promise<Invitation | null>;
 
   listOperators(organizationId: string): Promise<Operator[]>;
+  getInvitationByEmail(email: string): Promise<Invitation | null>;
+  cancelInvite(email: string, operatorId: string): Promise<void>;
+  resendInvite(email: string): Promise<void>;
   
   // Opções adicionais que podemos precisar depois
   // updateOperator(id: string, payload: Partial<Operator>): Promise<Operator>;

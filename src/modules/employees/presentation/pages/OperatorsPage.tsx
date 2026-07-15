@@ -382,6 +382,54 @@ export default function OperatorsPage() {
     setShowInvite(false);
   };
 
+  const handleCopyLink = async (op: Operator) => {
+    setActiveMenu(null);
+    try {
+      const repo = new SupabaseOperatorRepository();
+      const invitation = await repo.getInvitationByEmail(op.email);
+      if (!invitation) {
+        alert("Nenhum convite pendente encontrado para este operador.");
+        return;
+      }
+      const baseUrl = window.location.origin;
+      const inviteUrl = `${baseUrl}/aceitar-convite?token=${invitation.token}`;
+      await navigator.clipboard.writeText(inviteUrl);
+      alert(`Link do convite para ${op.nome} copiado para a área de transferência!`);
+    } catch (err: any) {
+      console.error(err);
+      alert("Erro ao copiar o link do convite.");
+    }
+  };
+
+  const handleResendInvite = async (op: Operator) => {
+    setActiveMenu(null);
+    try {
+      const repo = new SupabaseOperatorRepository();
+      await repo.resendInvite(op.email);
+      alert(`Convite para ${op.nome} reenviado com sucesso!`);
+      queryClient.invalidateQueries({ queryKey: ['operators', orgId] });
+    } catch (err: any) {
+      console.error(err);
+      alert("Erro ao reenviar o convite.");
+    }
+  };
+
+  const handleCancelInvite = async (op: Operator) => {
+    setActiveMenu(null);
+    if (!window.confirm(`Deseja realmente cancelar o convite de ${op.nome} ${op.sobrenome}? O operador e seu token de acesso serão removidos.`)) {
+      return;
+    }
+    try {
+      const repo = new SupabaseOperatorRepository();
+      await repo.cancelInvite(op.email, op.id);
+      alert(`Convite de ${op.nome} cancelado com sucesso.`);
+      queryClient.invalidateQueries({ queryKey: ['operators', orgId] });
+    } catch (err: any) {
+      console.error(err);
+      alert("Erro ao cancelar o convite.");
+    }
+  };
+
   const stats = {
     total: operators.length,
     ativos: operators.filter(o => o.status === 'ativo').length,
@@ -549,9 +597,9 @@ export default function OperatorsPage() {
                                 <div className="py-1">
                                   {op.status === 'pendente' && (
                                     <>
-                                      <button onClick={() => setActiveMenu(null)} className="w-full text-left px-4 py-2 text-xs text-slate-700 hover:bg-slate-50 font-medium">Copiar Link</button>
-                                      <button onClick={() => setActiveMenu(null)} className="w-full text-left px-4 py-2 text-xs text-slate-700 hover:bg-slate-50 font-medium">Reenviar Convite</button>
-                                      <button onClick={() => setActiveMenu(null)} className="w-full text-left px-4 py-2 text-xs text-red-600 hover:bg-red-50 font-medium">Cancelar Convite</button>
+                                      <button onClick={() => handleCopyLink(op)} className="w-full text-left px-4 py-2 text-xs text-slate-700 hover:bg-slate-50 font-medium">Copiar Link</button>
+                                      <button onClick={() => handleResendInvite(op)} className="w-full text-left px-4 py-2 text-xs text-slate-700 hover:bg-slate-50 font-medium">Reenviar Convite</button>
+                                      <button onClick={() => handleCancelInvite(op)} className="w-full text-left px-4 py-2 text-xs text-red-600 hover:bg-red-50 font-medium">Cancelar Convite</button>
                                     </>
                                   )}
                                   {op.status === 'ativo' && (

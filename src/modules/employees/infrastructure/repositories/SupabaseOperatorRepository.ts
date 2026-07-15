@@ -84,4 +84,50 @@ export class SupabaseOperatorRepository implements IOperatorRepository {
 
     return data as Operator[];
   }
+
+  async getInvitationByEmail(email: string): Promise<Invitation | null> {
+    const { data, error } = await supabase
+      .from('operator_invitations')
+      .select('*')
+      .eq('email', email)
+      .eq('status', 'pendente')
+      .limit(1)
+      .maybeSingle();
+
+    if (error || !data) {
+      return null;
+    }
+
+    return data as Invitation;
+  }
+
+  async cancelInvite(email: string, operatorId: string): Promise<void> {
+    const { error: errInv } = await supabase
+      .from('operator_invitations')
+      .update({ status: 'cancelado' })
+      .eq('email', email)
+      .eq('status', 'pendente');
+
+    if (errInv) throw errInv;
+
+    const { error: errOp } = await supabase
+      .from('operators')
+      .delete()
+      .eq('id', operatorId);
+
+    if (errOp) throw errOp;
+  }
+
+  async resendInvite(email: string): Promise<void> {
+    const { error } = await supabase
+      .from('operator_invitations')
+      .update({
+        sent_at: new Date().toISOString(),
+        expires_at: new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString()
+      })
+      .eq('email', email)
+      .eq('status', 'pendente');
+
+    if (error) throw error;
+  }
 }
