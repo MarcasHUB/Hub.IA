@@ -27,9 +27,18 @@ const repo = new SupabaseProductRepository();
 const productSupplierRepo = new SupabaseProductSupplierRepository();
 const tenantId = '00000000-0000-0000-0000-000000000000'; // Mocked tenant ID
 
-export default function ProductFormPage() {
+export default function ProductFormPage({
+  productId,
+  onClose,
+  onSaveSuccess
+}: {
+  productId?: string;
+  onClose?: () => void;
+  onSaveSuccess?: () => void;
+} = {}) {
   const navigate = useNavigate();
-  const { id } = useParams();
+  const { id: routeId } = useParams();
+  const id = productId || routeId;
   const isEditing = Boolean(id);
 
   const [activeTab, setActiveTab] = useState('basic');
@@ -123,7 +132,11 @@ export default function ProductFormPage() {
          await productSupplierRepo.linkSuppliers(newProduct.id, supplierIds);
       }
 
-      navigate('/products');
+      if (onSaveSuccess) {
+        onSaveSuccess();
+      } else {
+        navigate('/products');
+      }
     } catch (e) {
       console.error(e);
       alert("Erro ao salvar produto");
@@ -142,34 +155,35 @@ export default function ProductFormPage() {
 
   return (
     <div className="flex-1 bg-slate-50 min-h-full flex flex-col font-sans">
-      {/* HEADER BANNER */}
-      <div className="bg-slate-900 rounded-[2rem] mx-4 sm:mx-6 mt-6 mb-4 px-6 pt-8 pb-8 shadow-xl">
-        <div className="max-w-[1600px] mx-auto">
-          <button 
-            onClick={() => navigate('/products')}
-            className="flex items-center text-slate-400 hover:text-white transition-colors text-sm font-medium mb-4"
-          >
-            <ArrowLeft className="h-4 w-4 mr-1" /> Voltar para Catálogo
-          </button>
-          
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div>
-              <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white flex items-center gap-3">
-                {isEditing ? 'Detalhes do Produto' : 'Novo Produto'}
-              </h1>
-              <p className="text-slate-400 mt-1 text-sm max-w-2xl">
-                Master Data Management: gerencie todos os aspectos do item.
-              </p>
-            </div>
+      {!onClose && (
+        <div className="bg-slate-900 rounded-[2rem] mx-4 sm:mx-6 mt-6 mb-4 px-6 pt-8 pb-8 shadow-xl">
+          <div className="max-w-[1600px] mx-auto">
+            <button 
+              onClick={() => navigate('/products')}
+              className="flex items-center text-slate-400 hover:text-white transition-colors text-sm font-medium mb-4"
+            >
+              <ArrowLeft className="h-4 w-4 mr-1" /> Voltar para Catálogo
+            </button>
             
-            <div className="flex items-center gap-3 shrink-0">
-              <Button onClick={() => navigate('/products')} className="bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 h-10 px-5 font-bold">
-                Voltar
-              </Button>
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div>
+                <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white flex items-center gap-3">
+                  {isEditing ? 'Detalhes do Produto' : 'Novo Produto'}
+                </h1>
+                <p className="text-slate-400 mt-1 text-sm max-w-2xl">
+                  Master Data Management: gerencie todos os aspectos do item.
+                </p>
+              </div>
+              
+              <div className="flex items-center gap-3 shrink-0">
+                <Button onClick={() => navigate('/products')} className="bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 h-10 px-5 font-bold">
+                  Voltar
+                </Button>
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* CONTENT WITH TABS */}
       <div className="flex-1 px-4 sm:px-6 pb-12">
@@ -520,11 +534,20 @@ export default function ProductFormPage() {
           </Button>
           {isEditing && (
             <Button 
-              onClick={() => {
+              onClick={async () => {
                 if (window.confirm('Tem certeza que deseja excluir este material? Esta ação não pode ser desfeita.')) {
-                  // Aqui implementaria a chamada de deleção
-                  alert('O material foi excluído com sucesso.');
-                  navigate('/products');
+                  try {
+                    await repo.delete(id!, tenantId);
+                    alert('O material foi excluído com sucesso.');
+                    if (onSaveSuccess) {
+                      onSaveSuccess();
+                    } else {
+                      navigate('/products');
+                    }
+                  } catch (e) {
+                    console.error(e);
+                    alert('Erro ao excluir material.');
+                  }
                 }
               }} 
               className="bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700 border border-red-200 h-12 px-8 font-bold text-base shadow-sm rounded-xl"

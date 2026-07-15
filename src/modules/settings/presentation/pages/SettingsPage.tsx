@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Button } from '@/shared/components/ui/Button';
 import { Input } from '@/shared/components/ui/Input';
 import {
@@ -288,7 +289,7 @@ export default function SettingsPage() {
   const TABS = [
     { id: 'meu_perfil', label: 'Meu Perfil', icon: Eye },
     ...(isAdmin ? [
-      { id: 'operadores', label: 'Operadores & Convites', icon: Users },
+      { id: 'operadores', label: 'Operadores & Convites', icon: Users, href: '/empresa/operadores' },
       { id: 'aprovacoes', label: 'Políticas de Aprovação', icon: Shield },
     ] : []),
   ];
@@ -346,23 +347,27 @@ export default function SettingsPage() {
         )}
       </div>
 
-      {/* Abas */}
       <div className="border-b border-slate-200">
         <nav className="-mb-px flex gap-6">
-          {TABS.map(tab => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id as any)}
-              className={`pb-3 text-sm font-semibold border-b-2 transition-colors flex items-center gap-2 ${
-                activeTab === tab.id
-                  ? 'border-indigo-600 text-indigo-600'
-                  : 'border-transparent text-slate-500 hover:text-slate-700'
-              }`}
-            >
-              <tab.icon className="h-4 w-4" />
-              {tab.label}
-            </button>
-          ))}
+          {TABS.map(tab => {
+            const isLink = 'href' in tab;
+            const Component = isLink ? Link : 'button';
+            const extraProps = isLink ? { to: (tab as any).href } : { onClick: () => setActiveTab(tab.id as any) };
+            return (
+              <Component
+                key={tab.id}
+                {...(extraProps as any)}
+                className={`pb-3 text-sm font-semibold border-b-2 transition-colors flex items-center gap-2 ${
+                  activeTab === tab.id
+                    ? 'border-indigo-600 text-indigo-600'
+                    : 'border-transparent text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                <tab.icon className="h-4 w-4" />
+                {tab.label}
+              </Component>
+            );
+          })}
         </nav>
       </div>
 

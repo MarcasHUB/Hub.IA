@@ -3,9 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/shared/components/ui/Button';
 import { Input } from '@/shared/components/ui/Input';
 import { Badge } from '@/shared/components/ui/Badge';
-import { Search, Plus, Upload, Filter, ShoppingCart, PackageOpen, MoreVertical, ImageOff } from 'lucide-react';
+import { Search, Plus, Upload, Filter, ShoppingCart, PackageOpen, MoreVertical, ImageOff, X } from 'lucide-react';
 import { QuotationTypeModal } from '@/modules/quotations/presentation/components/QuotationTypeModal';
 import { SupabaseProductRepository } from '../../infrastructure/repositories/SupabaseProductRepository';
+import ProductFormPage from './ProductFormPage';
 
 const repo = new SupabaseProductRepository();
 
@@ -26,31 +27,33 @@ interface Product {
 export default function ProductsListPage() {
   const navigate = useNavigate();
   const [products, setProducts] = useState<Product[]>([]);
+  const [editingProductId, setEditingProductId] = useState<string | null>(null);
 
   // Tenant ID mockado temporariamente (em produção virá do auth context)
   const tenantId = '00000000-0000-0000-0000-000000000000';
 
-  useEffect(() => {
-    async function loadProducts() {
-      try {
-        const data = await repo.findAll(tenantId);
-        // Map domain to UI format
-        setProducts(data.map(p => ({
-          id: p.id,
-          name: p.name,
-          sku: p.sku,
-          supplier: p.supplierId || 'Fornecedor',
-          category: p.categoryId || 'Categoria',
-          manufacturer: p.manufacturer || 'Desconhecido',
-          price: p.price,
-          status: p.status === 'Draft' ? 'Draft' : 'Active',
-          updatedAt: p.updatedAt.toISOString().split('T')[0],
-          description: p.description
-        })));
-      } catch (err) {
-        console.error('Failed to load products', err);
-      }
+  async function loadProducts() {
+    try {
+      const data = await repo.findAll(tenantId);
+      // Map domain to UI format
+      setProducts(data.map(p => ({
+        id: p.id,
+        name: p.name,
+        sku: p.sku,
+        supplier: p.supplierId || 'Fornecedor',
+        category: p.categoryId || 'Categoria',
+        manufacturer: p.manufacturer || 'Desconhecido',
+        price: p.price,
+        status: p.status === 'Draft' ? 'Draft' : 'Active',
+        updatedAt: p.updatedAt.toISOString().split('T')[0],
+        description: p.description
+      })));
+    } catch (err) {
+      console.error('Failed to load products', err);
     }
+  }
+
+  useEffect(() => {
     loadProducts();
   }, []);
   
@@ -216,12 +219,30 @@ export default function ProductsListPage() {
                               <div className="fixed inset-0 z-10" onClick={() => setActiveMenu(null)}></div>
                               <div className="absolute right-0 top-10 w-40 bg-white border border-slate-200 rounded-xl shadow-xl z-20 py-1 overflow-hidden">
                                 <button 
-                                  onClick={() => navigate(`/products/${product.id}/edit`)}
+                                  onClick={() => {
+                                    setActiveMenu(null);
+                                    setEditingProductId(product.id);
+                                  }}
                                   className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 hover:text-indigo-600 font-medium"
                                 >
                                   Editar Material
                                 </button>
-                                <button className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 font-medium">
+                                <button 
+                                  onClick={async () => {
+                                    setActiveMenu(null);
+                                    if (window.confirm('Tem certeza que deseja excluir este material? Esta ação não pode ser desfeita.')) {
+                                      try {
+                                        await repo.delete(product.id, tenantId);
+                                        alert('O material foi excluído com sucesso.');
+                                        loadProducts();
+                                      } catch (e) {
+                                        console.error(e);
+                                        alert('Erro ao excluir material.');
+                                      }
+                                    }
+                                  }}
+                                  className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 font-medium"
+                                >
                                   Excluir
                                 </button>
                               </div>
@@ -274,6 +295,35 @@ export default function ProductsListPage() {
         productNames={selectedProductNames} 
         selectedProductIds={selectedProductIds}
       />
+
+      {/* OVERLAY / DRAWER DE EDIÇÃO DE MATERIAL */}
+      {editingProductId && (
+        <div className="fixed inset-0 z-50 flex justify-end bg-slate-900/60 backdrop-blur-sm transition-all duration-300">
+          <div className="w-full max-w-3xl bg-slate-50 h-full shadow-2xl flex flex-col animate-in slide-in-from-right duration-300 overflow-y-auto">
+            {/* Header */}
+            <div className="px-6 py-4 bg-white border-b flex justify-between items-center shrink-0">
+              <h3 className="font-extrabold text-slate-800 text-lg">Editar Material</h3>
+              <button 
+                onClick={() => setEditingProductId(null)}
+                className="p-1.5 hover:bg-slate-100 rounded-full text-slate-400 hover:text-slate-600 transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            {/* Content */}
+            <div className="flex-1 overflow-y-auto">
+              <ProductFormPage 
+                productId={editingProductId} 
+                onClose={() => setEditingProductId(null)}
+                onSaveSuccess={() => {
+                  setEditingProductId(null);
+                  loadProducts();
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
