@@ -103,6 +103,10 @@ export class SupabaseProductRepository implements IProductRepository {
             name: product.name,
             description: product.description,
             unit: product.uom,
+            manufacturer_code: product.manufacturerCode,
+            available_for_purchase: product.availableForPurchase,
+            available_for_sale: product.availableForSale,
+            image_url: product.imageUrl,
             updated_at: new Date().toISOString()
         };
 
@@ -152,7 +156,11 @@ export class SupabaseProductRepository implements IProductRepository {
             ProductStatus.ACTIVE, // status padrão
             new Date(row.created_at),
             new Date(row.updated_at),
-            categoryName
+            categoryName,
+            row.manufacturer_code,
+            row.available_for_purchase ?? true,
+            row.available_for_sale ?? false,
+            row.image_url
         );
     }
 }

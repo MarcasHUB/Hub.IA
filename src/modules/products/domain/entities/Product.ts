@@ -26,6 +26,10 @@ export class Product {
         
         public readonly createdAt: Date = new Date(),
         public updatedAt: Date = new Date(),
-        public readonly categoryName?: string
+        public readonly categoryName?: string,
+        public manufacturerCode?: string,
+        public availableForPurchase: boolean = true,
+        public availableForSale: boolean = false,
+        public imageUrl?: string
     ) {}
 }

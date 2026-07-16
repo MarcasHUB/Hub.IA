@@ -1,18 +1,19 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation, Outlet, useNavigate } from 'react-router-dom';
 import { cn } from '@/shared/utils/cn';
-import { Globe, Settings, ShoppingCart, X, Trash2, MessageSquare } from 'lucide-react';
+import { Globe, Settings, ShoppingCart, X, Trash2, MessageSquare, FileText } from 'lucide-react';
 import { Button } from '@/shared/components/ui/Button';
 import { useQuotationCart } from '@/modules/quotations/presentation/context/QuotationCartContext';
 import { NotificationBell } from '@/modules/notifications/presentation/components/NotificationBell';
 import { useChatDrawer } from '@/modules/messages/presentation/context/ChatDrawerContext';
 import { ChatDrawer } from '@/modules/messages/presentation/components/ChatDrawer';
+import { QuotationTypeModal } from '@/modules/quotations/presentation/components/QuotationTypeModal';
 
 // ─── Itens de navegação central ──────────────────────────────────────────────
 const NAV_ITEMS = [
   { name: 'Dashboard',      href: '/dashboard' },
   { name: 'Meus Parceiros', href: '/suppliers' },
-  { name: 'Produtos',       href: '/products' },
+  { name: 'Materiais',      href: '/products' },
   { name: 'Cotações',       href: '/quotations' },
   { name: 'Minha Empresa',  href: '/empresa' },
 ];
@@ -36,8 +37,9 @@ function CompanyLogo({ logo }: { logo: string | null }) {
 export function AppLayout() {
   const location = useLocation();
   const navigate  = useNavigate();
-  const { items, isCartOpen, setCartOpen, removeItem, updateQuantity } = useQuotationCart();
+  const { items, isCartOpen, setCartOpen, removeItem, updateQuantity, updateNotes, clearCart } = useQuotationCart();
   const { isChatOpen, openChat } = useChatDrawer();
+  const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
 
   const [companyLogo, setCompanyLogo] = useState<string | null>(
     localStorage.getItem('supplyhub_company_logo')
@@ -115,7 +117,58 @@ export function AppLayout() {
 
   const handleFinishQuotation = () => {
     setCartOpen(false);
-    navigate('/quotations/new');
+    setIsPreviewModalOpen(true);
+  };
+
+  const handleSaveQuotation = (data: any) => {
+    const newQuotation = {
+      id: data.code,
+      title: data.productName,
+      type: data.type,
+      itemsCount: items.length,
+      status: 'Open' as const,
+      date: new Date().toLocaleDateString('pt-BR'),
+      targetSupplierName: data.targetSupplierName || 'Fornecedor',
+      requester: data.requester || 'Comprador B2B',
+      deliveryDate: data.deliveryDate,
+      additionalDesc: data.additionalDesc,
+      selectedProducts: items.map(item => ({
+        id: item.productId,
+        name: item.name,
+        price: 150.00,
+        measures: item.uom,
+        manufacturer: item.manufacturer,
+        sku: item.sku,
+        partNumber: item.partNumber
+      })),
+      productQuantities: items.reduce((acc, item) => {
+        acc[item.productId] = String(item.quantity);
+        return acc;
+      }, {} as Record<string, string>),
+      proposals: data.type === 'BID' ? [
+        { supplierName: 'Brasil Cabos', price: items.reduce((sum, i) => sum + i.quantity * 150 * 0.94, 0), deliveryDays: 2, relationshipScore: 95 },
+        { supplierName: 'Eletro Tudo B2B', price: items.reduce((sum, i) => sum + i.quantity * 150 * 0.98, 0), deliveryDays: 3, relationshipScore: 84 },
+        { supplierName: 'Fixação Ind.', price: items.reduce((sum, i) => sum + i.quantity * 150 * 1.02, 0), deliveryDays: 5, relationshipScore: 72 }
+      ] : [
+        { supplierName: data.targetSupplierName || 'Fornecedor Direcionado', price: items.reduce((sum, i) => sum + i.quantity * 150 * 0.95, 0), deliveryDays: 4, relationshipScore: 92 }
+      ]
+    };
+
+    // Salva em supplyhub_quotations (listagem)
+    const savedQuotes = localStorage.getItem('supplyhub_quotations');
+    const quotesList = savedQuotes ? JSON.parse(savedQuotes) : [];
+    quotesList.unshift(newQuotation);
+    localStorage.setItem('supplyhub_quotations', JSON.stringify(quotesList));
+
+    // Salva em supplyhub_sent_quotations (detalhes/comparação)
+    const savedSentQuotes = localStorage.getItem('supplyhub_sent_quotations');
+    const sentQuotesList = savedSentQuotes ? JSON.parse(savedSentQuotes) : [];
+    sentQuotesList.unshift(newQuotation);
+    localStorage.setItem('supplyhub_sent_quotations', JSON.stringify(sentQuotesList));
+    
+    clearCart();
+    setIsPreviewModalOpen(false);
+    navigate('/quotations');
   };
 
   return (
@@ -276,20 +329,24 @@ export function AppLayout() {
             onClick={() => setCartOpen(false)}
           />
           <div className="fixed right-0 top-0 h-full w-96 bg-white shadow-2xl z-50 flex flex-col animate-in slide-in-from-right-full duration-300">
-            <div className="h-16 flex items-center justify-between px-6 border-b border-slate-200">
+            <div className="p-6 border-b border-slate-200 relative shrink-0">
               <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
                 <ShoppingCart className="h-5 w-5 text-indigo-600" />
-                Cotação Atual
+                Carrinho Corporativo
               </h2>
+              <p className="text-xs text-slate-400 mt-1">
+                Revise sua lista de itens antes de gerar a Requisição de Compra (RC).
+              </p>
               <button
                 onClick={() => setCartOpen(false)}
-                className="p-2 hover:bg-slate-100 rounded-full"
+                className="absolute top-4 right-4 p-1.5 hover:bg-slate-100 rounded-full border border-slate-200 transition-colors"
+                title="Fechar"
               >
-                <X className="h-5 w-5 text-slate-500" />
+                <X className="h-4 w-4 text-slate-500" />
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-6 space-y-4">
+            <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-slate-50/30">
               {items.length === 0 ? (
                 <div className="flex flex-col items-center text-center text-slate-400 mt-16 gap-5">
                   <div className="h-20 w-20 rounded-full bg-indigo-50 border-2 border-indigo-100 flex items-center justify-center">
@@ -311,49 +368,86 @@ export function AppLayout() {
                 items.map(item => (
                   <div
                     key={item.productId}
-                    className="flex gap-4 border border-slate-200 p-4 rounded-lg bg-slate-50 relative"
+                    className="border border-slate-200 p-4 rounded-2xl bg-white shadow-sm relative space-y-2 flex flex-col"
                   >
-                    <div className="flex-1">
-                      <h4 className="font-semibold text-slate-900 text-sm leading-tight pr-6">
-                        {item.name}
-                      </h4>
-                      <p className="text-xs text-slate-500 mt-1">
-                        {item.manufacturer} · {item.category}
-                      </p>
-                      <div className="flex items-center gap-3 mt-3">
-                        <div className="flex items-center border border-slate-300 rounded-md bg-white">
-                          <button
-                            onClick={() => updateQuantity(item.productId, item.quantity - 1)}
-                            className="px-2 py-1 text-slate-500 hover:text-slate-900"
-                          >-</button>
-                          <span className="text-sm font-medium w-8 text-center">{item.quantity}</span>
-                          <button
-                            onClick={() => updateQuantity(item.productId, item.quantity + 1)}
-                            className="px-2 py-1 text-slate-500 hover:text-slate-900"
-                          >+</button>
-                        </div>
-                        <span className="text-xs font-medium text-slate-500">{item.uom}</span>
-                      </div>
-                    </div>
                     <button
                       onClick={() => removeItem(item.productId)}
-                      className="absolute top-3 right-3 p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded"
+                      className="absolute top-4 right-4 p-1.5 text-slate-400 hover:text-red-650 hover:bg-red-50 rounded-lg transition-colors"
+                      title="Remover Item"
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>
+
+                    <div className="space-y-1">
+                      {item.category && (
+                        <span className="inline-block text-[8px] font-black uppercase tracking-wider bg-indigo-50/70 text-indigo-700 px-1.5 py-0.5 rounded-md">
+                          {item.category}
+                        </span>
+                      )}
+                      <h4 className="font-bold text-slate-900 text-sm leading-tight pr-8">
+                        {item.name}
+                      </h4>
+                      <p className="text-[10px] font-medium text-slate-450">
+                        SKU: {item.sku || 'N/D'}
+                      </p>
+                      
+                      <div className="flex flex-wrap gap-x-2 gap-y-0.5 pt-0.5 text-[9px] text-slate-500 font-semibold">
+                        {item.manufacturer && <span>Fab: {item.manufacturer}</span>}
+                        {item.partNumber && <span>· PN: {item.partNumber}</span>}
+                        {item.supplier && <span>· Fornec: {item.supplier}</span>}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3 pt-1">
+                      <div className="flex items-center border border-slate-200 rounded-lg bg-white overflow-hidden shadow-sm h-8">
+                        <button
+                          type="button"
+                          onClick={() => updateQuantity(item.productId, item.quantity - 1)}
+                          className="px-2.5 h-full text-slate-500 hover:bg-slate-50 hover:text-slate-900 transition-colors font-bold text-base border-r border-slate-200"
+                        >-</button>
+                        <span className="text-xs font-bold w-8 text-center select-none text-slate-850">{item.quantity}</span>
+                        <button
+                          type="button"
+                          onClick={() => updateQuantity(item.productId, item.quantity + 1)}
+                          className="px-2.5 h-full text-slate-500 hover:bg-slate-50 hover:text-slate-900 transition-colors font-bold text-base border-l border-slate-200"
+                        >+</button>
+                      </div>
+                      <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">{item.uom}</span>
+                    </div>
+
+                    <textarea
+                      value={item.notes || ''}
+                      onChange={(e) => updateNotes(item.productId, e.target.value)}
+                      placeholder="Adicionar observação (ex: Urgente, Especificação técnica...)"
+                      className="w-full text-xs rounded-xl border border-slate-200 px-3 py-2 mt-1 focus:outline-none focus:ring-1 focus:ring-indigo-500 bg-slate-50/50 resize-none h-12 text-slate-650 placeholder:text-slate-400"
+                    />
                   </div>
                 ))
               )}
             </div>
 
             {items.length > 0 && (
-              <div className="p-6 border-t border-slate-200 bg-slate-50">
-                <Button
-                  onClick={handleFinishQuotation}
-                  className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold"
-                >
-                  Revisar Cotação ({items.length} itens)
-                </Button>
+              <div className="p-6 border-t border-slate-200 bg-slate-50/80 space-y-4 shrink-0">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-slate-600">Total de itens:</span>
+                  <span className="text-sm font-bold text-slate-800">{items.length} un.</span>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <Button
+                    variant="outline"
+                    onClick={clearCart}
+                    className="border-slate-300 hover:bg-slate-100 hover:text-slate-800 font-bold h-10 rounded-xl"
+                  >
+                    Limpar
+                  </Button>
+                  <Button
+                    onClick={handleFinishQuotation}
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold h-10 rounded-xl flex items-center justify-center gap-1.5 shadow-md shadow-indigo-900/10"
+                  >
+                    <FileText className="h-4 w-4" />
+                    Gerar Prévia
+                  </Button>
+                </div>
               </div>
             )}
           </div>
@@ -361,6 +455,13 @@ export function AppLayout() {
       )}
       {/* Chat lateral retrátil */}
       <ChatDrawer />
+
+      <QuotationTypeModal 
+        isOpen={isPreviewModalOpen} 
+        onClose={() => setIsPreviewModalOpen(false)} 
+        preselectedProductIds={items.map(item => item.productId)}
+        onSubmit={handleSaveQuotation}
+      />
     </div>
   );
 }

@@ -72,4 +72,45 @@ export class SupabaseProductSupplierRepository implements IProductSupplierReposi
         
         return data.map(row => row.supplier_id);
     }
+
+    async getSupplierLinksByProduct(productId: string): Promise<any[]> {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return [];
+
+        const { data: roleData } = await supabase.from('user_roles').select('organization_id').eq('user_id', user.id).single();
+        if (!roleData) return [];
+
+        const organizationId = roleData.organization_id;
+
+        const { data, error } = await supabase
+            .from('product_suppliers')
+            .select('*, suppliers(*)')
+            .eq('product_id', productId)
+            .eq('organization_id', organizationId);
+
+        if (error || !data) return [];
+        return data;
+    }
+
+    async updateSupplierLink(productId: string, supplierId: string, payload: any): Promise<void> {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) throw new Error("Usuário não autenticado");
+
+        const { data: roleData } = await supabase.from('user_roles').select('organization_id').eq('user_id', user.id).single();
+        if (!roleData) return;
+
+        const organizationId = roleData.organization_id;
+
+        const { error } = await supabase
+            .from('product_suppliers')
+            .update(payload)
+            .eq('product_id', productId)
+            .eq('supplier_id', supplierId)
+            .eq('organization_id', organizationId);
+
+        if (error) {
+            console.error('Supabase updateSupplierLink error:', error);
+            throw error;
+        }
+    }
 }

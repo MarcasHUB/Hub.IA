@@ -5,6 +5,7 @@ import { Input } from '@/shared/components/ui/Input';
 import { Badge } from '@/shared/components/ui/Badge';
 import { Search, Plus, Upload, Filter, ShoppingCart, PackageOpen, MoreVertical, ImageOff, X } from 'lucide-react';
 import { QuotationTypeModal } from '@/modules/quotations/presentation/components/QuotationTypeModal';
+import { useQuotationCart } from '@/modules/quotations/presentation/context/QuotationCartContext';
 import { SupabaseProductRepository } from '../../infrastructure/repositories/SupabaseProductRepository';
 import ProductFormPage from './ProductFormPage';
 
@@ -24,6 +25,7 @@ interface Product {
   updatedAt: string;
   description?: string;
   imageUrl?: string;
+  availableForPurchase: boolean;
 }
 
 export default function ProductsListPage() {
@@ -45,12 +47,14 @@ export default function ProductsListPage() {
         unit: p.uom || 'UN',
         partNumber: 'PN-' + p.sku,
         supplier: p.supplierId || 'Fornecedor',
-        category: p.categoryName || p.categoryId || 'Categoria',
+        category: p.categoryName || 'Sem segmento',
         manufacturer: p.manufacturer || 'Desconhecido',
         price: p.price,
         status: p.status === 'Draft' ? 'Draft' : 'Active',
         updatedAt: p.updatedAt.toISOString().split('T')[0],
-        description: p.description
+        description: p.description,
+        imageUrl: p.imageUrl,
+        availableForPurchase: p.availableForPurchase ?? true
       })));
     } catch (err) {
       console.error('Failed to load products', err);
@@ -62,9 +66,11 @@ export default function ProductsListPage() {
   }, []);
   
   const [search, setSearch] = useState('');
-  const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
+  const { items, addItem, removeItem, clearCart } = useQuotationCart();
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
   const [isQuoteModalOpen, setIsQuoteModalOpen] = useState(false);
+
+  const selectedProductIds = useMemo(() => items.map(item => item.productId), [items]);
 
   const filteredProducts = useMemo(() => {
     if (!search) return products;
@@ -76,16 +82,28 @@ export default function ProductsListPage() {
     );
   }, [products, search]);
 
-  const handleToggleSelect = (id: string) => {
-    setSelectedProductIds(prev =>
-      prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
-    );
+  const handleToggleSelect = (product: Product) => {
+    const isSelected = selectedProductIds.includes(product.id);
+    if (isSelected) {
+      removeItem(product.id);
+    } else {
+      addItem({
+        productId: product.id,
+        name: product.name,
+        uom: product.unit,
+        quantity: 1,
+        manufacturer: product.manufacturer,
+        category: product.category,
+        sku: product.sku,
+        partNumber: product.partNumber,
+        supplier: product.supplier
+      });
+    }
   };
 
   const selectedProductNames = useMemo(() => {
-    const selected = products.filter(p => selectedProductIds.includes(p.id));
-    return selected.map(p => p.name).join(', ');
-  }, [selectedProductIds, products]);
+    return items.map(p => p.name).join(', ');
+  }, [items]);
 
   return (
     <div className="flex-1 bg-slate-50 min-h-full flex flex-col font-sans">
@@ -122,8 +140,16 @@ export default function ProductsListPage() {
                 placeholder="Busque por Nome, SKU, Fabricante..." 
                 value={search}
                 onChange={e => setSearch(e.target.value)}
-                className="pl-11 bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500 h-11 rounded-xl focus:border-indigo-500"
+                className="pl-11 pr-20 bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500 h-11 rounded-xl focus:border-indigo-500"
               />
+              {search && (
+                <button
+                  onClick={() => setSearch('')}
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400 hover:text-white transition-colors"
+                >
+                  Limpar
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -161,7 +187,7 @@ export default function ProductsListPage() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="ghost" onClick={() => setSelectedProductIds([])} className="text-slate-400 hover:text-white hover:bg-slate-800 text-xs">
+            <Button variant="ghost" onClick={clearCart} className="text-slate-400 hover:text-white hover:bg-slate-800 text-xs">
               Limpar
             </Button>
             <Button onClick={() => setIsQuoteModalOpen(true)} className="bg-indigo-500 hover:bg-indigo-400 text-white font-bold h-9">
@@ -188,13 +214,13 @@ export default function ProductsListPage() {
               </Button>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 pb-24">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 2xl:grid-cols-5 gap-6 pb-24">
               {filteredProducts.map(product => {
                 const isSelected = selectedProductIds.includes(product.id);
                 return (
                   <div 
                     key={product.id}
-                    className={`group relative bg-white border rounded-2xl transition-all duration-200 ${isSelected ? 'border-indigo-500 shadow-md shadow-indigo-100 ring-1 ring-indigo-500' : 'border-slate-200 hover:border-slate-300 hover:shadow-sm'}`}
+                    className={`group relative bg-white border rounded-2xl flex flex-col transition-all duration-150 ease-out hover:-translate-y-[2px] hover:shadow-lg hover:border-slate-300 ${isSelected ? 'border-indigo-500 shadow-md shadow-indigo-100 ring-1 ring-indigo-500' : 'border-slate-200 hover:shadow-sm'}`}
                   >
                     {/* Imagem Cover / Placeholder */}
                     <div className="aspect-[4/3] w-full bg-slate-50 border-b border-slate-100 flex flex-col items-center justify-center relative rounded-t-2xl group-hover:bg-slate-100/50 transition-colors">
@@ -263,7 +289,7 @@ export default function ProductsListPage() {
                       </div>
                     </div>
 
-                    <div className="p-4 flex flex-col h-full">
+                    <div className="p-4 flex flex-col flex-1">
                       <div className="flex items-center justify-between mb-2">
                         <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">SKU: {product.sku}</span>
                         <Badge variant="outline" className="text-[10px] font-bold bg-slate-50 text-slate-600 border-slate-200">
@@ -291,16 +317,18 @@ export default function ProductsListPage() {
                         <p className="text-xs text-slate-500 mb-3 line-clamp-1">{product.description}</p>
                       )}
 
-                      <div className="mt-auto pt-2">
-                        <Button 
-                          onClick={() => handleToggleSelect(product.id)}
-                          className={`w-full font-bold h-9 transition-all ${isSelected ? 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200 border-indigo-300 ring-1 ring-indigo-500/20 shadow-sm' : 'bg-indigo-50/70 text-indigo-600 hover:bg-indigo-100 border-transparent'}`}
-                          variant="outline"
-                        >
-                          <ShoppingCart className="h-4 w-4 mr-2" />
-                          {isSelected ? 'Na Requisição' : 'Adicionar à RC'}
-                        </Button>
-                      </div>
+                      {product.availableForPurchase && (
+                        <div className="mt-auto pt-2">
+                          <Button 
+                            onClick={() => handleToggleSelect(product)}
+                            className={`w-full font-bold h-9 transition-all border-none ${isSelected ? 'bg-indigo-700 text-white shadow-sm' : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white'}`}
+                            variant="outline"
+                          >
+                            <ShoppingCart className="h-4 w-4 mr-2" />
+                            {isSelected ? 'No Carrinho' : 'Adicionar ao Carrinho'}
+                          </Button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 );
@@ -314,7 +342,7 @@ export default function ProductsListPage() {
         isOpen={isQuoteModalOpen} 
         onClose={() => setIsQuoteModalOpen(false)} 
         productNames={selectedProductNames} 
-        selectedProductIds={selectedProductIds}
+        preselectedProductIds={selectedProductIds}
       />
 
       {/* OVERLAY / MODAL CENTRAL DE EDIÇÃO DE MATERIAL */}

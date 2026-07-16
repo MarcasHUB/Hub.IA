@@ -7,6 +7,10 @@ export interface CartItem {
     quantity: number;
     manufacturer: string;
     category: string;
+    sku?: string;
+    partNumber?: string;
+    supplier?: string;
+    notes?: string;
 }
 
 interface QuotationCartContextType {
@@ -14,6 +18,7 @@ interface QuotationCartContextType {
     addItem: (item: CartItem) => void;
     removeItem: (productId: string) => void;
     updateQuantity: (productId: string, quantity: number) => void;
+    updateNotes: (productId: string, notes: string) => void;
     clearCart: () => void;
     isCartOpen: boolean;
     setCartOpen: (open: boolean) => void;
@@ -45,13 +50,17 @@ export function QuotationCartProvider({ children }: { children: React.ReactNode 
         setItems(prev => prev.map(i => i.productId === productId ? { ...i, quantity } : i));
     };
 
+    const updateNotes = (productId: string, notes: string) => {
+        setItems(prev => prev.map(i => i.productId === productId ? { ...i, notes } : i));
+    };
+
     const clearCart = () => {
         setItems([]);
         setCartOpen(false);
     };
 
     return (
-        <QuotationCartContext.Provider value={{ items, addItem, removeItem, updateQuantity, clearCart, isCartOpen, setCartOpen }}>
+        <QuotationCartContext.Provider value={{ items, addItem, removeItem, updateQuantity, updateNotes, clearCart, isCartOpen, setCartOpen }}>
             {children}
         </QuotationCartContext.Provider>
     );

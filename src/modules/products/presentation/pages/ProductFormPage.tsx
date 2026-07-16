@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Button } from '@/shared/components/ui/Button';
 import { Input } from '@/shared/components/ui/Input';
@@ -20,11 +20,13 @@ import {
 
 import { SupabaseProductRepository } from '../../infrastructure/repositories/SupabaseProductRepository';
 import { SupabaseProductSupplierRepository } from '../../infrastructure/repositories/SupabaseProductSupplierRepository';
+import { SupabaseSegmentRepository } from '../../../employees/infrastructure/repositories/SupabaseSegmentRepository';
 import { Product, ProductStatus } from '../../domain/entities/Product'; 
 import { LinkSupplierModal } from '../components/LinkSupplierModal';
 
 const repo = new SupabaseProductRepository();
 const productSupplierRepo = new SupabaseProductSupplierRepository();
+const segmentRepo = new SupabaseSegmentRepository();
 const tenantId = '00000000-0000-0000-0000-000000000000'; // Mocked tenant ID
 
 export default function ProductFormPage({
@@ -41,11 +43,13 @@ export default function ProductFormPage({
   const id = productId || routeId;
   const isEditing = Boolean(id);
 
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const [activeTab, setActiveTab] = useState('basic');
 
   // Aggregates State
   const [basicInfo, setBasicInfo] = useState({
-    name: '', sku: '', manufacturer: '', description: '', status: 'Active', imageUrl: ''
+    name: '', sku: '', manufacturer: '', description: '', status: 'Active', imageUrl: '', manufacturerCode: '', availableForPurchase: true, availableForSale: false
   });
   const [classification, setClassification] = useState({
     category: '', subcategory: '', purchasingGroup: '', ncm: '', baseUom: ''
@@ -61,9 +65,57 @@ export default function ProductFormPage({
   const [suppliers, setSuppliers] = useState<{id: string, name: string, document: string}[]>([]);
   const [isLinkModalOpen, setIsLinkModalOpen] = useState(false);
 
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      // Generate a local preview URL
+      const objectUrl = URL.createObjectURL(file);
+      setBasicInfo(prev => ({ ...prev, imageUrl: objectUrl }));
+    }
+  };
+
+  // Semelhantes / IA Search
+  const [similarProduct, setSimilarProduct] = useState<Product | null>(null);
+  const [isSimilarModalOpen, setIsSimilarModalOpen] = useState(false);
+
+  // Segmentos
+  const [availableSegments, setAvailableSegments] = useState<{id: string, nome: string}[]>([]);
+
+  // Debounce search on manufacturerCode
+  useEffect(() => {
+    if (isEditing || !basicInfo.manufacturerCode || basicInfo.manufacturerCode.length < 3) return;
+
+    const timer = setTimeout(async () => {
+      try {
+        const products = await repo.findAll(tenantId);
+        // Busca determinística por Código do Fabricante ou Nome
+        const match = products.find(p => 
+          p.manufacturerCode === basicInfo.manufacturerCode ||
+          p.name.toLowerCase() === basicInfo.name.toLowerCase()
+        );
+        
+        if (match && match.id !== id) {
+          setSimilarProduct(match);
+          setIsSimilarModalOpen(true);
+        }
+      } catch(e) {
+        console.error(e);
+      }
+    }, 800);
+
+    return () => clearTimeout(timer);
+  }, [basicInfo.manufacturerCode, basicInfo.name, isEditing, id]);
+
   // Load existing data if editing
   useEffect(() => {
     async function loadData() {
+      try {
+        const segs = await segmentRepo.listSegments(tenantId);
+        setAvailableSegments(segs.filter(s => s.status === 'ativo').map(s => ({id: s.id, nome: s.nome})));
+      } catch(e) {
+        console.error("Failed to load segments", e);
+      }
+
       if (isEditing && id) {
         try {
           const product = await repo.findById(id, tenantId);
@@ -73,7 +125,11 @@ export default function ProductFormPage({
               name: product.name || '',
               sku: product.sku || '',
               manufacturer: product.manufacturer || '',
+              manufacturerCode: product.manufacturerCode || '',
               description: product.description || '',
+              imageUrl: product.imageUrl || '',
+              availableForPurchase: product.availableForPurchase ?? true,
+              availableForSale: product.availableForSale ?? false,
               status: product.status === ProductStatus.DRAFT ? 'Draft' : 'Active'
             }));
             setClassification(prev => ({
@@ -120,7 +176,12 @@ export default function ProductFormPage({
         Number(commercial.targetPrice) || 0,
         basicInfo.status === 'Draft' ? ProductStatus.DRAFT : ProductStatus.ACTIVE,
         new Date(),
-        new Date()
+        new Date(),
+        undefined, // categoryName (not needed for save)
+        basicInfo.manufacturerCode,
+        basicInfo.availableForPurchase,
+        basicInfo.availableForSale,
+        basicInfo.imageUrl
       );
 
       await repo.save(newProduct);
@@ -211,36 +272,71 @@ export default function ProductFormPage({
           <div className="flex-1 bg-white rounded-2xl border border-slate-200 shadow-sm p-6 sm:p-8 min-h-[500px]">
             
             {activeTab === 'basic' && (
-              <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                <div className="border-b border-slate-100 pb-4">
-                  <h3 className="text-lg font-bold text-slate-900">Informações Básicas</h3>
-                  <p className="text-sm text-slate-500">Dados principais de identificação do produto.</p>
-                </div>
-                
-                <div className="flex flex-col md:flex-row gap-8">
-                  {/* Image Upload Area */}
-                  <div className="w-full md:w-64 shrink-0 space-y-3">
-                    <Label>Foto do Produto</Label>
-                    <div className="aspect-square w-full rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50 flex flex-col items-center justify-center text-slate-400 hover:bg-slate-100 hover:border-slate-300 transition-colors cursor-pointer overflow-hidden relative group">
-                      {basicInfo.imageUrl ? (
-                        <img src={basicInfo.imageUrl} alt="Preview" className="w-full h-full object-cover" />
-                      ) : (
-                        <>
-                          <ImageIcon className="h-8 w-8 mb-2 text-slate-300" />
-                          <span className="text-xs font-medium">Upload Imagem</span>
-                        </>
-                      )}
+              <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                <div className="flex flex-col gap-6">
+                  {/* Utilização do Item */}
+                  <div className="bg-slate-50 border border-slate-100 rounded-xl p-4 flex gap-6 items-center">
+                    <div>
+                      <h4 className="text-sm font-bold text-slate-900">Utilização do Item</h4>
+                      <p className="text-xs text-slate-500">Defina os fluxos operacionais B2B para este material.</p>
                     </div>
-                    <Input 
-                      placeholder="URL da imagem (Opcional)" 
-                      value={basicInfo.imageUrl}
-                      onChange={e => setBasicInfo({...basicInfo, imageUrl: e.target.value})}
-                      className="text-xs h-9"
-                    />
+                    <div className="flex gap-4 ml-auto">
+                      <label className="flex items-center gap-2 cursor-pointer bg-white px-3 py-2 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors shadow-sm">
+                        <input 
+                          type="checkbox" 
+                          checked={basicInfo.availableForPurchase} 
+                          onChange={e => setBasicInfo({...basicInfo, availableForPurchase: e.target.checked})}
+                          className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 w-4 h-4"
+                        />
+                        <span className="text-sm font-medium text-slate-700">Disponível para Compra</span>
+                      </label>
+                      <label className="flex items-center gap-2 cursor-pointer bg-white px-3 py-2 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors shadow-sm">
+                        <input 
+                          type="checkbox" 
+                          checked={basicInfo.availableForSale} 
+                          onChange={e => setBasicInfo({...basicInfo, availableForSale: e.target.checked})}
+                          className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 w-4 h-4"
+                        />
+                        <span className="text-sm font-medium text-slate-700">Disponível para Venda</span>
+                      </label>
+                    </div>
                   </div>
 
-                  {/* Fields */}
-                  <div className="flex-1 space-y-6">
+                  <div className="flex-1 space-y-5">
+                    {/* Linha 1 */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="space-y-2">
+                        <Label>Código do Fabricante *</Label>
+                        <Input 
+                          value={basicInfo.manufacturerCode} 
+                          onChange={e => setBasicInfo({...basicInfo, manufacturerCode: e.target.value})}
+                          placeholder="Ex: PN-12345"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Fabricante / Marca *</Label>
+                        <Input 
+                          value={basicInfo.manufacturer} 
+                          onChange={e => setBasicInfo({...basicInfo, manufacturer: e.target.value})}
+                          placeholder="Ex: Volk, 3M"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Segmento</Label>
+                        <select 
+                           value={classification.category} 
+                           onChange={e => setClassification({...classification, category: e.target.value})}
+                           className="flex h-9 w-full rounded-md border border-slate-200 bg-white px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-slate-950 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                           <option value="">Selecione...</option>
+                           {availableSegments.map(s => (
+                             <option key={s.id} value={s.id}>{s.nome}</option>
+                           ))}
+                        </select>
+                      </div>
+                    </div>
+                    
+                    {/* Linha 2 */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label>Nome do Produto *</Label>
@@ -251,7 +347,7 @@ export default function ProductFormPage({
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label>SKU / Código Interno *</Label>
+                        <Label>SKU / Código Interno</Label>
                         <Input 
                           value={basicInfo.sku} 
                           onChange={e => setBasicInfo({...basicInfo, sku: e.target.value})}
@@ -259,38 +355,54 @@ export default function ProductFormPage({
                         />
                       </div>
                     </div>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label>Fabricante / Marca</Label>
+
+                    {/* Linha 3 */}
+                    <div className="flex flex-col md:flex-row gap-5">
+                      <div className="w-full md:w-64 shrink-0 space-y-3">
+                        <Label>Foto do Produto</Label>
+                        <div 
+                          className="aspect-[4/3] w-full rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50 flex flex-col items-center justify-center text-slate-400 hover:bg-slate-100 hover:border-slate-300 transition-colors cursor-pointer overflow-hidden relative group"
+                          onClick={() => fileInputRef.current?.click()}
+                        >
+                          {basicInfo.imageUrl ? (
+                            <img src={basicInfo.imageUrl} alt="Preview" className="w-full h-full object-cover" />
+                          ) : (
+                            <>
+                              <ImageIcon className="h-8 w-8 mb-2 text-slate-300" />
+                              <span className="text-xs font-medium">Upload Imagem</span>
+                            </>
+                          )}
+                        </div>
+                        <input 
+                          type="file" 
+                          ref={fileInputRef} 
+                          className="hidden" 
+                          accept="image/*" 
+                          onChange={handleImageUpload} 
+                        />
                         <Input 
-                          value={basicInfo.manufacturer} 
-                          onChange={e => setBasicInfo({...basicInfo, manufacturer: e.target.value})}
-                          placeholder="Ex: Volk, 3M"
+                          placeholder="URL da imagem (Opcional)" 
+                          value={basicInfo.imageUrl}
+                          onChange={e => setBasicInfo({...basicInfo, imageUrl: e.target.value})}
+                          className="text-xs h-9"
                         />
                       </div>
-                      <div className="space-y-2">
-                        <Label>Status Master</Label>
-                        <select 
-                          className="w-full h-10 px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                          value={basicInfo.status}
-                          onChange={e => setBasicInfo({...basicInfo, status: e.target.value})}
-                        >
-                          <option value="Active">Ativo</option>
-                          <option value="Inactive">Inativo</option>
-                          <option value="Draft">Rascunho</option>
-                        </select>
-                      </div>
-                    </div>
 
-                    <div className="space-y-2">
-                      <Label>Descrição Técnica</Label>
-                      <textarea 
-                        className="w-full min-h-[120px] p-3 bg-white border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                        placeholder="Detalhes completos, norma técnica, material..."
-                        value={basicInfo.description}
-                        onChange={e => setBasicInfo({...basicInfo, description: e.target.value})}
-                      />
+                      <div className="flex-1 space-y-2">
+                        <Label>Descrição Técnica</Label>
+                        <textarea 
+                          className="w-full min-h-[80px] max-h-[100px] resize-y p-3 bg-white border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                          placeholder="Detalhes completos, norma técnica, material..."
+                          maxLength={250}
+                          value={basicInfo.description}
+                          onChange={e => setBasicInfo({...basicInfo, description: e.target.value})}
+                        />
+                        <div className="text-right">
+                          <span className="text-[10px] text-slate-400 font-medium">
+                            {basicInfo.description.length}/250
+                          </span>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -468,25 +580,44 @@ export default function ProductFormPage({
                 {suppliers.length === 0 ? (
                   <div className="py-12 text-center border-2 border-dashed border-slate-200 rounded-xl bg-slate-50">
                     <Users className="h-10 w-10 text-slate-300 mx-auto mb-3" />
-                    <h4 className="text-sm font-medium text-slate-900">Nenhum fornecedor vinculado</h4>
+                    <h4 className="text-sm font-medium text-slate-900">Base de Abastecimento Vazia</h4>
                     <p className="text-sm text-slate-500 mt-1">Clique em "Vincular Fornecedor" para adicionar parceiros.</p>
                   </div>
                 ) : (
-                  <div className="border rounded-xl bg-white overflow-hidden">
-                    <table className="w-full text-sm text-left">
+                  <div className="border rounded-xl bg-white overflow-hidden overflow-x-auto">
+                    <table className="w-full text-sm text-left whitespace-nowrap">
                       <thead className="bg-slate-50 border-b text-slate-600 font-medium">
                         <tr>
-                          <th className="px-6 py-4">Nome do Fornecedor</th>
-                          <th className="px-6 py-4">Documento</th>
-                          <th className="px-6 py-4 text-right">Ações</th>
+                          <th className="px-4 py-3">Fornecedor</th>
+                          <th className="px-4 py-3">Cód. no Fornec.</th>
+                          <th className="px-4 py-3 text-center">Pref.</th>
+                          <th className="px-4 py-3 text-right">Und. Compra</th>
+                          <th className="px-4 py-3 text-right">MOQ</th>
+                          <th className="px-4 py-3 text-right">Lead Time</th>
+                          <th className="px-4 py-3 text-center">Contrato</th>
+                          <th className="px-4 py-3 text-right">Ações</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y">
                         {suppliers.map(s => (
                           <tr key={s.id} className="hover:bg-slate-50/50">
-                            <td className="px-6 py-4 font-medium text-slate-900">{s.name}</td>
-                            <td className="px-6 py-4 text-slate-500">{s.document}</td>
-                            <td className="px-6 py-4 text-right">
+                            <td className="px-4 py-3 font-medium text-slate-900">
+                              {s.name}
+                              <div className="text-xs text-slate-500">{s.document}</div>
+                            </td>
+                            <td className="px-4 py-3 text-slate-500">{(s as any).supplierCode || '-'}</td>
+                            <td className="px-4 py-3 text-center">
+                              {(s as any).isPreferred ? (
+                                <span className="inline-flex items-center justify-center bg-green-100 text-green-700 w-5 h-5 rounded-full text-xs">★</span>
+                              ) : '-'}
+                            </td>
+                            <td className="px-4 py-3 text-right text-slate-500">{(s as any).purchaseUnit || 'UN'}</td>
+                            <td className="px-4 py-3 text-right text-slate-500">{(s as any).moq || 1}</td>
+                            <td className="px-4 py-3 text-right text-slate-500">{(s as any).leadTimeDays ? `${(s as any).leadTimeDays} d` : '-'}</td>
+                            <td className="px-4 py-3 text-center">
+                              {(s as any).hasContract ? <span className="text-green-600 text-xs font-bold">Sim</span> : <span className="text-slate-400 text-xs">Não</span>}
+                            </td>
+                            <td className="px-4 py-3 text-right">
                               <Button 
                                 variant="outline" 
                                 size="sm" 
@@ -553,6 +684,57 @@ export default function ProductFormPage({
             </Button>
           )}
         </div>
+
+        {/* Similar Product Modal */}
+        {isSimilarModalOpen && similarProduct && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
+            <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6 border border-slate-200 animate-in zoom-in-95 duration-200">
+              <div className="flex flex-col items-center text-center space-y-4 mb-6">
+                <div className="w-12 h-12 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center">
+                  <Package className="h-6 w-6" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-slate-900">Encontramos um material semelhante.</h3>
+                  <p className="text-sm text-slate-500 mt-1">
+                    Deseja visualizar o cadastro antes de criar um novo?
+                  </p>
+                </div>
+                <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 w-full text-left">
+                  <p className="text-sm font-semibold text-slate-900">{similarProduct.name}</p>
+                  <p className="text-xs text-slate-500 mt-1">SKU: {similarProduct.sku}</p>
+                  <p className="text-xs text-slate-500">Fabricante: {similarProduct.manufacturerCode || similarProduct.manufacturer}</p>
+                </div>
+              </div>
+              <div className="flex flex-col gap-3">
+                <Button 
+                  onClick={() => {
+                    setIsSimilarModalOpen(false);
+                    navigate(`/products/${similarProduct.id}`);
+                  }} 
+                  className="w-full bg-indigo-600 hover:bg-indigo-700 text-white h-11"
+                >
+                  Visualizar cadastro
+                </Button>
+                <Button 
+                  onClick={() => setIsSimilarModalOpen(false)} 
+                  variant="outline"
+                  className="w-full h-11 bg-white"
+                >
+                  Continuar criando novo
+                </Button>
+                <button 
+                  onClick={() => {
+                    setIsSimilarModalOpen(false);
+                    setBasicInfo({...basicInfo, manufacturerCode: ''});
+                  }}
+                  className="w-full py-2 text-sm text-slate-500 hover:text-slate-700 font-medium"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
       </div>
     </div>
