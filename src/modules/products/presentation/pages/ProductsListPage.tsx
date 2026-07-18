@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/shared/components/ui/Button';
-import { Input } from '@/shared/components/ui/Input';
+import { ClearableInput } from '@/shared/components/ui/ClearableInput';
 import { Badge } from '@/shared/components/ui/Badge';
 import { Search, Plus, Upload, Filter, ShoppingCart, PackageOpen, MoreVertical, ImageOff, X } from 'lucide-react';
 import { QuotationTypeModal } from '@/modules/quotations/presentation/components/QuotationTypeModal';
@@ -136,20 +136,13 @@ export default function ProductsListPage() {
           <div className="flex gap-4">
             <div className="relative flex-1 max-w-2xl">
               <Search className="absolute left-3.5 top-3 h-5 w-5 text-slate-400" />
-              <Input 
+              <ClearableInput 
                 placeholder="Busque por Nome, SKU, Fabricante..." 
                 value={search}
-                onChange={e => setSearch(e.target.value)}
-                className="pl-11 pr-20 bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500 h-11 rounded-xl focus:border-indigo-500"
+                onChange={setSearch}
+                onClear={() => setSearch('')}
+                className="pl-11 bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500 h-11 rounded-xl focus:border-indigo-500"
               />
-              {search && (
-                <button
-                  onClick={() => setSearch('')}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400 hover:text-white transition-colors"
-                >
-                  Limpar
-                </button>
-              )}
             </div>
           </div>
         </div>
@@ -214,7 +207,7 @@ export default function ProductsListPage() {
               </Button>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 2xl:grid-cols-5 gap-6 pb-24">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6 pb-24">
               {filteredProducts.map(product => {
                 const isSelected = selectedProductIds.includes(product.id);
                 return (
@@ -267,14 +260,14 @@ export default function ProductsListPage() {
                                 <button 
                                   onClick={async () => {
                                     setActiveMenu(null);
-                                    if (window.confirm('Tem certeza que deseja excluir este material? Esta ação não pode ser desfeita.')) {
+                                    if (window.confirm('Tem certeza que deseja inativar/excluir este material?')) {
                                       try {
                                         await repo.delete(product.id, tenantId);
-                                        alert('O material foi excluído com sucesso.');
+                                        alert('O material foi inativado/excluído com sucesso.');
                                         loadProducts();
-                                      } catch (e) {
+                                      } catch (e: any) {
                                         console.error(e);
-                                        alert('Erro ao excluir material.');
+                                        alert(e.message || 'Erro ao excluir material.');
                                       }
                                     }
                                   }}
@@ -347,8 +340,8 @@ export default function ProductsListPage() {
 
       {/* OVERLAY / MODAL CENTRAL DE EDIÇÃO DE MATERIAL */}
       {editingProductId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 transition-all duration-300">
-          <div className="w-full max-w-5xl h-[85vh] bg-white rounded-2xl shadow-2xl flex flex-col animate-in fade-in zoom-in-95 duration-200 overflow-hidden border border-slate-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-2 sm:p-4 transition-all duration-300">
+          <div className="w-full max-w-7xl h-[95vh] sm:h-[90vh] bg-white rounded-2xl shadow-2xl flex flex-col animate-in fade-in zoom-in-95 duration-200 overflow-hidden border border-slate-200">
             {/* Header */}
             <div className="px-6 py-4 bg-white border-b border-slate-100 flex justify-between items-center shrink-0">
               <div className="flex items-center gap-2">

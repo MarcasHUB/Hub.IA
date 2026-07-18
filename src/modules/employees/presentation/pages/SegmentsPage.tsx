@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/shared/components/ui/Button';
 import { Input } from '@/shared/components/ui/Input';
+import { ClearableInput } from '@/shared/components/ui/ClearableInput';
 import { Card, CardContent } from '@/shared/components/ui/Card';
 import { Segment } from '@/modules/employees/domain/entities/Segment';
 import { SupabaseSegmentRepository } from '../../infrastructure/repositories/SupabaseSegmentRepository';
@@ -191,10 +192,11 @@ export default function SegmentsPage() {
         <CardContent className="p-5 flex flex-col sm:flex-row gap-4 items-center justify-between">
           <div className="relative w-full sm:max-w-md">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-            <Input
+            <ClearableInput
               placeholder="Buscar segmento..."
               value={search}
-              onChange={e => setSearch(e.target.value)}
+              onChange={setSearch}
+              onClear={() => setSearch('')}
               className="pl-10 h-10 text-sm"
             />
           </div>

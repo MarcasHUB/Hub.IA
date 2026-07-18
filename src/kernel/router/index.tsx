@@ -23,6 +23,7 @@ const QuotationResponsePage = React.lazy(() => import('../../modules/quotations/
 const SettingsPage = React.lazy(() => import('../../modules/settings/presentation/pages/SettingsPage'));
 const MinhaEmpresaPage = React.lazy(() => import('../../modules/organizations/presentation/pages/MinhaEmpresaPage'));
 const AcceptInvitePage = React.lazy(() => import('../../modules/employees/presentation/pages/AcceptInvitePage'));
+const AppAccessChoicePage = React.lazy(() => import('../../modules/landing/presentation/pages/AppAccessChoicePage'));
 
 const SuspenseWrapper = ({ children }: { children: React.ReactNode }) => (
   <Suspense fallback={<div className="p-8 flex justify-center text-slate-500">Carregando...</div>}>
@@ -34,6 +35,10 @@ export const router = createBrowserRouter([
   {
     path: '/',
     element: <LandingPage />,
+  },
+  {
+    path: '/pwa-choice',
+    element: <SuspenseWrapper><AppAccessChoicePage /></SuspenseWrapper>,
   },
   {
     path: '/preview-header',

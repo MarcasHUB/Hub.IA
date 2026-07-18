@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Button } from '@/shared/components/ui/Button';
 import { Card, CardContent } from '@/shared/components/ui/Card';
 import { Badge } from '@/shared/components/ui/Badge';
-import { Check, Trophy, AlertCircle, X, FileText, ShoppingBag, Bell, CheckCircle2, XCircle, PackageOpen, Clock } from 'lucide-react';
+import { Check, Trophy, AlertCircle, X, FileText, Bell, CheckCircle2, XCircle, PackageOpen, Clock } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
@@ -260,8 +260,6 @@ export default function QuotationComparisonPage() {
     setTimeout(() => setToast(null), 4000);
   };
 
-  const [isPCModalOpen, setIsPCModalOpen] = useState(false);
-
   const handleAccept = () => {
     const recommended = qData.proposals.find(p => p.isBest) || qData.proposals[0];
     setWinnerSupplier(recommended?.supplierName ?? qData.recommendedSupplier);
@@ -392,51 +390,6 @@ export default function QuotationComparisonPage() {
     printWindow.document.close();
   };
 
-  const handleEmitPC = () => {
-    setIsPCModalOpen(true);
-  };
-
-  const handleDownloadPCJson = () => {
-    const winner = qData.proposals.find(p => p.supplierName === winnerSupplier) || qData.proposals[0];
-    
-    const pcData = {
-      documento: "Pedido de Compra (PC)",
-      numero_requisicao: qData.id,
-      status: "Aprovado",
-      data_emissao: new Date().toLocaleDateString('pt-BR'),
-      comprador: {
-        nome: "Vinicius Cordebello",
-        empresa: localStorage.getItem('supplyhub_company_name') || "SupplyHub.IA",
-        email: "vinicius@supplyhub.com.br"
-      },
-      fornecedor_vencedor: {
-        nome: winner.supplierName,
-        ratingClass: winner.rank,
-        score: winner.supplierName === 'Brasil Cabos' ? 93 : winner.supplierName === 'Eletro Tudo B2B' ? 88 : 72
-      },
-      itens: qData.itemsRef.map((item: any, idx: number) => ({
-        item_id: idx + 1,
-        nome: item.name,
-        preco_unitario: winner.prices[idx] || 0.0,
-        quantidade: 1,
-        subtotal: winner.prices[idx] || 0.0
-      })),
-      valor_total_pedido: winner.totalGlobal,
-      integracao_erp: {
-        status: "Pronto para Transmissão",
-        layout: "RFC_PO_CREATE"
-      }
-    };
-
-    const jsonString = `data:text/json;charset=utf-8,${encodeURIComponent(JSON.stringify(pcData, null, 2))}`;
-    const downloadAnchor = document.createElement('a');
-    downloadAnchor.setAttribute('href', jsonString);
-    downloadAnchor.setAttribute('download', `pedido-compra-${qData.id}.json`);
-    document.body.appendChild(downloadAnchor);
-    downloadAnchor.click();
-    downloadAnchor.remove();
-  };
-
   return (
     <div className="space-y-6 max-w-7xl mx-auto relative">
 
@@ -538,12 +491,6 @@ export default function QuotationComparisonPage() {
                 className="bg-white/10 hover:bg-white/20 text-white border border-white/20 font-bold h-10 px-4 text-sm flex items-center gap-2"
               >
                 <FileText className="h-4 w-4" /> Emitir PDF
-              </Button>
-              <Button
-                onClick={handleEmitPC}
-                className="bg-white text-green-800 hover:bg-green-50 font-bold h-10 px-5 text-sm flex items-center gap-2 shadow-sm"
-              >
-                <ShoppingBag className="h-4 w-4" /> Emitir PC
               </Button>
             </div>
           )}
@@ -721,7 +668,7 @@ export default function QuotationComparisonPage() {
             <div>
               <p className="font-bold text-green-800 text-sm">Próximos Passos</p>
               <p className="text-xs text-green-600 mt-0.5">
-                Emita o PDF desta cotação para arquivo, ou gere o Pedido de Compra (PC) para disparar o processo de aquisição.
+                Emita o PDF desta cotação para o seu arquivo e histórico.
               </p>
             </div>
           </div>
@@ -729,87 +676,11 @@ export default function QuotationComparisonPage() {
             <Button onClick={handleDownloadPDF} variant="outline" className="border-green-300 text-green-700 hover:bg-green-100 h-9 text-xs font-bold flex items-center gap-1.5">
               <FileText className="h-4 w-4" /> Emitir PDF
             </Button>
-            <Button onClick={handleEmitPC} className="bg-green-600 hover:bg-green-700 text-white h-9 text-xs font-bold flex items-center gap-1.5 shadow-sm">
-              <ShoppingBag className="h-4 w-4" /> Emitir Pedido de Compra (PC)
-            </Button>
           </div>
         </div>
       )}
 
-      {/* Modal: Visualizar e Exportar Pedido de Compra (PC) */}
-      {isPCModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
-          <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 border border-slate-200 flex flex-col max-h-[90vh]">
-            
-            {/* Header Modal */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50">
-              <div>
-                <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                  <FileText className="h-5 w-5 text-green-600" /> Emissão de Pedido de Compra (PC)
-                </h3>
-                <p className="text-[10px] text-slate-400 mt-0.5">Integração ERP</p>
-              </div>
-              <button onClick={() => setIsPCModalOpen(false)} className="p-1.5 hover:bg-slate-100 rounded-full">
-                <X className="h-4 w-4 text-slate-500" />
-              </button>
-            </div>
 
-            {/* Conteúdo JSON */}
-            <div className="p-6 flex-1 overflow-y-auto space-y-4">
-              <div className="bg-green-50 border border-green-150 rounded-xl p-3">
-                <p className="text-xs text-green-800 leading-relaxed font-semibold">
-                  🚀 Estrutura de dados do Pedido de Compra gerada com sucesso! Esse payload JSON é o layout oficial de envio para integração via API com seu ERP (SAP/Totvs/Senior).
-                </p>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Visualização do Payload JSON</label>
-                <pre className="p-4 bg-slate-900 text-slate-100 text-xs font-mono rounded-xl overflow-x-auto max-h-[300px]">
-{JSON.stringify({
-  documento: "Pedido de Compra (PC)",
-  numero_requisicao: qData.id,
-  status: "Aprovado",
-  data_emissao: new Date().toLocaleDateString('pt-BR'),
-  comprador: {
-    nome: "Vinicius Cordebello",
-    empresa: localStorage.getItem('supplyhub_company_name') || "SupplyHub.IA",
-    email: "vinicius@supplyhub.com.br"
-  },
-  fornecedor_vencedor: qData.proposals.find(p => p.supplierName === winnerSupplier) ? {
-    nome: qData.proposals.find(p => p.supplierName === winnerSupplier)?.supplierName,
-    ratingClass: qData.proposals.find(p => p.supplierName === winnerSupplier)?.rank,
-    score: qData.proposals.find(p => p.supplierName === winnerSupplier)?.supplierName === 'Brasil Cabos' ? 93 : 88
-  } : null,
-  itens: qData.itemsRef.map((item: any, idx: number) => ({
-    item_id: idx + 1,
-    nome: item.name,
-    preco_unitario: (qData.proposals.find(p => p.supplierName === winnerSupplier) || qData.proposals[0]).prices[idx] || 0.0,
-    quantidade: 1,
-    subtotal: (qData.proposals.find(p => p.supplierName === winnerSupplier) || qData.proposals[0]).prices[idx] || 0.0
-  })),
-  valor_total_pedido: (qData.proposals.find(p => p.supplierName === winnerSupplier) || qData.proposals[0]).totalGlobal,
-  integracao_erp: {
-    status: "Pronto para Transmissão",
-    layout: "RFC_PO_CREATE"
-  }
-}, null, 2)}
-                </pre>
-              </div>
-            </div>
-
-            {/* Footer Modal */}
-            <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-2 shrink-0">
-              <Button variant="outline" onClick={() => setIsPCModalOpen(false)} className="h-9 text-xs">Fechar</Button>
-              <Button
-                onClick={handleDownloadPCJson}
-                className="bg-green-600 hover:bg-green-700 text-white h-9 text-xs font-bold shadow-sm"
-              >
-                Fazer Download do PC (JSON)
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
 
     </div>
   );

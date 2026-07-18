@@ -2,12 +2,13 @@ import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Users, UserPlus, Shield, UserCheck, Search,
-  Mail, MoreVertical,
-  XCircle, Layers, CheckCircle2, Copy
+  Mail, MoreVertical, XCircle, Layers, CheckCircle2, Copy
 } from 'lucide-react';
 import { Button } from '@/shared/components/ui/Button';
 import { Input } from '@/shared/components/ui/Input';
+import { ClearableInput } from '@/shared/components/ui/ClearableInput';
 import { Card, CardContent } from '@/shared/components/ui/Card';
+import { EntityCard } from '@/shared/components/ui/EntityCard';
 import { Operator, OperatorPerfil, OperatorStatus, operatorFullName } from '@/modules/employees/domain/entities/Operator';
 import { SupabaseOperatorRepository } from '../../infrastructure/repositories/SupabaseOperatorRepository';
 import { SupabaseDelegationRepository } from '../../infrastructure/repositories/SupabaseDelegationRepository';
@@ -401,18 +402,7 @@ export default function OperatorsPage() {
     }
   };
 
-  const handleResendInvite = async (op: Operator) => {
-    setActiveMenu(null);
-    try {
-      const repo = new SupabaseOperatorRepository();
-      await repo.resendInvite(op.email);
-      alert(`Convite para ${op.nome} reenviado com sucesso!`);
-      queryClient.invalidateQueries({ queryKey: ['operators', orgId] });
-    } catch (err: any) {
-      console.error(err);
-      alert("Erro ao reenviar o convite.");
-    }
-  };
+
 
   const handleCancelInvite = async (op: Operator) => {
     setActiveMenu(null);
@@ -478,10 +468,11 @@ export default function OperatorsPage() {
         <CardContent className="p-5 flex flex-col sm:flex-row gap-4 items-center justify-between">
           <div className="relative w-full sm:max-w-md">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-            <Input
+            <ClearableInput
               placeholder="Buscar por nome ou e-mail..."
               value={search}
-              onChange={e => setSearch(e.target.value)}
+              onChange={setSearch}
+              onClear={() => setSearch('')}
               className="pl-10 h-10 text-sm"
             />
           </div>
@@ -493,6 +484,27 @@ export default function OperatorsPage() {
           </Button>
         </CardContent>
       </Card>
+
+      {/* CONVITES PENDENTES */}
+      {filtered.filter(op => op.status === 'pendente').length > 0 && (
+        <div className="space-y-4">
+          <h3 className="text-sm font-bold text-slate-900 px-1">Convites Pendentes</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+            {filtered.filter(op => op.status === 'pendente').map(op => (
+              <EntityCard
+                key={op.id}
+                type="operador"
+                title={operatorFullName(op)}
+                subtitle={op.email}
+                status="pendente"
+                sentDate={new Date().toLocaleDateString('pt-BR')} // Mock data since it's not present on op
+                onCopyLink={() => handleCopyLink(op)}
+                onCancel={() => handleCancelInvite(op)}
+              />
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* TABELA */}
       <div>
@@ -520,14 +532,14 @@ export default function OperatorsPage() {
                       </div>
                     </td>
                   </tr>
-                ) : filtered.length === 0 ? (
+                ) : filtered.filter(op => op.status !== 'pendente').length === 0 ? (
                   <tr>
                     <td colSpan={7} className="px-6 py-12 text-center text-slate-400 text-sm">
                       Nenhum operador encontrado.
                     </td>
                   </tr>
                 ) : (
-                  filtered.map(op => (
+                  filtered.filter(op => op.status !== 'pendente').map(op => (
                     <tr key={op.id} className="hover:bg-slate-50/50 transition-colors">
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
@@ -601,13 +613,6 @@ export default function OperatorsPage() {
                               <div className="fixed inset-0 z-40" onClick={() => setActiveMenu(null)}></div>
                               <div className="absolute right-0 z-50 mt-1 w-40 origin-top-right rounded-xl bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none overflow-hidden">
                                 <div className="py-1">
-                                  {op.status === 'pendente' && (
-                                    <>
-                                      <button onClick={() => handleCopyLink(op)} className="w-full text-left px-4 py-2 text-xs text-slate-700 hover:bg-slate-50 font-medium">Copiar Link</button>
-                                      <button onClick={() => handleResendInvite(op)} className="w-full text-left px-4 py-2 text-xs text-slate-700 hover:bg-slate-50 font-medium">Reenviar Convite</button>
-                                      <button onClick={() => handleCancelInvite(op)} className="w-full text-left px-4 py-2 text-xs text-red-600 hover:bg-red-50 font-medium">Cancelar Convite</button>
-                                    </>
-                                  )}
                                   {op.status === 'ativo' && (
                                     <>
                                       <button onClick={() => setActiveMenu(null)} className="w-full text-left px-4 py-2 text-xs text-slate-700 hover:bg-slate-50 font-medium">Editar Operador</button>

@@ -1,8 +1,8 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/shared/components/ui/Button';
-import { Input } from '@/shared/components/ui/Input';
-import { Search, Plus, Send, Inbox, FileText, Globe, Calendar, Building2, PackageOpen, X } from 'lucide-react';
+import { ClearableInput } from '@/shared/components/ui/ClearableInput';
+import { Search, Plus, Send, Inbox, FileText, Globe, Calendar, Building2, PackageOpen, Users } from 'lucide-react';
 import { QuotationTypeModal } from '../components/QuotationTypeModal';
 
 interface Proposal {
@@ -14,7 +14,7 @@ interface Proposal {
 interface Quotation {
   id: string;
   title: string;
-  type: 'BID' | 'DIRECT';
+  type: 'BID' | 'DIRECT' | 'INTERNAL';
   itemsCount: number;
   status: 'Open' | 'Closed' | 'Draft' | 'Cancelled';
   date: string;
@@ -24,7 +24,7 @@ interface Quotation {
 
 export default function QuotationsListPage() {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<'sent' | 'received' | 'drafts'>('sent');
+  const [activeTab, setActiveTab] = useState<'sent' | 'received' | 'drafts' | 'internal_requests'>('sent');
   const [search, setSearch] = useState('');
   
   // Mocks simplificados para a transição
@@ -39,6 +39,22 @@ export default function QuotationsListPage() {
   });
 
   const receivedQuotations: any[] = [];
+  const internalRequestsQuotations: any[] = [
+    {
+      id: 'REQ-2026',
+      title: 'Monitores Dell 24"',
+      type: 'INTERNAL',
+      itemsCount: 2,
+      status: 'Open',
+      date: new Date().toLocaleDateString('pt-BR'),
+      requester: 'João Silva',
+      proposals: [],
+      selectedProducts: [
+        { name: 'Monitor Dell 24" P2422H', sku: 'DELL-P2422H' },
+        { name: 'Cabo HDMI 2m', sku: 'CAB-HDMI-2M' }
+      ]
+    }
+  ];
 
   const [isQuoteModalOpen, setIsQuoteModalOpen] = useState(false);
 
@@ -46,6 +62,7 @@ export default function QuotationsListPage() {
     let source = sentQuotations;
     if (activeTab === 'received') source = receivedQuotations;
     if (activeTab === 'drafts') source = draftQuotations;
+    if (activeTab === 'internal_requests') source = internalRequestsQuotations;
 
     if (!search) return source;
     const s = search.toLowerCase();
@@ -91,21 +108,13 @@ export default function QuotationsListPage() {
           <div className="flex gap-4">
             <div className="relative flex-1 max-w-2xl">
               <Search className="absolute left-3.5 top-3 h-5 w-5 text-slate-400" />
-              <Input 
+              <ClearableInput 
                 placeholder="Busque por ID (ex: RC-2026), SKU, Material ou Solicitante..." 
                 value={search}
-                onChange={e => setSearch(e.target.value)}
-                className="pl-11 pr-10 bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500 h-11 rounded-xl focus:border-indigo-500"
+                onChange={setSearch}
+                onClear={() => setSearch('')}
+                className="pl-11 bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500 h-11 rounded-xl focus:border-indigo-500"
               />
-              {search && (
-                <button
-                  onClick={() => setSearch('')}
-                  className="absolute right-3 top-3.5 p-0.5 hover:bg-slate-700 rounded-full text-slate-400 hover:text-white transition-colors"
-                  title="Limpar pesquisa"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              )}
             </div>
           </div>
 
@@ -129,6 +138,19 @@ export default function QuotationsListPage() {
             >
               <FileText className="h-4 w-4" /> Rascunhos
             </button>
+            <button 
+              onClick={() => setActiveTab('internal_requests')}
+              className={`flex items-center gap-2 pb-3 text-sm font-bold border-b-2 transition-colors relative ${activeTab === 'internal_requests' ? 'border-indigo-500 text-indigo-400' : 'border-transparent text-slate-400 hover:text-slate-200'}`}
+            >
+              <div className="relative">
+                <Users className="h-4 w-4" />
+                <span className="absolute -top-1 -right-1 flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
+                </span>
+              </div>
+              Solicitações Internas
+            </button>
           </div>
         </div>
       </div>
@@ -145,13 +167,19 @@ export default function QuotationsListPage() {
                 {activeTab === 'sent' && 'Você ainda não enviou cotações.'}
                 {activeTab === 'received' && 'Não há cotações recebidas.'}
                 {activeTab === 'drafts' && 'Não há rascunhos salvos.'}
+                {activeTab === 'internal_requests' && 'Não há solicitações internas.'}
               </h3>
               <p className="text-sm text-slate-500 mt-2 max-w-sm">
-                Você não possui parceiros ativos ou não iniciou nenhuma solicitação. Retorne à rede de empresas e conecte-se a empresas do segmento.
+                {activeTab === 'internal_requests' 
+                  ? 'Você não possui solicitações de compra pendentes ou em andamento.' 
+                  : 'Você não possui parceiros ativos ou não iniciou nenhuma solicitação. Retorne à rede de empresas e conecte-se a empresas do segmento.'
+                }
               </p>
-              <Button onClick={() => navigate('/suppliers/network')} className="mt-6 bg-slate-900 hover:bg-slate-800 text-white font-bold h-10 px-6 shadow-sm">
-                <Globe className="h-4 w-4 mr-2" /> Explorar Rede Hub.IA
-              </Button>
+              {activeTab !== 'internal_requests' && (
+                <Button onClick={() => navigate('/suppliers/network')} className="mt-6 bg-slate-900 hover:bg-slate-800 text-white font-bold h-10 px-6 shadow-sm">
+                  <Globe className="h-4 w-4 mr-2" /> Explorar Rede Hub.IA
+                </Button>
+              )}
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -191,7 +219,7 @@ export default function QuotationsListPage() {
                         <div className="flex items-center gap-2">
                           <FileText className="h-4 w-4 text-slate-400" />
                           <span className="font-semibold text-slate-500">
-                            {item.type === 'BID' ? 'Cotação a Mercado (BID)' : 'Cotação Direcionada'}
+                            {item.type === 'INTERNAL' ? 'Solicitação Interna' : item.type === 'BID' ? 'Cotação a Mercado (BID)' : 'Cotação Direcionada'}
                           </span>
                         </div>
                         <div className="flex items-center gap-2">

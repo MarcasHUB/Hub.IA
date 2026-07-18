@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { Button } from '@/shared/components/ui/Button';
 import { Input } from '@/shared/components/ui/Input';
 import { Label } from '@/shared/components/ui/Label';
+import { ActionModal } from '@/shared/components/ui/ActionModal';
 import { 
   Package, 
   Tags, 
@@ -14,20 +15,19 @@ import {
   Image as ImageIcon,
   Save,
   ArrowLeft,
-  Plus,
-  Trash2
+  Plus
 } from 'lucide-react';
 
 import { SupabaseProductRepository } from '../../infrastructure/repositories/SupabaseProductRepository';
 import { SupabaseProductSupplierRepository } from '../../infrastructure/repositories/SupabaseProductSupplierRepository';
-import { SupabaseSegmentRepository } from '../../../employees/infrastructure/repositories/SupabaseSegmentRepository';
+import { SupabaseCategoryRepository } from '../../../categories/infrastructure/repositories/SupabaseCategoryRepository';
 import { Product, ProductStatus } from '../../domain/entities/Product'; 
 import { LinkSupplierModal } from '../components/LinkSupplierModal';
 
 const repo = new SupabaseProductRepository();
 const productSupplierRepo = new SupabaseProductSupplierRepository();
-const segmentRepo = new SupabaseSegmentRepository();
-const tenantId = '00000000-0000-0000-0000-000000000000'; // Mocked tenant ID
+const categoryRepo = new SupabaseCategoryRepository();
+const tenantId = localStorage.getItem('supplyhub_organization_id') || '00000000-0000-0000-0000-000000000000';
 
 export default function ProductFormPage({
   productId,
@@ -49,7 +49,8 @@ export default function ProductFormPage({
 
   // Aggregates State
   const [basicInfo, setBasicInfo] = useState({
-    name: '', sku: '', manufacturer: '', description: '', status: 'Active', imageUrl: '', manufacturerCode: '', availableForPurchase: true, availableForSale: false
+    name: '', sku: '', manufacturer: '', description: '', status: 'Active', imageUrl: '', manufacturerCode: '', availableForPurchase: true, availableForSale: false,
+    role: 'revenda', salesCode: ''
   });
   const [classification, setClassification] = useState({
     category: '', subcategory: '', purchasingGroup: '', ncm: '', baseUom: ''
@@ -78,8 +79,13 @@ export default function ProductFormPage({
   const [similarProduct, setSimilarProduct] = useState<Product | null>(null);
   const [isSimilarModalOpen, setIsSimilarModalOpen] = useState(false);
 
-  // Segmentos
-  const [availableSegments, setAvailableSegments] = useState<{id: string, nome: string}[]>([]);
+  // Action Modal State
+  const [actionModal, setActionModal] = useState<{isOpen: boolean; type: 'save' | 'draft' | 'cancel' | 'delete'}>({ isOpen: false, type: 'save' });
+
+  // Related data states
+  const [availableCategories, setAvailableCategories] = useState<{id: string, name: string}[]>([]);
+
+  // Segmentos não mais usados no form, substituídos por categorias
 
   // Debounce search on manufacturerCode
   useEffect(() => {
@@ -110,10 +116,10 @@ export default function ProductFormPage({
   useEffect(() => {
     async function loadData() {
       try {
-        const segs = await segmentRepo.listSegments(tenantId);
-        setAvailableSegments(segs.filter(s => s.status === 'ativo').map(s => ({id: s.id, nome: s.nome})));
+        const cats = await categoryRepo.findAll(tenantId);
+        setAvailableCategories(cats.filter(c => c.status === 'Active').map(c => ({id: c.id, name: c.name})));
       } catch(e) {
-        console.error("Failed to load segments", e);
+        console.error("Failed to load categories", e);
       }
 
       if (isEditing && id) {
@@ -209,7 +215,7 @@ export default function ProductFormPage({
     { id: 'classification', label: 'Classificação', icon: Tags },
     { id: 'commercial', label: 'Comercial', icon: Briefcase },
     { id: 'logistics', label: 'Logística', icon: Truck },
-    { id: 'suppliers', label: 'Fornecedores', icon: Users },
+    { id: 'suppliers', label: 'Base de Abastecimento do Material', icon: Users },
     { id: 'documents', label: 'Documentos', icon: FileText },
     { id: 'history', label: 'Histórico', icon: History },
   ];
@@ -251,12 +257,12 @@ export default function ProductFormPage({
         <div className={`mx-auto flex flex-col gap-6 ${onClose ? 'w-full' : 'max-w-[1600px]'}`}>
           
           {/* HORIZONTAL TABS */}
-          <div className="flex border-b border-slate-200 gap-6 w-full overflow-x-auto px-2">
+          <div className="flex flex-wrap border-b border-slate-200 gap-y-2 gap-x-4 sm:gap-x-6 w-full px-2">
             {tabs.map(tab => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`pb-3 text-sm font-bold border-b-2 transition-all flex items-center gap-2 whitespace-nowrap ${
+                className={`pb-2 sm:pb-3 text-sm font-bold border-b-2 transition-all flex items-center gap-2 whitespace-nowrap ${
                   activeTab === tab.id 
                     ? 'border-indigo-600 text-indigo-900' 
                     : 'border-transparent text-slate-400 hover:text-slate-600'
@@ -274,13 +280,31 @@ export default function ProductFormPage({
             {activeTab === 'basic' && (
               <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
                 <div className="flex flex-col gap-6">
-                  {/* Utilização do Item */}
-                  <div className="bg-slate-50 border border-slate-100 rounded-xl p-4 flex gap-6 items-center">
+                  {/* Utilização do Item e Papel */}
+                  <div className="bg-slate-50 border border-slate-100 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center gap-6 justify-between">
                     <div>
-                      <h4 className="text-sm font-bold text-slate-900">Utilização do Item</h4>
-                      <p className="text-xs text-slate-500">Defina os fluxos operacionais B2B para este material.</p>
+                      <h4 className="text-sm font-bold text-slate-900">Perfil e Utilização do Item</h4>
+                      <p className="text-xs text-slate-500 mt-1">Defina o seu papel e os fluxos operacionais B2B.</p>
                     </div>
-                    <div className="flex gap-4 ml-auto">
+                    <div className="flex flex-wrap gap-4">
+                      {/* Role Selector */}
+                      <div className="flex bg-white rounded-lg border border-slate-200 p-1 shadow-sm">
+                        <button
+                          type="button"
+                          onClick={() => setBasicInfo({ ...basicInfo, role: 'fabricante' })}
+                          className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors ${basicInfo.role === 'fabricante' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:text-slate-900'}`}
+                        >
+                          Sou fabricante
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setBasicInfo({ ...basicInfo, role: 'revenda' })}
+                          className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors ${basicInfo.role === 'revenda' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:text-slate-900'}`}
+                        >
+                          Sou revenda
+                        </button>
+                      </div>
+                      
                       <label className="flex items-center gap-2 cursor-pointer bg-white px-3 py-2 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors shadow-sm">
                         <input 
                           type="checkbox" 
@@ -288,7 +312,7 @@ export default function ProductFormPage({
                           onChange={e => setBasicInfo({...basicInfo, availableForPurchase: e.target.checked})}
                           className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 w-4 h-4"
                         />
-                        <span className="text-sm font-medium text-slate-700">Disponível para Compra</span>
+                        <span className="text-sm font-medium text-slate-700">Item disponível para Compra</span>
                       </label>
                       <label className="flex items-center gap-2 cursor-pointer bg-white px-3 py-2 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors shadow-sm">
                         <input 
@@ -297,14 +321,14 @@ export default function ProductFormPage({
                           onChange={e => setBasicInfo({...basicInfo, availableForSale: e.target.checked})}
                           className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 w-4 h-4"
                         />
-                        <span className="text-sm font-medium text-slate-700">Disponível para Venda</span>
+                        <span className="text-sm font-medium text-slate-700">Item disponível para Venda</span>
                       </label>
                     </div>
                   </div>
 
                   <div className="flex-1 space-y-5">
                     {/* Linha 1 */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                       <div className="space-y-2">
                         <Label>Código do Fabricante *</Label>
                         <Input 
@@ -313,7 +337,17 @@ export default function ProductFormPage({
                           placeholder="Ex: PN-12345"
                         />
                       </div>
-                      <div className="space-y-2">
+                      {basicInfo.role === 'revenda' && (
+                        <div className="space-y-2">
+                          <Label>Código de Venda</Label>
+                          <Input 
+                            value={basicInfo.salesCode} 
+                            onChange={e => setBasicInfo({...basicInfo, salesCode: e.target.value})}
+                            placeholder="Mesmo do fabricante ou interno"
+                          />
+                        </div>
+                      )}
+                      <div className={`space-y-2 ${basicInfo.role === 'fabricante' ? 'md:col-span-2' : ''}`}>
                         <Label>Fabricante / Marca *</Label>
                         <Input 
                           value={basicInfo.manufacturer} 
@@ -322,15 +356,15 @@ export default function ProductFormPage({
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label>Segmento</Label>
+                        <Label>Categoria</Label>
                         <select 
                            value={classification.category} 
                            onChange={e => setClassification({...classification, category: e.target.value})}
-                           className="flex h-9 w-full rounded-md border border-slate-200 bg-white px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-slate-950 disabled:cursor-not-allowed disabled:opacity-50"
+                           className="flex h-10 w-full rounded-md border border-slate-200 bg-white px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-slate-950 disabled:cursor-not-allowed disabled:opacity-50"
                         >
                            <option value="">Selecione...</option>
-                           {availableSegments.map(s => (
-                             <option key={s.id} value={s.id}>{s.nome}</option>
+                           {availableCategories.map(c => (
+                             <option key={c.id} value={c.id}>{c.name}</option>
                            ))}
                         </select>
                       </div>
@@ -388,19 +422,34 @@ export default function ProductFormPage({
                         />
                       </div>
 
-                      <div className="flex-1 space-y-2">
-                        <Label>Descrição Técnica</Label>
-                        <textarea 
-                          className="w-full min-h-[80px] max-h-[100px] resize-y p-3 bg-white border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                          placeholder="Detalhes completos, norma técnica, material..."
-                          maxLength={250}
-                          value={basicInfo.description}
-                          onChange={e => setBasicInfo({...basicInfo, description: e.target.value})}
-                        />
-                        <div className="text-right">
-                          <span className="text-[10px] text-slate-400 font-medium">
-                            {basicInfo.description.length}/250
-                          </span>
+                      <div className="flex-1 flex flex-col gap-4">
+                        <div className="space-y-2">
+                          <Label>Descrição Técnica</Label>
+                          <textarea 
+                            className="w-full min-h-[80px] max-h-[100px] resize-y p-3 bg-white border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            placeholder="Detalhes completos, norma técnica, material..."
+                            maxLength={250}
+                            value={basicInfo.description}
+                            onChange={e => setBasicInfo({...basicInfo, description: e.target.value})}
+                          />
+                          <div className="text-right">
+                            <span className="text-[10px] text-slate-400 font-medium">
+                              {basicInfo.description.length}/250
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Evidência Técnica */}
+                        <div className="space-y-2 border-t border-slate-100 pt-3">
+                          <Label>Evidência Técnica</Label>
+                          <div className="flex flex-wrap gap-2">
+                            {['Catálogo', 'Desenho', 'Ficha técnica', 'Imagem', 'Documento técnico'].map(doc => (
+                              <button key={doc} type="button" className="text-xs px-3 py-1.5 border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-50 hover:text-indigo-600 hover:border-indigo-200 transition-colors flex items-center gap-1.5 shadow-sm">
+                                <FileText className="w-3.5 h-3.5" />
+                                Adicionar {doc}
+                              </button>
+                            ))}
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -408,6 +457,7 @@ export default function ProductFormPage({
                 </div>
               </div>
             )}
+
 
             {activeTab === 'classification' && (
               <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
@@ -569,7 +619,7 @@ export default function ProductFormPage({
               <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
                 <div className="flex justify-between items-center mb-6">
                   <div>
-                    <h3 className="text-lg font-bold text-slate-900">Fornecedores Vinculados</h3>
+                    <h3 className="text-lg font-bold text-slate-900">Base de Abastecimento</h3>
                     <p className="text-sm text-slate-500">Gerencie a base de fornecimento para este produto</p>
                   </div>
                   <Button onClick={() => setIsLinkModalOpen(true)} className="bg-indigo-600 hover:bg-indigo-700 text-white">
@@ -654,36 +704,62 @@ export default function ProductFormPage({
         </div>
 
         {/* FOOTER ACTIONS */}
-        <div className="max-w-[1600px] mx-auto mt-8 mb-12 flex justify-center gap-4">
-          <Button onClick={handleSave} className="bg-indigo-600 hover:bg-indigo-700 text-white h-12 px-8 font-bold text-base shadow-lg shadow-indigo-900/20 rounded-xl">
-            <Save className="h-5 w-5 mr-2" />
-            Salvar Alterações
+        <div className="max-w-[1600px] mx-auto mt-8 mb-12 flex justify-center sm:justify-end gap-3 flex-wrap">
+          <Button 
+            variant="outline" 
+            onClick={() => setActionModal({ isOpen: true, type: 'cancel' })} 
+            className="h-10 px-6 font-bold text-slate-600 bg-white border-slate-200 hover:bg-slate-50"
+          >
+            Cancelar
           </Button>
-          {isEditing && (
-            <Button 
-              onClick={async () => {
-                if (window.confirm('Tem certeza que deseja excluir este material? Esta ação não pode ser desfeita.')) {
-                  try {
-                    await repo.delete(id!, tenantId);
-                    alert('O material foi excluído com sucesso.');
-                    if (onSaveSuccess) {
-                      onSaveSuccess();
-                    } else {
-                      navigate('/products');
-                    }
-                  } catch (e) {
-                    console.error(e);
-                    alert('Erro ao excluir material.');
-                  }
-                }
-              }} 
-              className="bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700 border border-red-200 h-12 px-8 font-bold text-base shadow-sm rounded-xl"
-            >
-              <Trash2 className="h-5 w-5 mr-2" />
-              Excluir Material
-            </Button>
-          )}
+          <Button 
+            variant="outline"
+            onClick={() => {
+              setBasicInfo({ ...basicInfo, status: 'Draft' });
+              setActionModal({ isOpen: true, type: 'draft' });
+            }} 
+            className="h-10 px-6 font-bold text-indigo-600 border-indigo-200 bg-indigo-50 hover:bg-indigo-100"
+          >
+            Salvar Rascunho
+          </Button>
+          <Button 
+            onClick={() => {
+              setBasicInfo({ ...basicInfo, status: 'Active' });
+              setActionModal({ isOpen: true, type: 'save' });
+            }} 
+            className="bg-indigo-600 hover:bg-indigo-700 text-white h-10 px-8 font-bold shadow-sm"
+          >
+            <Save className="h-4 w-4 mr-2" />
+            Salvar Produto
+          </Button>
         </div>
+
+        {/* Action Modal */}
+        <ActionModal
+          isOpen={actionModal.isOpen}
+          title={
+            actionModal.type === 'cancel' ? 'Deseja cancelar?' :
+            actionModal.type === 'save' ? 'Confirma novo produto?' : 
+            'Salvar como rascunho?'
+          }
+          description={
+            actionModal.type === 'cancel' ? 'Todas as alterações não salvas serão perdidas.' :
+            'O produto será salvo na sua base de dados.'
+          }
+          confirmText={actionModal.type === 'cancel' ? 'Sim, cancelar' : 'Sim'}
+          cancelText="Não"
+          variant={actionModal.type === 'cancel' ? 'danger' : 'primary'}
+          onConfirm={() => {
+            if (actionModal.type === 'cancel') {
+              setActionModal({ ...actionModal, isOpen: false });
+              navigate('/products');
+            } else {
+              setActionModal({ ...actionModal, isOpen: false });
+              handleSave();
+            }
+          }}
+          onCancel={() => setActionModal({ ...actionModal, isOpen: false })}
+        />
 
         {/* Similar Product Modal */}
         {isSimilarModalOpen && similarProduct && (

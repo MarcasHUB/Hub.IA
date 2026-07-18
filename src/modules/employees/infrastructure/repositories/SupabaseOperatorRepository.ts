@@ -112,8 +112,9 @@ export class SupabaseOperatorRepository implements IOperatorRepository {
 
     const { error: errOp } = await supabase
       .from('operators')
-      .delete()
-      .eq('id', operatorId);
+      .update({ status: 'cancelado', updated_at: new Date().toISOString() })
+      .eq('id', operatorId)
+      .eq('status', 'pendente');
 
     if (errOp) throw errOp;
   }

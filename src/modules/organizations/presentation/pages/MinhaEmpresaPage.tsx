@@ -16,7 +16,6 @@ import SegmentsPage from '../../../employees/presentation/pages/SegmentsPage';
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 type Tab = 'dados' | 'operadores' | 'segmentos' | 'delegacoes' | 'logs';
 
-// ─── Navegação lateral da seção Minha Empresa ─────────────────────────────────
 const EMPRESA_TABS: { id: Tab; label: string; icon: any; href: string; desc: string }[] = [
   {
     id: 'dados',
@@ -27,17 +26,10 @@ const EMPRESA_TABS: { id: Tab; label: string; icon: any; href: string; desc: str
   },
   {
     id: 'operadores',
-    label: 'Operadores',
+    label: 'Colaboradores/Operadores',
     icon: Users,
     href: '/empresa/operadores',
     desc: 'Convites, perfis e acessos',
-  },
-  {
-    id: 'segmentos',
-    label: 'Segmentos',
-    icon: Layers,
-    href: '/empresa/segmentos',
-    desc: 'Categorias e responsáveis',
   },
   {
     id: 'delegacoes',
@@ -53,6 +45,13 @@ const EMPRESA_TABS: { id: Tab; label: string; icon: any; href: string; desc: str
     href: '/empresa/logs',
     desc: 'Auditoria e acessos',
   },
+];
+
+const MASTER_TABS: { id: string; label: string; icon: any; href: string; }[] = [
+  { id: 'master-empresas', label: 'Empresas', icon: Building2, href: '/empresa/empresas' },
+  { id: 'master-material', label: 'Material', icon: Layers, href: '/products' },
+  { id: 'master-categoria', label: 'Categoria', icon: Layers, href: '/empresa/categorias' },
+  { id: 'master-segmentos', label: 'Segmentos', icon: Layers, href: '/empresa/segmentos' },
 ];
 
 // ─── Sub-página: Dados da Empresa ─────────────────────────────────────────────
@@ -194,13 +193,17 @@ function DadosEmpresaTab() {
 
 
 // ─── MinhaEmpresaPage ─────────────────────────────────────────────────────────
+import { CategoriesPage } from '../../../categories/presentation/pages/CategoriesPage';
+
 export default function MinhaEmpresaPage() {
   const location = useLocation();
 
-  // Determinar tab ativa pela URL
+  type Tab = 'dados' | 'operadores' | 'segmentos' | 'categorias' | 'delegacoes' | 'logs';
+
   const activeTab: Tab = (() => {
     if (location.pathname.includes('/operadores')) return 'operadores';
     if (location.pathname.includes('/segmentos')) return 'segmentos';
+    if (location.pathname.includes('/categorias')) return 'categorias';
     if (location.pathname.includes('/delegacoes')) return 'delegacoes';
     if (location.pathname.includes('/logs')) return 'logs';
     return 'dados';
@@ -225,6 +228,17 @@ export default function MinhaEmpresaPage() {
                 <strong className="text-white">{companyName}</strong>.
               </p>
             </div>
+            
+            {/* Botão temporário para teste de solicitação de campo (PWA) */}
+            <div className="flex items-center gap-3 shrink-0">
+              <Link 
+                to="/pwa-choice"
+                className="bg-indigo-600 hover:bg-indigo-700 text-white h-10 px-5 rounded-xl font-bold flex items-center shadow-md transition-colors"
+                title="Testar Acesso APP / Solicitação de Campo"
+              >
+                Testar Acesso APP Campo
+              </Link>
+            </div>
           </div>
         </div>
       </div>
@@ -234,25 +248,51 @@ export default function MinhaEmpresaPage() {
         <div className="max-w-[1600px] mx-auto flex gap-6">
 
           {/* Sidebar de navegação */}
-          <aside className="w-56 shrink-0 space-y-1">
-            {EMPRESA_TABS.map(tab => {
-              const Icon = tab.icon;
-              const isActive = activeTab === tab.id;
-              return (
-                <Link
-                  key={tab.id}
-                  to={tab.href}
-                  className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all ${
-                    isActive
-                      ? 'bg-indigo-600 text-white shadow-sm'
-                      : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-                  }`}
-                >
-                  <Icon className="h-4 w-4 shrink-0" />
-                  {tab.label}
-                </Link>
-              );
-            })}
+          <aside className="w-56 shrink-0 space-y-6">
+            <div className="space-y-1">
+              <h3 className="px-3 text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Minha Empresa</h3>
+              {EMPRESA_TABS.map(tab => {
+                const Icon = tab.icon;
+                const isActive = activeTab === tab.id;
+                return (
+                  <Link
+                    key={tab.id}
+                    to={tab.href}
+                    className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+                      isActive
+                        ? 'bg-indigo-600 text-white shadow-sm'
+                        : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                    }`}
+                  >
+                    <Icon className="h-4 w-4 shrink-0" />
+                    {tab.label}
+                  </Link>
+                );
+              })}
+            </div>
+
+            <div className="space-y-1">
+              <h3 className="px-3 text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Cadastros Master</h3>
+              {MASTER_TABS.map(tab => {
+                const Icon = tab.icon;
+                // placeholder for active state logic if we implement these routes inside this page
+                const isActive = false;
+                return (
+                  <Link
+                    key={tab.id}
+                    to={tab.href}
+                    className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+                      isActive
+                        ? 'bg-indigo-600 text-white shadow-sm'
+                        : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                    }`}
+                  >
+                    <Icon className="h-4 w-4 shrink-0" />
+                    {tab.label}
+                  </Link>
+                );
+              })}
+            </div>
           </aside>
 
           {/* Área de conteúdo */}
@@ -260,6 +300,7 @@ export default function MinhaEmpresaPage() {
             {activeTab === 'dados' && <DadosEmpresaTab />}
             {activeTab === 'operadores' && <OperatorsPage />}
             {activeTab === 'segmentos' && <SegmentsPage />}
+            {activeTab === 'categorias' && <CategoriesPage />}
             {activeTab === 'delegacoes' && <DelegationsPage />}
             {activeTab === 'logs' && <AccessLogsPage />}
           </main>

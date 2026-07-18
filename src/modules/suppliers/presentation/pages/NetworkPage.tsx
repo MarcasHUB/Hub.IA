@@ -2,12 +2,14 @@ import { useState, useEffect } from 'react';
 import { Search, Building2, Network, Users, MapPin, Globe, Plus, X, Loader2 } from 'lucide-react';
 import { Button } from '@/shared/components/ui/Button';
 import { Input } from '@/shared/components/ui/Input';
+import { ClearableInput } from '@/shared/components/ui/ClearableInput';
 import { Badge } from '@/shared/components/ui/Badge';
+import { EntityCard } from '@/shared/components/ui/EntityCard';
 import { useNotifications } from '@/modules/notifications/presentation/context/NotificationContext';
 import { SupabaseOrganizationConnectionRepository } from '../../infrastructure/repositories/SupabaseOrganizationConnectionRepository';
 
 const repo = new SupabaseOrganizationConnectionRepository();
-const tenantId = '00000000-0000-0000-0000-000000000000';
+const tenantId = localStorage.getItem('supplyhub_organization_id') || '00000000-0000-0000-0000-000000000000';
 
 // ─── Mock data ─────────────────────────────────────────────────────────────────
 
@@ -229,11 +231,12 @@ export default function NetworkPage() {
           <div className="flex flex-col sm:flex-row gap-4">
             <div className="relative flex-1 max-w-xl">
               <Search className="absolute left-3.5 top-3 h-5 w-5 text-slate-400" />
-              <Input
+              <ClearableInput
                 placeholder="Buscar empresa, segmento..."
                 className="pl-11 bg-slate-800 border-slate-700 text-white placeholder:text-slate-500 h-12 rounded-xl focus:border-indigo-500 shadow-inner"
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                onChange={setSearch}
+                onClear={() => setSearch('')}
               />
             </div>
             <div className="flex gap-2 flex-wrap items-center">
@@ -259,12 +262,32 @@ export default function NetworkPage() {
         <div className="max-w-[1600px] mx-auto">
 
       {/* Contagem */}
-      <p className="text-sm text-slate-500">
+      <p className="text-sm text-slate-500 mb-6">
         {filtered.length} empresa{filtered.length !== 1 ? 's' : ''} encontrada{filtered.length !== 1 ? 's' : ''}
       </p>
 
-      {/* Grid de empresas */}
-      {filtered.length === 0 ? (
+      {/* CONVITES ENVIADOS */}
+      {filtered.filter(c => c.invited).length > 0 && (
+        <div className="space-y-4 mb-10">
+          <h3 className="text-sm font-bold text-slate-900 px-1">Convites Enviados</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
+            {filtered.filter(c => c.invited).map(c => (
+              <EntityCard
+                key={c.id}
+                type="empresa"
+                title={c.name}
+                subtitle={`CNPJ: ${c.document}`}
+                status="enviado"
+                sentDate={new Date().toLocaleDateString('pt-BR')}
+                onCancel={() => handleCancelInvite(c.id)}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Grid de empresas (Não convidadas) */}
+      {filtered.filter(c => !c.invited).length === 0 && filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 text-slate-400">
           <Building2 className="h-14 w-14 mb-4 text-slate-200" />
           <p className="font-medium">Nenhuma empresa encontrada.</p>
@@ -272,7 +295,7 @@ export default function NetworkPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filtered.map((c) => (
+          {filtered.filter(c => !c.invited).map((c) => (
             <CompanyCard
               key={c.id}
               company={c}
@@ -323,10 +346,24 @@ export default function NetworkPage() {
 
               const updatedList = [newCompany, ...companies];
               setCompanies(updatedList);
-              // Persist to Supabase omitted for UI mock
-
               
-              // Simula convite no BD Enterprise
+              // Persist to Supabase
+              repo.save({
+                id: crypto.randomUUID(),
+                buyerOrganizationId: tenantId,
+                supplierOrganizationId: newCompany.id,
+                status: 'Inativo',
+                connectionType: 'network',
+                connectedAt: new Date(),
+                approvedBy: '',
+                notes: newCompDesc,
+                createdAt: new Date()
+              }).catch(err => {
+                console.error("Erro ao salvar connection_request:", err);
+                alert("Falha ao salvar convite na rede.");
+              });
+              
+              // Simula notificação UI
               addMockNotification({
                 title: 'Convite enviado!',
                 message: `O e-mail foi disparado para ${newCompEmail}.`,

@@ -58,9 +58,10 @@ export class SupabaseProductRepository implements IProductRepository {
         const actualTenant = await this.resolveTenantId(tenantId);
         const { data, error } = await supabase
             .from('products')
-            .select(`*, segments(nome)`)
+            .select(`*`)
             .eq('id', id)
-            .eq('organization_id', actualTenant)
+            .eq('tenant_id', actualTenant)
+            .is('deleted_at', null)
             .single();
             
         if (error || !data) return null;
@@ -72,8 +73,9 @@ export class SupabaseProductRepository implements IProductRepository {
         const actualTenant = await this.resolveTenantId(tenantId);
         const { data, error } = await supabase
             .from('products')
-            .select(`*, segments(nome)`)
-            .eq('organization_id', actualTenant)
+            .select(`*`)
+            .eq('tenant_id', actualTenant)
+            .is('deleted_at', null)
             .order('created_at', { ascending: false });
             
         if (error || !data) return [];
@@ -97,7 +99,7 @@ export class SupabaseProductRepository implements IProductRepository {
 
         const payload = {
             id: product.id,
-            organization_id: actualTenant,
+            tenant_id: actualTenant,
             category_id: finalCategoryId,
             sku: product.sku,
             name: product.name,
@@ -122,11 +124,25 @@ export class SupabaseProductRepository implements IProductRepository {
     
     async delete(id: string, tenantId: string): Promise<void> {
         const actualTenant = await this.resolveTenantId(tenantId);
+        
+        // Verifica histórico
+        const { count, error: countErr } = await supabase
+            .from('quotation_items')
+            .select('*', { count: 'exact', head: true })
+            .eq('product_id', id);
+
+        if (countErr) throw countErr;
+
+        if (count && count > 0) {
+            // Regra exigida: Se tiver vínculo, bloqueia ou avisa (neste caso lançamos o erro para a UI tratar)
+            throw new Error("Este material possui histórico ou vínculo com cotações e não pode ser excluído fisicamente. Ele será inativado para preservar o histórico.");
+        }
+
         const { error } = await supabase
             .from('products')
-            .delete()
+            .update({ status: 'Inactive', deleted_at: new Date().toISOString() })
             .eq('id', id)
-            .eq('organization_id', actualTenant);
+            .eq('tenant_id', actualTenant);
             
         if (error) {
             console.error('Supabase delete product error:', error);
@@ -135,16 +151,12 @@ export class SupabaseProductRepository implements IProductRepository {
     }
 
     private mapToDomain(row: any): Product {
-        // Tratar o retorno do join (pode ser array dependendo da modelagem no Supabase, 
-        // mas assumindo relação FK 1:N onde 1 produto -> 1 segmento)
-        let categoryName: string | undefined;
-        if (row.segments) {
-            categoryName = Array.isArray(row.segments) ? row.segments[0]?.nome : row.segments?.nome;
-        }
+        // categoryName não é resolvido automaticamente sem join
+        let categoryName: string | undefined = undefined;
 
         return new Product(
             row.id,
-            row.organization_id,
+            row.tenant_id || row.organization_id, // fallback for legacy
             '', // supplier_id omitido
             row.category_id,
             row.name,

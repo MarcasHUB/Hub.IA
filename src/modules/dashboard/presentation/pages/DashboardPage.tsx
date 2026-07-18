@@ -353,6 +353,37 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* PLACEHOLDERS PARA PRÓXIMAS SPRINTS */}
+      <div className="grid gap-6 md:grid-cols-2 mt-6">
+        <Card className="rounded-2xl border-indigo-100 bg-indigo-50/50 shadow-inner">
+          <CardContent className="p-8 flex flex-col items-center justify-center text-center space-y-4">
+            <div className="h-16 w-16 bg-indigo-100 rounded-full flex items-center justify-center border border-indigo-200">
+              <TrendingDown className="h-8 w-8 text-indigo-500" />
+            </div>
+            <div>
+              <h3 className="font-extrabold text-slate-900">Relatórios Analíticos (Power BI)</h3>
+              <p className="text-sm text-slate-500 mt-1 max-w-sm">Painéis avançados de visualização de dados (Saving, Spend, Lead Times) em breve.</p>
+            </div>
+            <span className="text-[10px] font-bold uppercase tracking-widest bg-indigo-100 text-indigo-600 px-3 py-1 rounded-full">Em Desenvolvimento</span>
+          </CardContent>
+        </Card>
+
+        <Card className="rounded-2xl border-amber-100 bg-amber-50/50 shadow-inner">
+          <CardContent className="p-8 flex flex-col items-center justify-center text-center space-y-4">
+            <div className="h-16 w-16 bg-amber-100 rounded-full flex items-center justify-center border border-amber-200">
+              <Sparkles className="h-8 w-8 text-amber-500" />
+            </div>
+            <div>
+              <h3 className="font-extrabold text-slate-900">Faça Upgrade para Hub.IA Premium</h3>
+              <p className="text-sm text-slate-500 mt-1 max-w-sm">Desbloqueie agentes de IA para negociação automática e análise de contratos.</p>
+            </div>
+            <button className="bg-amber-500 hover:bg-amber-600 text-white font-bold text-sm h-10 px-6 rounded-xl transition-colors shadow-sm">
+              Conhecer Planos
+            </button>
+          </CardContent>
+        </Card>
+      </div>
       </div>
       </div>
 

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/shared/components/ui/Dialog';
 import { Button } from '@/shared/components/ui/Button';
 import { Checkbox } from '@/shared/components/ui/Checkbox';
-import { Input } from '@/shared/components/ui/Input';
+import { ClearableInput } from '@/shared/components/ui/ClearableInput';
 import { SupabaseSupplierRepository } from '../../../suppliers/infrastructure/repositories/SupabaseSupplierRepository';
 
 interface Supplier {
@@ -73,10 +73,11 @@ export function LinkSupplierModal({ isOpen, onClose, onLink, alreadyLinkedIds }:
         </DialogHeader>
 
         <div className="py-4 space-y-4">
-          <Input 
+          <ClearableInput 
             placeholder="Buscar fornecedor por nome ou documento..." 
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={setSearch}
+            onClear={() => setSearch('')}
           />
 
           <div className="max-h-[300px] overflow-y-auto border rounded-md">
