@@ -14,6 +14,7 @@ import { Operator, OperatorPerfil, OperatorStatus, operatorFullName } from '@/mo
 import { SupabaseOperatorRepository } from '../../infrastructure/repositories/SupabaseOperatorRepository';
 import { SupabaseDelegationRepository } from '../../infrastructure/repositories/SupabaseDelegationRepository';
 import { EditOperatorModal } from '../components/EditOperatorModal';
+import { OperatorDetailsModal } from '../components/OperatorDetailsModal';
 
 // ─── Badges ───────────────────────────────────────────────────────────────────
 const STATUS_CONFIG: Record<OperatorStatus, { label: string; dot: string; badge: string }> = {
@@ -479,8 +480,11 @@ export default function OperatorsPage() {
     }
   };
 
+  const [detailsOperator, setDetailsOperator] = useState<Operator | null>(null);
+
   const handleUpdateStatus = async (op: Operator, newStatus: OperatorStatus) => {
     setActiveMenu(null);
+    setDetailsOperator(null);
     const actionName = newStatus === 'inativo' ? 'inativar' : 'reativar';
     
     if (!window.confirm(`Deseja realmente ${actionName} o operador ${op.nome} ${op.sobrenome}?`)) {
@@ -511,6 +515,7 @@ export default function OperatorsPage() {
 
   const handleDeleteOperator = async (op: Operator) => {
     setActiveMenu(null);
+    setDetailsOperator(null);
     if (!window.confirm(`ATENÇÃO: Deseja realmente excluir o operador ${op.nome} ${op.sobrenome}?\n\nEsta ação removerá o operador das listas do sistema, mas manterá o histórico salvo para auditoria.`)) {
       return;
     }
@@ -553,6 +558,16 @@ export default function OperatorsPage() {
           operator={editingOperator} 
           orgId={orgId} 
           onClose={() => setEditingOperator(null)} 
+        />
+      )}
+      {detailsOperator && (
+        <OperatorDetailsModal
+          operator={detailsOperator}
+          onClose={() => setDetailsOperator(null)}
+          onEdit={() => { setDetailsOperator(null); setEditingOperator(detailsOperator); }}
+          onInactivate={() => handleUpdateStatus(detailsOperator, 'inativo')}
+          onReactivate={() => handleUpdateStatus(detailsOperator, 'ativo')}
+          onDelete={() => handleDeleteOperator(detailsOperator)}
         />
       )}
 
@@ -650,7 +665,7 @@ export default function OperatorsPage() {
               <thead className="bg-slate-50 text-slate-500 text-[10px] uppercase font-bold border-b border-slate-200">
                 <tr>
                   <th className="px-6 py-3">Operador</th>
-                  <th className="px-6 py-3">Cargo</th>
+                  <th className="px-6 py-3">Tipo de Acesso</th>
                   <th className="px-6 py-3">Perfil</th>
                   <th className="px-6 py-3">Segmentos</th>
                   <th className="px-6 py-3">Status</th>
@@ -685,26 +700,30 @@ export default function OperatorsPage() {
                             </span>
                           </div>
                           <div>
-                            <p className="font-bold text-slate-900">{operatorFullName(op)}</p>
+                            <button onClick={() => setDetailsOperator(op)} className="font-bold text-slate-900 text-left hover:text-indigo-600 transition-colors">
+                              {operatorFullName(op)}
+                            </button>
                             <p className="text-[10px] text-slate-400 flex items-center gap-1">
                               <Mail className="h-3 w-3" /> {op.email}
                             </p>
                           </div>
                         </div>
                       </td>
-                      <td className="px-6 py-4 text-xs text-slate-600">{op.cargo || '—'}</td>
+                      <td className="px-6 py-4 text-xs font-semibold text-slate-700">
+                        {op.cargo?.includes('[APP]') ? 'Campo' : 'Desktop'}
+                      </td>
                       <td className="px-6 py-4"><PerfilBadge perfil={op.perfil} /></td>
                       <td className="px-6 py-4">
                         {op.todos_segmentos ? (
-                          <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100">
-                            Todos
+                          <span className="text-[10px] font-bold text-slate-600">
+                            Todos os Segmentos
                           </span>
                         ) : op.segments && op.segments.length > 0 ? (
                           <span className="text-[10px] text-slate-600">
                             {op.segments.length} segmento{op.segments.length !== 1 ? 's' : ''}
                           </span>
                         ) : (
-                          <span className="text-[10px] text-amber-600">Nenhum</span>
+                          <span className="text-[10px] text-slate-400">Sem segmentos</span>
                         )}
                       </td>
                       <td className="px-6 py-4">

@@ -70,6 +70,21 @@ export async function onRequestPost(context: any) {
       });
     }
 
+    if (!token) {
+      return new Response(JSON.stringify({ success: false, message: 'Token não fornecido' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Função auxiliar para evitar barra dupla no link
+    function joinUrl(baseUrl: string, path: string) {
+      const cleanBase = baseUrl.replace(/\/+$/, '');
+      const cleanPath = path.replace(/^\/+/, '');
+      return `${cleanBase}/${cleanPath}`;
+    }
+
+    const publicUrl = env.APP_PUBLIC_URL || 'https://supplyhub.ia.br';
     let toEmail = '';
     let toName = '';
     let subject = '';
@@ -94,7 +109,8 @@ export async function onRequestPost(context: any) {
       toEmail = invite.email;
       toName = invite.nome || 'Operador';
       subject = 'Convite para ingressar na SupplyHUB';
-      const link = `${publicUrl}/aceitar-convite?token=${invite.token}`;
+      const link = joinUrl(publicUrl, `aceitar-convite?token=${invite.token}`);
+      const manualUrl = joinUrl(publicUrl, 'aceitar-convite');
 
       const isApp = invite.cargo?.includes('[APP]');
       const welcomeText = isApp 
@@ -121,7 +137,7 @@ export async function onRequestPost(context: any) {
             <p style="word-break: break-all;"><a href="${link}" style="color: #4F46E5;">${link}</a></p>
             
             <p style="margin-top: 20px;">Se o cliente de e-mail alterar o link, acesse:</p>
-            <p style="word-break: break-all;"><a href="${publicUrl}/aceitar-convite" style="color: #4F46E5;">${publicUrl}/aceitar-convite</a></p>
+            <p style="word-break: break-all;"><a href="${manualUrl}" style="color: #4F46E5;">${manualUrl}</a></p>
             <p>E cole o código do convite abaixo.</p>
             
             <p style="margin-bottom: 4px; font-weight: bold; color: #333;">Código do convite:</p>
