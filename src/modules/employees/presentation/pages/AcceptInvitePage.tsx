@@ -134,7 +134,20 @@ export default function AcceptInvitePage() {
                 <div className="space-y-2">
                   <h3 className="text-xl font-bold">Conta Ativada!</h3>
                   <p className="text-sm text-slate-400 leading-relaxed">
-                    Olá, <strong className="text-white">{invitation?.nome}</strong>. Sua conta de operador foi configurada e ativada com sucesso.
+                    Olá, <strong className="text-white">{invitation?.nome}</strong>. 
+                    { (invitation?.perfil === 'gestor' || invitation?.perfil === 'administrador') ? (
+                      <>
+                        {' '}Seu perfil foi liberado para uso no APP.
+                        <br/>
+                        Você já pode acessar as solicitações e aprovações pelo celular.
+                      </>
+                    ) : (
+                      <>
+                        {' '}Seu perfil foi liberado para uso no Desktop.
+                        <br/>
+                        Para acessar todas as funcionalidades, utilize o navegador em um computador.
+                      </>
+                    )}
                   </p>
                 </div>
                 <Button
