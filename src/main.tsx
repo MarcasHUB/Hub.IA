@@ -27,4 +27,5 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
       <App />
     </QueryClientProvider>
   </React.StrictMode>,
-)
+);
+console.log("Cache bust v2");
