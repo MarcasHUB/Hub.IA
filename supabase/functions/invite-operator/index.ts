@@ -118,7 +118,23 @@ serve(async (req: Request) => {
       }
     }
 
-    // 3. Registrar o convite em operator_invitations para auditoria e controle
+    // 3. Resolver segment_ids (se o frontend enviar array de strings/nomes em vez de UUIDs)
+    let resolvedSegmentIds = segment_ids || [];
+    if (resolvedSegmentIds.length > 0 && !resolvedSegmentIds[0].match(/^[0-9a-f]{8}-/i)) {
+      const { data: foundSegments } = await supabase
+        .from('segments')
+        .select('id')
+        .eq('organization_id', organization_id)
+        .in('nome', resolvedSegmentIds);
+      
+      if (foundSegments) {
+        resolvedSegmentIds = foundSegments.map((s: any) => s.id);
+      } else {
+        resolvedSegmentIds = [];
+      }
+    }
+
+    // 4. Registrar o convite em operator_invitations para auditoria e controle
     const { error: inviteRecordError } = await supabase
       .from('operator_invitations')
       .insert({
@@ -130,7 +146,7 @@ serve(async (req: Request) => {
         perfil,
         token, // Rastreável
         status: 'pendente',
-        segment_ids: segment_ids || [],
+        segment_ids: resolvedSegmentIds,
         sent_at: new Date().toISOString(),
         expires_at: new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString(), // 72 horas
       });
@@ -139,9 +155,9 @@ serve(async (req: Request) => {
       throw inviteRecordError;
     }
 
-    // 5. Vincular os segmentos na tabela de junção se fornecidos
-    if (segment_ids && segment_ids.length > 0) {
-      const segRecords = segment_ids.map((segId: string) => ({
+    // 6. Vincular os segmentos na tabela de junção se fornecidos
+    if (resolvedSegmentIds && resolvedSegmentIds.length > 0) {
+      const segRecords = resolvedSegmentIds.map((segId: string) => ({
         operator_id: userId,
         segment_id: segId,
       }));
