@@ -16,33 +16,27 @@ export default function AcceptInvitePage() {
   const [errorMsg, setErrorMsg] = useState('');
   const [errorTitle, setErrorTitle] = useState('');
 
-  // Função para extrair o token puro de várias fontes (UUID, link normal ou Safe Link)
+  // Função para extrair o token puro de várias fontes usando Regex de UUID
   const extractToken = (input: string | null): string | null => {
     if (!input) return null;
-    const str = input.trim();
-    
-    // É um UUID puro?
-    if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str)) {
-      return str;
-    }
+    let str = input.trim();
     
     try {
-      const urlObj = new URL(str);
-      
-      // Outlook Safe Links
-      if (urlObj.hostname.includes('safelinks.protection.outlook.com')) {
-        const realUrlStr = urlObj.searchParams.get('url');
-        if (realUrlStr) {
-          const realUrl = new URL(realUrlStr);
-          return realUrl.searchParams.get('token');
-        }
-      }
-      
-      // Link padrão
-      return urlObj.searchParams.get('token');
+      // Decodifica caso o usuário tenha colado um Safe Link URL Encoded
+      str = decodeURIComponent(str);
     } catch (e) {
-      return null; // Não é URL válida nem UUID
+      // ignora erros de decodificação
     }
+    
+    // Procura diretamente qualquer UUID no texto inteiro
+    const uuidRegex = /[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/;
+    const match = str.match(uuidRegex);
+    
+    if (match) {
+      return match[0].toLowerCase();
+    }
+    
+    return null;
   };
 
   const [activeToken, setActiveToken] = useState<string | null>(extractToken(searchParams.get('token') || ''));
@@ -101,7 +95,7 @@ export default function AcceptInvitePage() {
       setActiveToken(token);
     } else {
       setErrorTitle('Código inválido');
-      setErrorMsg('O texto colado não contém um código de convite válido.');
+      setErrorMsg('Não foi possível identificar o código do convite. Copie apenas o código informado no e-mail.');
     }
   };
 

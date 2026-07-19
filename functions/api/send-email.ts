@@ -107,11 +107,15 @@ export async function onRequestPost(context: any) {
           </p>
           
           <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; font-size: 14px; color: #666;">
-            <p>Se o botão não abrir no celular, copie e cole este link no navegador:</p>
+            <p>Se o botão não abrir no celular, acesse o link abaixo no navegador:</p>
             <p style="word-break: break-all;"><a href="${link}" style="color: #4F46E5;">${link}</a></p>
             
-            <p style="margin-top: 20px;">Se o seu aplicativo de e-mail alterar o link, acesse <a href="${publicUrl}/aceitar-convite" style="color: #4F46E5;">${publicUrl}/aceitar-convite</a> e informe este código:</p>
-            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 12px; margin-top: 10px; font-family: monospace; font-size: 16px; font-weight: bold; letter-spacing: 1px; color: #334155; text-align: center;">
+            <p style="margin-top: 20px;">Se o cliente de e-mail alterar o link, acesse:</p>
+            <p style="word-break: break-all;"><a href="${publicUrl}/aceitar-convite" style="color: #4F46E5;">${publicUrl}/aceitar-convite</a></p>
+            <p>E cole o código do convite abaixo.</p>
+            
+            <p style="margin-bottom: 4px; font-weight: bold; color: #333;">Código do convite:</p>
+            <div style="font-family: monospace; font-size: 16px; letter-spacing: 0.5px; background: #f4f6f8; padding: 12px; border-radius: 8px; word-break: break-all; text-align: center; color: #333;">
               ${invite.token}
             </div>
           </div>
