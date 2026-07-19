@@ -1,5 +1,4 @@
 import { createClient } from '@supabase/supabase-js';
-import QRCode from 'qrcode';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -97,8 +96,6 @@ export async function onRequestPost(context: any) {
       subject = 'Convite para ingressar na SupplyHUB';
       const link = `${publicUrl}/aceitar-convite?token=${invite.token}`;
 
-      const qrCodeUrl = await QRCode.toDataURL(link, { margin: 1, width: 150 });
-
       htmlContent = `
         <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; color: #333;">
           <h2>Bem-vindo à SupplyHUB!</h2>
@@ -112,9 +109,6 @@ export async function onRequestPost(context: any) {
           <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; font-size: 14px; color: #666;">
             <p>Se o botão não abrir no celular, copie e cole este link no navegador:</p>
             <p style="word-break: break-all;"><a href="${link}" style="color: #4F46E5;">${link}</a></p>
-            
-            <p style="margin-top: 20px;">Ou escaneie o QR Code abaixo com a câmera do celular:</p>
-            <img src="${qrCodeUrl}" alt="QR Code do Convite" width="150" height="150" style="margin-top: 10px; border: 1px solid #ddd; padding: 5px; border-radius: 8px;" />
           </div>
 
           <p style="margin-top: 30px; font-size: 12px; color: #999;">Este convite expira em 72 horas.</p>
@@ -180,8 +174,18 @@ export async function onRequestPost(context: any) {
 
     if (!response.ok) {
       // Falha no Mailtrap (Logar e retornar erro claro)
-      console.error('Mailtrap Error:', responseData);
-      return new Response(JSON.stringify({ error: 'Failed to send email via Mailtrap', details: responseData }), {
+      console.error('[Mailtrap] Send failed', {
+        status: response.status,
+        body: responseData,
+        action,
+        to: toEmail,
+        hasQrCode: false
+      });
+      return new Response(JSON.stringify({ 
+        error: 'Mailtrap send failed', 
+        status: response.status, 
+        detail: responseData?.errors || responseData?.message || 'Erro desconhecido da Mailtrap'
+      }), {
         status: response.status,
         headers: { 'Content-Type': 'application/json', ...corsHeaders }
       });
