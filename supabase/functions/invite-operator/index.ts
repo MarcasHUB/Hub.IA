@@ -142,7 +142,7 @@ serve(async (req: Request) => {
     // 5. Vincular os segmentos na tabela de junção se fornecidos
     if (segment_ids && segment_ids.length > 0) {
       const segRecords = segment_ids.map((segId: string) => ({
-        operator_id: inviteData.user.id,
+        operator_id: userId,
         segment_id: segId,
       }));
       await supabase.from('operator_segments').insert(segRecords);
@@ -170,8 +170,8 @@ serve(async (req: Request) => {
     return new Response(
       JSON.stringify({ 
         success: true, 
-        message: 'Convite enviado com sucesso.', 
-        user: inviteData.user,
+        message: 'Convite processado com sucesso.', 
+        user: { id: userId, email },
         token,
         expires_at
       }),
