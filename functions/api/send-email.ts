@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import QRCode from 'qrcode';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -96,7 +97,7 @@ export async function onRequestPost(context: any) {
       subject = 'Convite para ingressar na SupplyHUB';
       const link = `${publicUrl}/aceitar-convite?token=${invite.token}`;
 
-      const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(link)}`;
+      const qrCodeUrl = await QRCode.toDataURL(link, { margin: 1, width: 150 });
 
       htmlContent = `
         <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; color: #333;">
