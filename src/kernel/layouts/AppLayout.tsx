@@ -68,12 +68,15 @@ export function AppLayout() {
   useEffect(() => {
     let isMounted = true;
 
-    const loadAuth = async () => {
+    const loadAuth = async (retryCount = 0) => {
       try {
         if (isMounted) setProfileReady(false);
 
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session?.user) {
+        // getUser() garante validação real do token contra o servidor, 
+        // aguardando refresh se necessário (diferente de getSession que pega do storage)
+        const { data: { user }, error: userError } = await supabase.auth.getUser();
+        
+        if (userError || !user) {
           if (isMounted) {
             setIsAdmin(false);
             setAuthReady(true);
@@ -85,12 +88,16 @@ export function AppLayout() {
         if (isMounted) setAuthReady(true);
 
         // Verifica o perfil do operador via RLS
-        const { data: operator } = await supabase
+        const { data: operator, error: opError } = await supabase
           .from('operators')
           .select('perfil')
-          .eq('id', session.user.id)
+          .eq('id', user.id)
           .single();
           
+        if (opError) {
+          throw opError;
+        }
+
         if (isMounted) {
           if (operator && operator.perfil === 'administrador') {
             setIsAdmin(true);
@@ -98,8 +105,16 @@ export function AppLayout() {
             setIsAdmin(false);
           }
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error('Erro ao verificar perfil:', err);
+        // Se for erro de rede/fetch ao abrir o navegador (muito comum no Edge Startup Boost)
+        // Tentamos novamente após 1 segundo (máximo 2 tentativas)
+        if (retryCount < 2 && (err.message?.includes('Failed to fetch') || err.message?.includes('NetworkError'))) {
+          setTimeout(() => {
+            if (isMounted) loadAuth(retryCount + 1);
+          }, 1000);
+          return; // Não finaliza o estado de loading ainda
+        }
         if (isMounted) setIsAdmin(false);
       } finally {
         if (isMounted) {
@@ -138,14 +153,21 @@ export function AppLayout() {
       }
     };
 
+    // Edge normal costuma restaurar abas antes da rede estar pronta
+    const handleOnline = () => {
+      loadAuth();
+    };
+
     window.addEventListener('pageshow', handlePageShow);
     document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('online', handleOnline);
 
     return () => {
       isMounted = false;
       authListener.subscription.unsubscribe();
       window.removeEventListener('pageshow', handlePageShow);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('online', handleOnline);
     };
   }, []);
 
