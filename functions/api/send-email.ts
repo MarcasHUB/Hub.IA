@@ -96,12 +96,22 @@ export async function onRequestPost(context: any) {
       subject = 'Convite para ingressar na SupplyHUB';
       const link = `${publicUrl}/aceitar-convite?token=${invite.token}`;
 
+      const isApp = invite.cargo?.includes('[APP]');
+      const welcomeText = isApp 
+        ? 'Você foi convidado para acessar o SupplyHub como usuário de campo.'
+        : 'Você foi convidado para acessar o SupplyHub como usuário de compras no Desktop.';
+      
+      const instructionsText = isApp
+        ? 'Para concluir o cadastro, aceite o convite e defina sua senha pelo celular.'
+        : 'Para concluir o cadastro, aceite o convite e defina sua senha.';
+
       htmlContent = `
         <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; color: #333;">
           <h2>Bem-vindo à SupplyHUB!</h2>
           <p>Olá <strong>${toName}</strong>,</p>
-          <p>Você foi convidado para atuar como operador(a) na SupplyHUB.</p>
-          <p>Clique no botão abaixo para definir sua senha e ativar sua conta:</p>
+          <p>${welcomeText}</p>
+          <p>${instructionsText}</p>
+          <p>Clique no botão abaixo para acessar:</p>
           <p>
             <a href="${link}" style="display: inline-block; padding: 12px 24px; background-color: #4F46E5; color: #fff; text-decoration: none; border-radius: 4px; font-weight: bold; margin-top: 16px;">Aceitar Convite</a>
           </p>
@@ -123,7 +133,7 @@ export async function onRequestPost(context: any) {
           <p style="margin-top: 30px; font-size: 12px; color: #999;">Este convite expira em 72 horas.</p>
         </div>
       `;
-      textContent = `Olá ${toName},\n\nVocê foi convidado para acessar o SupplyHub.\n\nClique no botão ou copie e cole este link no navegador:\n${link}\n\nCódigo do convite:\n${invite.token}\n\nEste convite expira em 72 horas.`;
+      textContent = `Olá ${toName},\n\n${welcomeText}\n${instructionsText}\n\nClique no botão ou copie e cole este link no navegador:\n${link}\n\nCódigo do convite:\n${invite.token}\n\nEste convite expira em 72 horas.`;
     }
 
     // FLUXO: CONVITE DE FORNECEDOR/EMPRESA

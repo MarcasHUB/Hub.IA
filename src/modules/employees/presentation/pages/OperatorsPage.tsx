@@ -64,6 +64,7 @@ function InviteModal({ onClose, onInvite }: { onClose: () => void; onInvite: (op
   const [form, setForm] = useState({
     nome: '', sobrenome: '', email: '', telefone: '', cargo: '',
     perfil: 'comprador' as OperatorPerfil,
+    accessChannel: 'desktop' as 'desktop' | 'app',
   });
   const [todosSegmentos, setTodosSegmentos] = useState(false);
   const [segmentosSel, setSegmentosSel] = useState<string[]>([]);
@@ -86,12 +87,16 @@ function InviteModal({ onClose, onInvite }: { onClose: () => void; onInvite: (op
       const orgId = localStorage.getItem('supplyhub_organization_id') || '00000000-0000-0000-0000-000000000000';
       const loggedOperator = JSON.parse(localStorage.getItem('supplyhub_logged_operator') || '{}');
 
+      const finalCargo = form.cargo 
+        ? `${form.cargo} [${form.accessChannel.toUpperCase()}]` 
+        : `[${form.accessChannel.toUpperCase()}]`;
+
       const res = await repo.inviteOperator({
         nome: form.nome,
         sobrenome: form.sobrenome,
         email: form.email,
         telefone: form.telefone || undefined,
-        cargo: form.cargo || undefined,
+        cargo: finalCargo,
         perfil: form.perfil,
         segment_ids: todosSegmentos ? [] : segmentosSel,
         invited_by_id: loggedOperator.id || undefined,
@@ -265,18 +270,29 @@ function InviteModal({ onClose, onInvite }: { onClose: () => void; onInvite: (op
               </div>
 
               {/* Perfil */}
+              {/* Tipo de Acesso */}
               <div className="space-y-1">
-                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Perfil de Acesso *</label>
+                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Tipo de Acesso *</label>
                 <select
-                  value={form.perfil}
-                  onChange={e => setForm(f => ({ ...f, perfil: e.target.value as OperatorPerfil }))}
-                  className="w-full h-9 px-3 rounded-lg border border-slate-300 text-sm font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  value={form.accessChannel}
+                  onChange={e => {
+                    const ch = e.target.value as 'desktop' | 'app';
+                    setForm(f => ({ 
+                      ...f, 
+                      accessChannel: ch,
+                      perfil: ch === 'desktop' ? 'comprador' : 'consulta'
+                    }));
+                  }}
+                  className="w-full h-11 px-3 rounded-lg border border-slate-300 text-sm font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 >
-                  <option value="consulta">Consulta — Somente leitura</option>
-                  <option value="comprador">Comprador — Opera categorias autorizadas</option>
-                  <option value="gestor">Gestor — Aprova e delega funções</option>
-                  <option value="administrador">Administrador — Acesso total</option>
+                  <option value="desktop">Usuário Desktop — Comprador</option>
+                  <option value="app">Usuário Campo — Solicitante</option>
                 </select>
+                <p className="text-[10px] text-slate-500 mt-1">
+                  {form.accessChannel === 'desktop' 
+                    ? 'Acesso pelo navegador em computador para rotinas de compras.' 
+                    : 'Acesso pelo celular/app para solicitações e uso em campo.'}
+                </p>
               </div>
 
               {/* Segmentos */}
