@@ -35,7 +35,13 @@ export default function AcceptInvitePage() {
       try {
         const invite = await repo.getInvitationByToken(token);
         if (!invite) {
-          setErrorMsg('Este convite é inválido, já foi aceito ou expirou.');
+          setErrorMsg('Convite inválido: O link informado não foi encontrado ou é inválido.');
+        } else if (invite.status === 'aceito') {
+          setErrorMsg('Convite já utilizado: Este convite já foi aceito anteriormente. Você pode acessar sua conta pelo login.');
+        } else if (invite.status === 'cancelado') {
+          setErrorMsg('Convite cancelado: Este convite foi cancelado pelo administrador.');
+        } else if (new Date(invite.expires_at) < new Date()) {
+          setErrorMsg('Convite expirado: Solicite um novo convite ao administrador da empresa.');
         } else {
           setInvitation(invite);
         }

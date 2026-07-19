@@ -85,8 +85,7 @@ export class SupabaseSignalRepository {
         .from('hubia_signals')
         .select('*')
         .eq('organization_id', organizationId)
-        .neq('status', 'resolvido')
-        .neq('status', 'ignorado');
+        .in('status', ['nao_lido', 'lido']);
       
       if (!error && data) {
         list = data as HubIASignal[];

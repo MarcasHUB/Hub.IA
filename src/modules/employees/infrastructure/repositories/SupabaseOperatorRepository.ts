@@ -57,8 +57,7 @@ export class SupabaseOperatorRepository implements IOperatorRepository {
       .from('operator_invitations')
       .select('*')
       .eq('token', token)
-      .eq('status', 'pendente')
-      .single();
+      .maybeSingle();
 
     if (error || !data) {
       return null;
