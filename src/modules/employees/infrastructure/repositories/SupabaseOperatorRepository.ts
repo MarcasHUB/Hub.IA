@@ -1,5 +1,5 @@
 import { supabase } from '@/infrastructure/supabase/client';
-import { Operator } from '../../domain/entities/Operator';
+import { Operator, OperatorStatus } from '../../domain/entities/Operator';
 import { Invitation } from '../../domain/entities/Invitation';
 import { IOperatorRepository } from '../../domain/repositories/IOperatorRepository';
 
@@ -118,6 +118,15 @@ export class SupabaseOperatorRepository implements IOperatorRepository {
       .eq('status', 'pendente');
 
     if (errOp) throw errOp;
+  }
+
+  async updateOperatorStatus(id: string, status: OperatorStatus): Promise<void> {
+    const { error } = await supabase
+      .from('operators')
+      .update({ status, updated_at: new Date().toISOString() })
+      .eq('id', id);
+
+    if (error) throw error;
   }
 
   async resendInvite(email: string): Promise<void> {

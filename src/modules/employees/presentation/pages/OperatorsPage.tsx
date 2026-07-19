@@ -449,6 +449,36 @@ export default function OperatorsPage() {
     }
   };
 
+  const handleUpdateStatus = async (op: Operator, newStatus: OperatorStatus) => {
+    setActiveMenu(null);
+    const actionName = newStatus === 'inativo' ? 'inativar' : 'reativar';
+    
+    if (!window.confirm(`Deseja realmente ${actionName} o operador ${op.nome} ${op.sobrenome}?`)) {
+      return;
+    }
+    
+    const previousOperators = queryClient.getQueryData<Operator[]>(['operators', orgId]);
+    
+    queryClient.setQueryData(['operators', orgId], (old: Operator[] | undefined) => {
+      if (!old) return [];
+      return old.map(item => item.id === op.id ? { ...item, status: newStatus } : item);
+    });
+
+    try {
+      const repo = new SupabaseOperatorRepository();
+      await repo.updateOperatorStatus(op.id, newStatus);
+      // alert(`Operador ${actionName}do com sucesso.`);
+    } catch (err: any) {
+      console.error(err);
+      alert(`Erro ao ${actionName} o operador.`);
+      if (previousOperators) {
+        queryClient.setQueryData(['operators', orgId], previousOperators);
+      }
+    } finally {
+      await queryClient.invalidateQueries({ queryKey: ['operators'] });
+    }
+  };
+
   const stats = {
     total: operators.length,
     ativos: operators.filter(o => o.status === 'ativo').length,
@@ -630,13 +660,13 @@ export default function OperatorsPage() {
                                     <>
                                       <button onClick={() => setActiveMenu(null)} className="w-full text-left px-4 py-2 text-xs text-slate-700 hover:bg-slate-50 font-medium">Editar Operador</button>
                                       <button onClick={() => setActiveMenu(null)} className="w-full text-left px-4 py-2 text-xs text-slate-700 hover:bg-slate-50 font-medium">Delegar Funções</button>
-                                      <button onClick={() => setActiveMenu(null)} className="w-full text-left px-4 py-2 text-xs text-amber-600 hover:bg-amber-50 font-medium">Inativar Operador</button>
+                                      <button onClick={() => handleUpdateStatus(op, 'inativo')} className="w-full text-left px-4 py-2 text-xs text-amber-600 hover:bg-amber-50 font-medium">Inativar Operador</button>
                                     </>
                                   )}
                                   {op.status === 'inativo' && (
                                     <>
                                       <button onClick={() => setActiveMenu(null)} className="w-full text-left px-4 py-2 text-xs text-slate-700 hover:bg-slate-50 font-medium">Editar Operador</button>
-                                      <button onClick={() => setActiveMenu(null)} className="w-full text-left px-4 py-2 text-xs text-green-600 hover:bg-green-50 font-medium">Reativar Operador</button>
+                                      <button onClick={() => handleUpdateStatus(op, 'ativo')} className="w-full text-left px-4 py-2 text-xs text-green-600 hover:bg-green-50 font-medium">Reativar Operador</button>
                                     </>
                                   )}
                                 </div>

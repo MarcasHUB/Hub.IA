@@ -1,4 +1,4 @@
-import { Operator } from '../entities/Operator';
+import { Operator, OperatorStatus } from '../entities/Operator';
 import { Invitation } from '../entities/Invitation';
 
 export interface IOperatorRepository {
@@ -30,5 +30,5 @@ export interface IOperatorRepository {
   
   // Opções adicionais que podemos precisar depois
   // updateOperator(id: string, payload: Partial<Operator>): Promise<Operator>;
-  // inactivateOperator(id: string): Promise<void>;
+  updateOperatorStatus(id: string, status: OperatorStatus): Promise<void>;
 }
