@@ -34,27 +34,88 @@ serve(async (req: Request) => {
     // 1. Gerar token seguro para rastreabilidade
     const token = crypto.randomUUID();
 
-    // 2. Chamar API Administrativa do Supabase para enviar o convite de verdade
-    // O redirecionamento inclui o token de rastreabilidade
     const origin = req.headers.get('origin') || 'http://localhost:5173';
     const redirectUrl = `${origin}/aceitar-convite?token=${token}`;
 
-    const { data: inviteData, error: inviteError } = await supabase.auth.admin.createUser({
-      email,
-      email_confirm: false,
-      password: crypto.randomUUID(),
-      user_metadata: {
-        nome,
-        sobrenome,
-        cargo,
-        perfil,
-        organization_id,
-        invite_token: token,
-      }
-    });
+    // 2. Verificar se o operador já existe nesta organização (ex: foi soft-deleted ou está inativo)
+    const { data: existingOp } = await supabase
+      .from('operators')
+      .select('id')
+      .eq('email', email)
+      .eq('organization_id', organization_id)
+      .maybeSingle();
 
-    if (inviteError) {
-      throw inviteError;
+    let userId = '';
+
+    if (existingOp) {
+      userId = existingOp.id;
+      // Atualiza o operador existente para pendente e limpa o deleted_at
+      const { error: updateOpError } = await supabase
+        .from('operators')
+        .update({
+          nome,
+          sobrenome,
+          cargo,
+          perfil,
+          status: 'pendente',
+          telefone: body.telefone || null,
+          deleted_at: null,
+          invited_at: new Date().toISOString(),
+          gestor_id: invited_by_id || null
+        })
+        .eq('id', userId);
+        
+      if (updateOpError) throw updateOpError;
+    } else {
+      // Operador não existe nesta org. Tentar criar no Supabase Auth.
+      const { data: inviteData, error: inviteError } = await supabase.auth.admin.createUser({
+        email,
+        email_confirm: false,
+        password: crypto.randomUUID(),
+        user_metadata: {
+          nome,
+          sobrenome,
+          cargo,
+          perfil,
+          organization_id,
+          invite_token: token,
+        }
+      });
+
+      if (inviteError) {
+        // Se der "User already registered", o usuário existe no Auth mas não na org local.
+        // Tenta buscar o ID dele caso ele exista em outra org.
+        const { data: globalOp } = await supabase.from('operators').select('id').eq('email', email).limit(1).maybeSingle();
+        if (globalOp) {
+          userId = globalOp.id;
+        } else {
+          // Fallback: se não achar de jeito nenhum, repassa o erro do Auth.
+          throw inviteError;
+        }
+      } else {
+        userId = inviteData.user.id;
+      }
+
+      // 4. Criar o operador com status 'pendente' na tabela operators
+      const { error: operatorRecordError } = await supabase
+        .from('operators')
+        .insert({
+          id: userId,
+          organization_id,
+          nome,
+          sobrenome,
+          email,
+          telefone: body.telefone || null,
+          cargo,
+          perfil,
+          status: 'pendente',
+          gestor_id: invited_by_id || null,
+          invited_at: new Date().toISOString(),
+        });
+
+      if (operatorRecordError && !operatorRecordError.message.includes('duplicate key')) {
+        throw operatorRecordError;
+      }
     }
 
     // 3. Registrar o convite em operator_invitations para auditoria e controle
@@ -76,27 +137,6 @@ serve(async (req: Request) => {
 
     if (inviteRecordError) {
       throw inviteRecordError;
-    }
-
-    // 4. Criar o operador com status 'pendente' na tabela operators
-    const { error: operatorRecordError } = await supabase
-      .from('operators')
-      .insert({
-        id: inviteData.user.id, // Sincronizado com Auth.users
-        organization_id,
-        nome,
-        sobrenome,
-        email,
-        telefone: body.telefone || null,
-        cargo,
-        perfil,
-        status: 'pendente',
-        gestor_id: invited_by_id || null,
-        invited_at: new Date().toISOString(),
-      });
-
-    if (operatorRecordError && !operatorRecordError.message.includes('duplicate key')) {
-      throw operatorRecordError;
     }
 
     // 5. Vincular os segmentos na tabela de junção se fornecidos
