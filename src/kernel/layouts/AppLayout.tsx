@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Link, useLocation, Outlet, useNavigate } from 'react-router-dom';
+import { supabase } from '@/infrastructure/supabase/client';
 import { cn } from '@/shared/utils/cn';
 import { Globe, Settings, ShoppingCart, X, Trash2, MessageSquare, FileText } from 'lucide-react';
 import { Button } from '@/shared/components/ui/Button';
@@ -9,14 +10,10 @@ import { useChatDrawer } from '@/modules/messages/presentation/context/ChatDrawe
 import { ChatDrawer } from '@/modules/messages/presentation/components/ChatDrawer';
 import { QuotationTypeModal } from '@/modules/quotations/presentation/components/QuotationTypeModal';
 
-// ─── Itens de navegação central ──────────────────────────────────────────────
-const NAV_ITEMS = [
-  { name: 'Dashboard',      href: '/dashboard' },
-  { name: 'Meus Parceiros', href: '/suppliers' },
-  { name: 'Materiais',      href: '/products' },
-  { name: 'Cotações',       href: '/quotations' },
-  { name: 'Minha Empresa',  href: '/empresa' },
-];
+const APP_VERSION = '1.0.1-build';
+console.log(`[SupplyHub] AppLayout loaded - Version: ${APP_VERSION}`);
+
+// NAV_ITEMS agora é calculado dinamicamente dentro de AppLayout
 
 // ─── CompanyLogo (logo da empresa ou iniciais) ────────────────────────────────
 function CompanyLogo({ logo }: { logo: string | null }) {
@@ -63,6 +60,109 @@ export function AppLayout() {
     }
     return 'Cordebello';
   });
+
+  const [authReady, setAuthReady] = useState(false);
+  const [profileReady, setProfileReady] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadAuth = async () => {
+      try {
+        if (isMounted) setProfileReady(false);
+
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.user) {
+          if (isMounted) {
+            setIsAdmin(false);
+            setAuthReady(true);
+            setProfileReady(true);
+          }
+          return;
+        }
+        
+        if (isMounted) setAuthReady(true);
+
+        // Verifica o perfil do operador via RLS
+        const { data: operator } = await supabase
+          .from('operators')
+          .select('perfil')
+          .eq('id', session.user.id)
+          .single();
+          
+        if (isMounted) {
+          if (operator && operator.perfil === 'administrador') {
+            setIsAdmin(true);
+          } else {
+            setIsAdmin(false);
+          }
+        }
+      } catch (err) {
+        console.error('Erro ao verificar perfil:', err);
+        if (isMounted) setIsAdmin(false);
+      } finally {
+        if (isMounted) {
+          setAuthReady(true);
+          setProfileReady(true);
+        }
+      }
+    };
+
+    loadAuth();
+
+    // Supabase auth listener para reagir a login / logoff / refresh / troca de aba (se session sync ativado)
+    const { data: authListener } = supabase.auth.onAuthStateChange((event, _session) => {
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
+        loadAuth();
+      } else if (event === 'SIGNED_OUT') {
+        if (isMounted) {
+          setIsAdmin(false);
+          setAuthReady(true);
+          setProfileReady(true);
+        }
+      }
+    });
+
+    // Restauracao de BFCache (botão Voltar / Restaurar sessão Edge)
+    const handlePageShow = (e: PageTransitionEvent) => {
+      if (e.persisted) {
+        loadAuth();
+      }
+    };
+    
+    // Restauracao de visibilidade (ex: mudou de aba e voltou)
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        loadAuth();
+      }
+    };
+
+    window.addEventListener('pageshow', handlePageShow);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      isMounted = false;
+      authListener.subscription.unsubscribe();
+      window.removeEventListener('pageshow', handlePageShow);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, []);
+
+  const dynamicNavItems = useMemo(() => {
+    const baseItems = [
+      { name: 'Dashboard',      href: '/dashboard' },
+      { name: 'Meus Parceiros', href: '/suppliers' },
+      { name: 'Materiais',      href: '/products' },
+      { name: 'Cotações',       href: '/quotations' },
+    ];
+
+    if (isAdmin) {
+      baseItems.push({ name: 'Minha Empresa', href: '/empresa' });
+    }
+
+    return baseItems;
+  }, [isAdmin]);
 
   useEffect(() => {
     // Forçar limpeza de org-1 legado do localStorage
@@ -210,25 +310,34 @@ export function AppLayout() {
 
               <div className="h-4 w-px bg-slate-300 shrink-0" />
 
-              {NAV_ITEMS.map((item) => {
-                const isActive =
-                  location.pathname === item.href ||
-                  (item.href !== '/dashboard' && location.pathname.startsWith(item.href));
-                return (
-                  <Link
-                    key={item.name}
-                    to={item.href}
-                    className={cn(
-                      'text-sm transition-colors whitespace-nowrap',
-                      isActive
-                        ? 'font-bold text-indigo-700'
-                        : 'font-medium text-slate-500 hover:text-slate-900'
-                    )}
-                  >
-                    {item.name}
-                  </Link>
-                );
-              })}
+              {(authReady && profileReady) ? (
+                dynamicNavItems.map((item) => {
+                  const isActive =
+                    location.pathname === item.href ||
+                    (item.href !== '/dashboard' && location.pathname.startsWith(item.href));
+                  return (
+                    <Link
+                      key={item.name}
+                      to={item.href}
+                      className={cn(
+                        'text-sm transition-colors whitespace-nowrap',
+                        isActive
+                          ? 'font-bold text-indigo-700'
+                          : 'font-medium text-slate-500 hover:text-slate-900'
+                      )}
+                    >
+                      {item.name}
+                    </Link>
+                  );
+                })
+              ) : (
+                <div className="flex gap-6 items-center">
+                  <div className="h-3.5 w-20 bg-slate-200 rounded-md animate-pulse" />
+                  <div className="h-3.5 w-24 bg-slate-200 rounded-md animate-pulse" />
+                  <div className="h-3.5 w-20 bg-slate-200 rounded-md animate-pulse" />
+                  <div className="h-3.5 w-24 bg-slate-200 rounded-md animate-pulse" />
+                </div>
+              )}
             </div>
           </nav>
 
@@ -298,8 +407,29 @@ export function AppLayout() {
 
             {/* Botão Sair */}
             <button 
-              onClick={() => {
-                localStorage.clear();
+              onClick={async () => {
+                // Clear state memory
+                setIsAdmin(false);
+                setAuthReady(false);
+                setProfileReady(false);
+                
+                // Clear app-specific items, preserving Supabase tokens
+                localStorage.removeItem('supplyhub_razao_social');
+                localStorage.removeItem('supplyhub_company_name');
+                localStorage.removeItem('supplyhub_company_logo');
+                localStorage.removeItem('supplyhub_organization_id');
+                localStorage.removeItem('supplyhub_logged_operator');
+                localStorage.removeItem('supplyhub_session_token');
+                localStorage.removeItem('supplyhub_cnpj');
+                localStorage.removeItem('supplyhub_email_corp');
+                localStorage.removeItem('supplyhub_telefone');
+                localStorage.removeItem('supplyhub_gestor_principal');
+                
+                try {
+                  await supabase.auth.signOut();
+                } catch (e) {
+                  console.error('Logout err:', e);
+                }
                 window.location.href = '/login';
               }}
               className="text-sm font-semibold text-red-500 hover:text-red-700 transition-colors"
