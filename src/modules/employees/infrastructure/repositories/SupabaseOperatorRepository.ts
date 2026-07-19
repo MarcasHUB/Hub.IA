@@ -53,17 +53,15 @@ export class SupabaseOperatorRepository implements IOperatorRepository {
    * Busca um convite pendente por token para validação na tela de aceite
    */
   async getInvitationByToken(token: string): Promise<Invitation | null> {
-    const { data, error } = await supabase
-      .from('operator_invitations')
-      .select('*')
-      .eq('token', token)
-      .maybeSingle();
+    const { data, error } = await supabase.functions.invoke('validate-operator-invite', {
+      body: { token }
+    });
 
-    if (error || !data) {
+    if (error || !data || !data.success) {
       return null;
     }
 
-    return data as Invitation;
+    return data.data as Invitation;
   }
 
   /**

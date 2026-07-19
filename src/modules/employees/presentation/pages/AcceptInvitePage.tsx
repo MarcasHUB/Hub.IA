@@ -15,6 +15,7 @@ export default function AcceptInvitePage() {
   const [loading, setLoading] = useState(true);
   const [invitation, setInvitation] = useState<Invitation | null>(null);
   const [errorMsg, setErrorMsg] = useState('');
+  const [errorTitle, setErrorTitle] = useState('');
 
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -35,13 +36,17 @@ export default function AcceptInvitePage() {
       try {
         const invite = await repo.getInvitationByToken(token);
         if (!invite) {
-          setErrorMsg('Convite inválido: O link informado não foi encontrado ou é inválido.');
+          setErrorTitle('Convite inválido');
+          setErrorMsg('O link informado não foi encontrado ou é inválido.');
         } else if (invite.status === 'aceito') {
-          setErrorMsg('Convite já utilizado: Este convite já foi aceito anteriormente. Você pode acessar sua conta pelo login.');
+          setErrorTitle('Convite já utilizado');
+          setErrorMsg('Este convite já foi aceito anteriormente. Você pode acessar sua conta pelo login.');
         } else if (invite.status === 'cancelado') {
-          setErrorMsg('Convite cancelado: Este convite foi cancelado pelo administrador.');
+          setErrorTitle('Convite cancelado');
+          setErrorMsg('Este convite foi cancelado pelo administrador.');
         } else if (new Date(invite.expires_at) < new Date()) {
-          setErrorMsg('Convite expirado: Solicite um novo convite ao administrador da empresa.');
+          setErrorTitle('Convite expirado');
+          setErrorMsg('Solicite um novo convite ao administrador da empresa.');
         } else {
           setInvitation(invite);
         }
@@ -146,7 +151,7 @@ export default function AcceptInvitePage() {
                   <AlertTriangle className="h-7 w-7 text-red-400" />
                 </div>
                 <div className="space-y-2">
-                  <h3 className="text-lg font-bold">Convite Inválido</h3>
+                  <h3 className="text-lg font-bold">{errorTitle || 'Erro no Convite'}</h3>
                   <p className="text-xs text-slate-400 leading-relaxed">{errorMsg}</p>
                 </div>
                 <Button
