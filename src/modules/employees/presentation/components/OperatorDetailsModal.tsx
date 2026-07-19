@@ -8,6 +8,7 @@ interface OperatorDetailsModalProps {
   onInactivate: () => void;
   onReactivate: () => void;
   onDelete: () => void;
+  onResendInvite?: () => void;
   segmentsList?: any[];
 }
 
@@ -48,7 +49,7 @@ function PerfilBadge({ perfil }: { perfil: OperatorPerfil }) {
   );
 }
 
-export function OperatorDetailsModal({ operator, onClose, onEdit, onInactivate, onReactivate, onDelete, segmentsList = [] }: OperatorDetailsModalProps) {
+export function OperatorDetailsModal({ operator, onClose, onEdit, onInactivate, onReactivate, onDelete, onResendInvite, segmentsList = [] }: OperatorDetailsModalProps) {
   const isApp = operator.cargo?.includes('[APP]');
   const accessType = isApp ? 'Campo' : 'Desktop';
   // Remove special tags from cargo if we want to display the real cargo, but user said "Cargo continua existindo, mas deve aparecer no detalhe".
@@ -142,27 +143,47 @@ export function OperatorDetailsModal({ operator, onClose, onEdit, onInactivate, 
 
         {/* Footer Actions */}
         <div className="p-4 border-t border-slate-100 bg-slate-50 flex items-center gap-3">
-          {operator.status !== 'cancelado' && (
-            <button onClick={onDelete} className="px-4 py-2 text-xs font-bold text-red-600 hover:bg-red-50 rounded-lg transition-colors mr-auto border border-transparent hover:border-red-200">
-              Excluir
-            </button>
+          {operator.status === 'pendente' ? (
+            <>
+              <button onClick={onDelete} className="px-4 py-2 text-xs font-bold text-red-600 hover:bg-red-50 rounded-lg transition-colors mr-auto border border-transparent hover:border-red-200">
+                Cancelar Convite
+              </button>
+              {onResendInvite && (
+                <button onClick={onResendInvite} className="px-4 py-2 text-xs font-bold text-amber-600 bg-white border border-slate-200 hover:border-amber-300 hover:bg-amber-50 rounded-lg transition-colors">
+                  Reenviar Convite
+                </button>
+              )}
+              <button onClick={onEdit} className="px-5 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-sm transition-colors">
+                Editar Convite
+              </button>
+            </>
+          ) : (
+            <>
+              {operator.status !== 'cancelado' && (
+                <button onClick={onDelete} className="px-4 py-2 text-xs font-bold text-red-600 hover:bg-red-50 rounded-lg transition-colors mr-auto border border-transparent hover:border-red-200">
+                  Excluir
+                </button>
+              )}
+              
+              {operator.status === 'ativo' && (
+                <button onClick={onInactivate} className="px-4 py-2 text-xs font-bold text-amber-600 bg-white border border-slate-200 hover:border-amber-300 hover:bg-amber-50 rounded-lg transition-colors">
+                  Inativar
+                </button>
+              )}
+              
+              {operator.status === 'inativo' && (
+                <button onClick={onReactivate} className="px-4 py-2 text-xs font-bold text-green-600 bg-white border border-slate-200 hover:border-green-300 hover:bg-green-50 rounded-lg transition-colors">
+                  Reativar
+                </button>
+              )}
+              
+              {operator.status !== 'cancelado' && (
+                <button onClick={onEdit} className="px-5 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-sm transition-colors">
+                  Editar Operador
+                </button>
+              )}
+            </>
           )}
-          
-          {operator.status === 'ativo' && (
-            <button onClick={onInactivate} className="px-4 py-2 text-xs font-bold text-amber-600 bg-white border border-slate-200 hover:border-amber-300 hover:bg-amber-50 rounded-lg transition-colors">
-              Inativar
-            </button>
-          )}
-          
-          {operator.status === 'inativo' && (
-            <button onClick={onReactivate} className="px-4 py-2 text-xs font-bold text-green-600 bg-white border border-slate-200 hover:border-green-300 hover:bg-green-50 rounded-lg transition-colors">
-              Reativar
-            </button>
-          )}
-          
-          <button onClick={onEdit} className="px-5 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-sm transition-colors">
-            Editar Operador
-          </button>
         </div>
 
       </div>

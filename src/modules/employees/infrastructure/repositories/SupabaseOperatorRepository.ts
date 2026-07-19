@@ -150,6 +150,26 @@ export class SupabaseOperatorRepository implements IOperatorRepository {
 
     if (error) throw error;
 
+    // Se o operador for pendente, precisamos manter as duas estruturas consistentes (operators e operator_invitations)
+    if (payload.status === 'pendente' && payload.email) {
+      const allowedInvitePayload: any = {};
+      if (payload.nome !== undefined) allowedInvitePayload.nome = payload.nome;
+      if (payload.cargo !== undefined) allowedInvitePayload.cargo = payload.cargo;
+      if (payload.perfil !== undefined) allowedInvitePayload.perfil = payload.perfil;
+      if (payload.todos_segmentos !== undefined) allowedInvitePayload.todos_segmentos = payload.todos_segmentos;
+      if (payload.segments !== undefined) allowedInvitePayload.segment_ids = payload.segments;
+      
+      if (Object.keys(allowedInvitePayload).length > 0) {
+        const { error: invError } = await supabase
+          .from('operator_invitations')
+          .update(allowedInvitePayload)
+          .eq('email', payload.email)
+          .eq('status', 'pendente');
+          
+        if (invError) throw invError;
+      }
+    }
+
     // Atualizar tabela N:N se o array de segmentos foi passado
     if (payload.segments !== undefined) {
       // 1. Limpar vínculos anteriores

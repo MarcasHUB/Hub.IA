@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { XCircle, CheckCircle2 } from 'lucide-react';
+import { XCircle, CheckCircle2, Check, X, Smartphone, Monitor } from 'lucide-react';
 import { Button } from '@/shared/components/ui/Button';
 import { Input } from '@/shared/components/ui/Input';
-import { Operator, OperatorPerfil } from '../../domain/entities/Operator';
+import { Operator, OperatorPerfil, MacroProfile, MACRO_PROFILES } from '../../domain/entities/Operator';
 import { SupabaseOperatorRepository } from '../../infrastructure/repositories/SupabaseOperatorRepository';
 import { SupabaseSegmentRepository } from '../../infrastructure/repositories/SupabaseSegmentRepository';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
@@ -16,11 +16,20 @@ interface EditOperatorModalProps {
 export function EditOperatorModal({ operator, orgId, onClose }: EditOperatorModalProps) {
   const queryClient = useQueryClient();
   
+  const initialMacro = (): MacroProfile => {
+    if (operator.cargo?.includes('[APP] Solicitante')) return 'Solicitante';
+    if (operator.cargo?.includes('[DESKTOP] Auditor')) return 'Auditor';
+    if (operator.cargo?.includes('[DESKTOP] Gestor') || operator.perfil === 'gestor') return 'Gestor';
+    if (operator.cargo?.includes('[DESKTOP] Administrador') || operator.perfil === 'administrador') return 'Administrador';
+    return 'Comprador';
+  };
+
   const [form, setForm] = useState({
     nome: operator.nome || '',
     sobrenome: operator.sobrenome || '',
     telefone: operator.telefone || '',
     cargo: operator.cargo || '',
+    macroProfile: initialMacro(),
     perfil: operator.perfil as OperatorPerfil,
     todos_segmentos: operator.todos_segmentos || false,
     segment_ids: operator.segments || [],
@@ -49,15 +58,19 @@ export function EditOperatorModal({ operator, orgId, onClose }: EditOperatorModa
     try {
       const repo = new SupabaseOperatorRepository();
       
-      await repo.updateOperator(operator.id, {
+      const payload: Partial<Operator> = {
         nome: form.nome,
         sobrenome: form.sobrenome,
+        email: operator.email,
+        status: operator.status,
         telefone: form.telefone || undefined,
-        cargo: form.cargo || undefined,
-        perfil: form.perfil,
+        cargo: operator.status === 'pendente' ? MACRO_PROFILES[form.macroProfile].cargo : (form.cargo || undefined),
+        perfil: operator.status === 'pendente' ? MACRO_PROFILES[form.macroProfile].perfil : form.perfil,
         todos_segmentos: form.todos_segmentos,
         segments: form.todos_segmentos ? [] : form.segment_ids,
-      } as any);
+      };
+
+      await repo.updateOperator(operator.id, payload as any);
 
       setSuccess(true);
       
@@ -108,8 +121,8 @@ export function EditOperatorModal({ operator, orgId, onClose }: EditOperatorModa
             {/* Header */}
             <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-slate-100">
               <div>
-                <h3 className="text-base font-extrabold text-slate-900">Editar Operador</h3>
-                <p className="text-xs text-slate-500 mt-0.5">Altere as permissões e dados pessoais.</p>
+                <h3 className="text-base font-extrabold text-slate-900">{operator.status === 'pendente' ? 'Editar Convite' : 'Editar Operador'}</h3>
+                <p className="text-xs text-slate-500 mt-0.5">{operator.status === 'pendente' ? 'Altere os dados do convite antes do aceite. O e-mail não pode ser alterado.' : 'Altere as permissões e dados pessoais.'}</p>
               </div>
               <button onClick={onClose} className="p-1.5 hover:bg-slate-100 rounded-full">
                 <XCircle className="h-4 w-4 text-slate-400" />
@@ -147,26 +160,92 @@ export function EditOperatorModal({ operator, orgId, onClose }: EditOperatorModa
                   <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Telefone</label>
                   <Input value={form.telefone} onChange={e => setForm(f => ({ ...f, telefone: e.target.value }))} placeholder="(11) 9xxxx-xxxx" className="h-9 text-sm" />
                 </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Cargo</label>
-                  <Input value={form.cargo} onChange={e => setForm(f => ({ ...f, cargo: e.target.value }))} placeholder="Ex: Comprador Sênior" className="h-9 text-sm" />
-                </div>
+                {operator.status !== 'pendente' && (
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Cargo</label>
+                    <Input value={form.cargo} onChange={e => setForm(f => ({ ...f, cargo: e.target.value }))} placeholder="Ex: Comprador Sênior" className="h-9 text-sm" />
+                  </div>
+                )}
               </div>
 
-              {/* Perfil */}
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Perfil de Acesso *</label>
-                <select
-                  value={form.perfil}
-                  onChange={e => setForm(f => ({ ...f, perfil: e.target.value as OperatorPerfil }))}
-                  className="w-full h-9 px-3 rounded-lg border border-slate-300 text-sm font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                >
-                  <option value="consulta">Consulta — Somente leitura</option>
-                  <option value="comprador">Comprador — Opera categorias autorizadas</option>
-                  <option value="gestor">Gestor — Aprova e delega funções</option>
-                  <option value="administrador">Administrador — Acesso total</option>
-                </select>
-              </div>
+              {/* Perfil e Acessos */}
+              {operator.status === 'pendente' ? (
+                <div className="space-y-3">
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Perfil de Acesso *</label>
+                  
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
+                    {(Object.keys(MACRO_PROFILES) as MacroProfile[]).map((mp) => (
+                      <button
+                        key={mp}
+                        type="button"
+                        onClick={() => setForm(f => ({ ...f, macroProfile: mp }))}
+                        className={`h-9 text-[11px] font-bold rounded-lg border transition-all ${
+                          form.macroProfile === mp 
+                          ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm' 
+                          : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                        }`}
+                      >
+                        {mp}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Resumo Dinâmico do Perfil */}
+                  <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 text-sm mt-2">
+                    <div className="flex flex-col gap-3">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-slate-900">Acessos Disponíveis:</span>
+                        <div className="flex items-center gap-3">
+                          <div className={`flex items-center gap-1 ${MACRO_PROFILES[form.macroProfile].mobile ? 'text-green-600' : 'text-slate-400'}`}>
+                            {MACRO_PROFILES[form.macroProfile].mobile ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
+                            <Smartphone className="h-3.5 w-3.5" />
+                            <span className="text-[11px] font-bold uppercase">Mobile</span>
+                          </div>
+                          <div className={`flex items-center gap-1 ${MACRO_PROFILES[form.macroProfile].desktop ? 'text-green-600' : 'text-slate-400'}`}>
+                            {MACRO_PROFILES[form.macroProfile].desktop ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
+                            <Monitor className="h-3.5 w-3.5" />
+                            <span className="text-[11px] font-bold uppercase">Desktop</span>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div>
+                        <span className="font-bold text-slate-900 block mb-1">Permissões:</span>
+                        <ul className="list-disc pl-5 text-slate-600 space-y-0.5">
+                          {MACRO_PROFILES[form.macroProfile].perms.map((p: string, i: number) => (
+                            <li key={i}>{p}</li>
+                          ))}
+                        </ul>
+                      </div>
+
+                      {MACRO_PROFILES[form.macroProfile].rests.length > 0 && (
+                        <div className="pt-2 border-t border-slate-200">
+                          <span className="font-bold text-red-600 block mb-1">Restrições:</span>
+                          <ul className="list-disc pl-5 text-slate-500 space-y-0.5">
+                            {MACRO_PROFILES[form.macroProfile].rests.map((p: string, i: number) => (
+                              <li key={i}>{p}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Perfil de Acesso *</label>
+                  <select
+                    value={form.perfil}
+                    onChange={e => setForm(f => ({ ...f, perfil: e.target.value as OperatorPerfil }))}
+                    className="w-full h-9 px-3 rounded-lg border border-slate-300 text-sm font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  >
+                    <option value="consulta">Auditor/Consulta — Acesso restrito</option>
+                    <option value="comprador">Comprador — Opera categorias autorizadas</option>
+                    <option value="gestor">Gestor — Aprova e delega funções</option>
+                    <option value="administrador">Administrador — Acesso total</option>
+                  </select>
+                </div>
+              )}
 
               {/* Segmentos Autorizados */}
               <div className="space-y-3 pt-2 border-t border-slate-100">
@@ -195,7 +274,7 @@ export function EditOperatorModal({ operator, orgId, onClose }: EditOperatorModa
                             if (e.target.checked) {
                               setForm(f => ({ ...f, segment_ids: [...f.segment_ids, seg.id] }));
                             } else {
-                              setForm(f => ({ ...f, segment_ids: f.segment_ids.filter(id => id !== seg.id) }));
+                              setForm(f => ({ ...f, segment_ids: f.segment_ids.filter((id: string) => id !== seg.id) }));
                             }
                           }}
                         />

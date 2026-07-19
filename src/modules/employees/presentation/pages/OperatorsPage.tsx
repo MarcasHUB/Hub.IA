@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Users, UserPlus, Shield, UserCheck, Search,
-  Mail, MoreVertical, XCircle, Layers, CheckCircle2, Copy
+  Mail, MoreVertical, XCircle, Layers, CheckCircle2, Copy,
+  Smartphone, Monitor, Check, X
 } from 'lucide-react';
 import { EmailService } from '@/shared/utils/EmailService';
 import { Button } from '@/shared/components/ui/Button';
@@ -10,7 +11,7 @@ import { Input } from '@/shared/components/ui/Input';
 import { ClearableInput } from '@/shared/components/ui/ClearableInput';
 import { Card, CardContent } from '@/shared/components/ui/Card';
 import { EntityCard } from '@/shared/components/ui/EntityCard';
-import { Operator, OperatorPerfil, OperatorStatus, operatorFullName } from '@/modules/employees/domain/entities/Operator';
+import { Operator, OperatorPerfil, OperatorStatus, operatorFullName, MacroProfile, MACRO_PROFILES } from '@/modules/employees/domain/entities/Operator';
 import { SupabaseOperatorRepository } from '../../infrastructure/repositories/SupabaseOperatorRepository';
 import { SupabaseSegmentRepository } from '../../infrastructure/repositories/SupabaseSegmentRepository';
 import { SupabaseDelegationRepository } from '../../infrastructure/repositories/SupabaseDelegationRepository';
@@ -32,8 +33,9 @@ const PERFIL_CONFIG: Record<OperatorPerfil, { label: string; badge: string; icon
   administrador: { label: 'Administrador', badge: 'bg-indigo-100 text-indigo-800 border-indigo-200', icon: Shield },
   gestor:        { label: 'Gestor',        badge: 'bg-violet-100 text-violet-800 border-violet-200', icon: UserCheck },
   comprador:     { label: 'Comprador',     badge: 'bg-slate-100 text-slate-700 border-slate-200', icon: Users },
-  consulta:      { label: 'Consulta',      badge: 'bg-slate-50 text-slate-500 border-slate-200', icon: Users },
+  consulta:      { label: 'Auditor/Consulta', badge: 'bg-slate-50 text-slate-500 border-slate-200', icon: Users },
 };
+
 
 function StatusBadge({ status }: { status: OperatorStatus }) {
   const cfg = STATUS_CONFIG[status];
@@ -59,9 +61,8 @@ function PerfilBadge({ perfil }: { perfil: OperatorPerfil }) {
 
 function InviteModal({ onClose, onInvite }: { onClose: () => void; onInvite: (op: Operator) => void }) {
   const [form, setForm] = useState({
-    nome: '', sobrenome: '', email: '', telefone: '', cargo: '',
-    perfil: 'comprador' as OperatorPerfil,
-    accessChannel: 'desktop' as 'desktop' | 'app',
+    nome: '', sobrenome: '', email: '', telefone: '',
+    macroProfile: 'Comprador' as MacroProfile,
   });
   const [todosSegmentos, setTodosSegmentos] = useState(false);
   const [segmentosSel, setSegmentosSel] = useState<string[]>([]);
@@ -93,17 +94,15 @@ function InviteModal({ onClose, onInvite }: { onClose: () => void; onInvite: (op
       const orgId = localStorage.getItem('supplyhub_organization_id') || '00000000-0000-0000-0000-000000000000';
       const loggedOperator = JSON.parse(localStorage.getItem('supplyhub_logged_operator') || '{}');
 
-      const finalCargo = form.cargo 
-        ? `${form.cargo} [${form.accessChannel.toUpperCase()}]` 
-        : `[${form.accessChannel.toUpperCase()}]`;
+      const mapInfo = MACRO_PROFILES[form.macroProfile];
 
       const res = await repo.inviteOperator({
         nome: form.nome,
         sobrenome: form.sobrenome,
         email: form.email,
         telefone: form.telefone || undefined,
-        cargo: finalCargo,
-        perfil: form.perfil,
+        cargo: mapInfo.cargo,
+        perfil: mapInfo.perfil,
         segment_ids: todosSegmentos ? [] : segmentosSel,
         todos_segmentos: todosSegmentos,
         invited_by_id: loggedOperator.id || undefined,
@@ -129,8 +128,8 @@ function InviteModal({ onClose, onInvite }: { onClose: () => void; onInvite: (op
           sobrenome: form.sobrenome,
           email: form.email,
           telefone: form.telefone || undefined,
-          cargo: form.cargo || undefined,
-          perfil: form.perfil,
+          cargo: mapInfo.cargo,
+          perfil: mapInfo.perfil,
           status: 'pendente',
           invited_at: new Date().toISOString(),
           created_at: new Date().toISOString(),
@@ -265,41 +264,72 @@ function InviteModal({ onClose, onInvite }: { onClose: () => void; onInvite: (op
                 <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">E-mail Corporativo *</label>
                 <Input type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} placeholder="maria@empresa.com.br" className="h-9 text-sm" />
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Telefone</label>
-                  <Input value={form.telefone} onChange={e => setForm(f => ({ ...f, telefone: e.target.value }))} placeholder="(11) 9xxxx-xxxx" className="h-9 text-sm" />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Cargo</label>
-                  <Input value={form.cargo} onChange={e => setForm(f => ({ ...f, cargo: e.target.value }))} placeholder="Comprador Sênior" className="h-9 text-sm" />
-                </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Telefone</label>
+                <Input value={form.telefone} onChange={e => setForm(f => ({ ...f, telefone: e.target.value }))} placeholder="(11) 9xxxx-xxxx" className="h-9 text-sm" />
               </div>
 
-              {/* Perfil */}
-              {/* Tipo de Acesso */}
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Tipo de Acesso *</label>
-                <select
-                  value={form.accessChannel}
-                  onChange={e => {
-                    const ch = e.target.value as 'desktop' | 'app';
-                    setForm(f => ({ 
-                      ...f, 
-                      accessChannel: ch,
-                      perfil: ch === 'desktop' ? 'comprador' : 'consulta'
-                    }));
-                  }}
-                  className="w-full h-11 px-3 rounded-lg border border-slate-300 text-sm font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                >
-                  <option value="desktop">Usuário Desktop — Comprador</option>
-                  <option value="app">Usuário Campo — Solicitante</option>
-                </select>
-                <p className="text-[10px] text-slate-500 mt-1">
-                  {form.accessChannel === 'desktop' 
-                    ? 'Acesso pelo navegador em computador para rotinas de compras.' 
-                    : 'Acesso pelo celular/app para solicitações e uso em campo.'}
-                </p>
+              {/* Perfil e Acessos */}
+              <div className="space-y-3">
+                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Perfil de Acesso *</label>
+                
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
+                  {(Object.keys(MACRO_PROFILES) as MacroProfile[]).map((mp) => (
+                    <button
+                      key={mp}
+                      type="button"
+                      onClick={() => setForm(f => ({ ...f, macroProfile: mp }))}
+                      className={`h-9 text-[11px] font-bold rounded-lg border transition-all ${
+                        form.macroProfile === mp 
+                        ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm' 
+                        : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                      }`}
+                    >
+                      {mp}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Resumo Dinâmico do Perfil */}
+                <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 text-sm mt-2">
+                  <div className="flex flex-col gap-3">
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-slate-900">Acessos Disponíveis:</span>
+                      <div className="flex items-center gap-3">
+                        <div className={`flex items-center gap-1 ${MACRO_PROFILES[form.macroProfile].mobile ? 'text-green-600' : 'text-slate-400'}`}>
+                          {MACRO_PROFILES[form.macroProfile].mobile ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
+                          <Smartphone className="h-3.5 w-3.5" />
+                          <span className="text-[11px] font-bold uppercase">Mobile</span>
+                        </div>
+                        <div className={`flex items-center gap-1 ${MACRO_PROFILES[form.macroProfile].desktop ? 'text-green-600' : 'text-slate-400'}`}>
+                          {MACRO_PROFILES[form.macroProfile].desktop ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
+                          <Monitor className="h-3.5 w-3.5" />
+                          <span className="text-[11px] font-bold uppercase">Desktop</span>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <span className="font-bold text-slate-900 block mb-1">Permissões:</span>
+                      <ul className="list-disc pl-5 text-slate-600 space-y-0.5">
+                        {MACRO_PROFILES[form.macroProfile].perms.map((p, i) => (
+                          <li key={i}>{p}</li>
+                        ))}
+                      </ul>
+                    </div>
+
+                    {MACRO_PROFILES[form.macroProfile].rests.length > 0 && (
+                      <div className="pt-2 border-t border-slate-200">
+                        <span className="font-bold text-red-600 block mb-1">Restrições:</span>
+                        <ul className="list-disc pl-5 text-slate-500 space-y-0.5">
+                          {MACRO_PROFILES[form.macroProfile].rests.map((p, i) => (
+                            <li key={i}>{p}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
 
               {/* Segmentos */}
@@ -460,7 +490,35 @@ export default function OperatorsPage() {
     }
   };
 
-
+  const handleResendInvite = async (op: Operator) => {
+    setActiveMenu(null);
+    try {
+      const repo = new SupabaseOperatorRepository();
+      await repo.resendInvite(op.email);
+      
+      const invitation = await repo.getInvitationByEmail(op.email);
+      if (!invitation) {
+        alert("Nenhum convite pendente encontrado para este operador.");
+        return;
+      }
+      
+      const { EmailService } = await import('@/shared/utils/EmailService');
+      const emailRes = await EmailService.sendTransactionalEmail('operator_invite', invitation.token);
+      
+      if (!emailRes.success) {
+        await repo.updateEmailStatus(invitation.token, 'failed', emailRes.message);
+        alert(`Erro ao reenviar o e-mail: ${emailRes.message}`);
+        return;
+      }
+      
+      await repo.updateEmailStatus(invitation.token, 'sent');
+      alert(`Convite reenviado com sucesso para ${op.email}!`);
+      
+    } catch (err: any) {
+      console.error(err);
+      alert("Erro ao reenviar o convite.");
+    }
+  };
 
   const handleCancelInvite = async (op: Operator) => {
     setActiveMenu(null);
@@ -577,12 +635,29 @@ export default function OperatorsPage() {
       {detailsOperator && (
         <OperatorDetailsModal
           operator={detailsOperator}
-          onClose={() => setDetailsOperator(null)}
-          onEdit={() => { setDetailsOperator(null); setEditingOperator(detailsOperator); }}
-          onInactivate={() => handleUpdateStatus(detailsOperator, 'inativo')}
-          onReactivate={() => handleUpdateStatus(detailsOperator, 'ativo')}
-          onDelete={() => handleDeleteOperator(detailsOperator)}
           segmentsList={segmentsList}
+          onClose={() => setDetailsOperator(null)}
+          onEdit={() => {
+            setDetailsOperator(null);
+            setEditingOperator(detailsOperator);
+          }}
+          onInactivate={() => {
+            handleUpdateStatus(detailsOperator, 'inativo');
+            setDetailsOperator(null);
+          }}
+          onReactivate={() => {
+            handleUpdateStatus(detailsOperator, 'ativo');
+            setDetailsOperator(null);
+          }}
+          onDelete={() => {
+            if (detailsOperator.status === 'pendente') {
+              handleCancelInvite(detailsOperator);
+            } else {
+              handleDeleteOperator(detailsOperator);
+            }
+            setDetailsOperator(null);
+          }}
+          onResendInvite={detailsOperator.status === 'pendente' ? () => handleResendInvite(detailsOperator) : undefined}
         />
       )}
 
@@ -663,9 +738,10 @@ export default function OperatorsPage() {
                 title={operatorFullName(op)}
                 subtitle={op.email}
                 status="pendente"
-                sentDate={new Date().toLocaleDateString('pt-BR')} // Mock data since it's not present on op
                 onCopyLink={() => handleCopyLink(op)}
                 onCancel={() => handleCancelInvite(op)}
+                onClick={() => setEditingOperator(op)}
+                onEdit={() => setEditingOperator(op)}
               />
             ))}
           </div>
@@ -785,7 +861,9 @@ export default function OperatorsPage() {
                                 <div className="py-1">
                                   {op.status === 'pendente' && (
                                     <>
-                                      <button onClick={() => handleCopyLink(op)} className="w-full text-left px-4 py-2 text-xs text-slate-700 hover:bg-slate-50 font-medium">Copiar Link do Convite</button>
+                                      <button onClick={() => { setActiveMenu(null); setEditingOperator(op); }} className="w-full text-left px-4 py-2 text-xs text-indigo-600 hover:bg-indigo-50 font-bold">Editar Convite</button>
+                                      <button onClick={() => handleResendInvite(op)} className="w-full text-left px-4 py-2 text-xs text-slate-700 hover:bg-slate-50 font-medium">Reenviar Convite</button>
+                                      <button onClick={() => handleCopyLink(op)} className="w-full text-left px-4 py-2 text-xs text-slate-700 hover:bg-slate-50 font-medium">Copiar Link</button>
                                       <button onClick={() => { setActiveMenu(null); handleCancelInvite(op); }} className="w-full text-left px-4 py-2 text-xs text-amber-600 hover:bg-amber-50 font-medium">Cancelar Convite</button>
                                     </>
                                   )}

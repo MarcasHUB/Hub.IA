@@ -103,24 +103,84 @@ export async function onRequestPost(context: any) {
       const link = joinUrl(publicUrl, `aceitar-convite?token=${invite.token}`);
       const manualUrl = joinUrl(publicUrl, 'aceitar-convite');
 
-      const isApp = invite.cargo?.includes('[APP]');
-      const welcomeText = isApp 
-        ? 'Você foi convidado para acessar o SupplyHub como usuário de campo.'
-        : 'Você foi convidado para acessar o SupplyHub como usuário de compras no Desktop.';
+      const c = invite.cargo || '';
+      let roleName = 'Comprador';
+      let mobile = true;
+      let desktop = true;
+      let perms: string[] = [];
+      let rests: string[] = [];
+
+      if (c.includes('[APP] Solicitante')) {
+        roleName = 'Solicitante';
+        mobile = true; desktop = false;
+        perms = ['Criar solicitações.', 'Consultar andamento das solicitações.', 'Acompanhar aprovações.'];
+        rests = ['Não aprova solicitações.', 'Não realiza compras.', 'Não acessa módulos administrativos.'];
+      } else if (c.includes('[DESKTOP] Auditor')) {
+        roleName = 'Auditor';
+        mobile = false; desktop = true;
+        perms = ['Consultar processos.', 'Consultar históricos.', 'Consultar aprovações.', 'Consulta de processos encerrados.'];
+        rests = ['Não aprova.', 'Não compra.', 'Não cria solicitações.', 'Não altera registros.'];
+      } else if (c.includes('[DESKTOP] Gestor') || invite.perfil === 'gestor') {
+        roleName = 'Gestor';
+        perms = ['Aprovar solicitações.', 'Aprovar valores conforme política.', 'Acompanhar solicitações da equipe.', 'Delegar aprovações quando permitido.'];
+      } else if (c.includes('[DESKTOP] Administrador') || invite.perfil === 'administrador') {
+        roleName = 'Administrador';
+        perms = ['Administração do sistema.', 'Gestão de usuários.', 'Configurações gerais.', 'Gestão operacional completa.'];
+      } else {
+        roleName = 'Comprador';
+        perms = ['Receber solicitações.', 'Realizar cotações.', 'Comparar fornecedores.', 'Emitir orçamentos.', 'Conduzir processos de compra.', 'Acompanhar negociações.'];
+      }
+
+      const accessChannelsHTML = `
+        <ul style="list-style: none; padding-left: 0; margin-top: 4px;">
+          <li style="margin-bottom: 4px;">${mobile ? '✅' : '❌'} Aplicativo Mobile</li>
+          <li>${desktop ? '✅' : '❌'} Portal Desktop/Web</li>
+        </ul>
+      `;
+
+      const permsHTML = `
+        <ul style="padding-left: 20px; margin-top: 4px; color: #444;">
+          ${perms.map(p => `<li>${p}</li>`).join('')}
+        </ul>
+      `;
       
-      const instructionsText = isApp
-        ? 'Para concluir o cadastro, aceite o convite e defina sua senha pelo celular.'
-        : 'Para concluir o cadastro, aceite o convite e defina sua senha.';
+      const restsHTML = rests.length > 0 ? `
+        <h4 style="margin-top: 16px; margin-bottom: 0; color: #d32f2f;">Restrições</h4>
+        <ul style="padding-left: 20px; margin-top: 4px; color: #666;">
+          ${rests.map(r => `<li>${r}</li>`).join('')}
+        </ul>
+      ` : '';
+
+      const infoBlockHTML = `
+        <div style="background-color: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; margin-top: 24px; margin-bottom: 24px;">
+          <h3 style="margin-top: 0; color: #111827; margin-bottom: 4px;">Perfil Liberado</h3>
+          <p style="margin-top: 0; font-size: 16px; font-weight: bold; color: #4F46E5;">${roleName}</p>
+          
+          <h4 style="margin-top: 16px; margin-bottom: 0; color: #374151;">Acessos Disponíveis</h4>
+          ${accessChannelsHTML}
+          
+          <h4 style="margin-top: 16px; margin-bottom: 0; color: #374151;">Permissões</h4>
+          ${permsHTML}
+          
+          ${restsHTML}
+        </div>
+      `;
+
+      const infoBlockText = `\nPerfil Liberado: ${roleName}\nAcessos Disponíveis:\n${mobile ? '✅' : '❌'} Aplicativo Mobile\n${desktop ? '✅' : '❌'} Portal Desktop/Web\n\nPermissões:\n${perms.map(p => `- ${p}`).join('\n')}${rests.length > 0 ? `\n\nRestrições:\n${rests.map(r => `- ${r}`).join('\n')}` : ''}\n`;
+
+      const welcomeText = 'Você foi convidado para acessar a plataforma.';
 
       htmlContent = `
         <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; color: #333;">
           <h2>Bem-vindo à SupplyHUB!</h2>
           <p>Olá <strong>${toName}</strong>,</p>
           <p>${welcomeText}</p>
-          <p>${instructionsText}</p>
-          <p>Clique no botão abaixo para acessar:</p>
+          
+          ${infoBlockHTML}
+
+          <p>Clique no botão abaixo para concluir seu cadastro:</p>
           <p>
-            <a href="${link}" style="display: inline-block; padding: 12px 24px; background-color: #4F46E5; color: #fff; text-decoration: none; border-radius: 4px; font-weight: bold; margin-top: 16px;">Aceitar Convite</a>
+            <a href="${link}" style="display: inline-block; padding: 12px 24px; background-color: #4F46E5; color: #fff; text-decoration: none; border-radius: 4px; font-weight: bold; margin-top: 8px;">Aceitar Convite</a>
           </p>
           
           <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; font-size: 14px; color: #666;">
@@ -140,7 +200,7 @@ export async function onRequestPost(context: any) {
           <p style="margin-top: 30px; font-size: 12px; color: #999;">Este convite expira em 72 horas.</p>
         </div>
       `;
-      textContent = `Olá ${toName},\n\n${welcomeText}\n${instructionsText}\n\nClique no botão ou copie e cole este link no navegador:\n${link}\n\nCódigo do convite:\n${invite.token}\n\nEste convite expira em 72 horas.`;
+      textContent = `Olá ${toName},\n\n${welcomeText}\n${infoBlockText}\nClique no botão ou copie e cole este link no navegador para concluir seu cadastro:\n${link}\n\nCódigo do convite:\n${invite.token}\n\nEste convite expira em 72 horas.`;
     }
 
     // FLUXO: CONVITE DE FORNECEDOR/EMPRESA
