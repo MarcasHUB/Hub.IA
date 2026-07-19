@@ -8,6 +8,7 @@ interface OperatorDetailsModalProps {
   onInactivate: () => void;
   onReactivate: () => void;
   onDelete: () => void;
+  segmentsList?: any[];
 }
 
 const STATUS_CONFIG: Record<OperatorStatus, { label: string; badge: string; dot: string }> = {
@@ -47,7 +48,7 @@ function PerfilBadge({ perfil }: { perfil: OperatorPerfil }) {
   );
 }
 
-export function OperatorDetailsModal({ operator, onClose, onEdit, onInactivate, onReactivate, onDelete }: OperatorDetailsModalProps) {
+export function OperatorDetailsModal({ operator, onClose, onEdit, onInactivate, onReactivate, onDelete, segmentsList = [] }: OperatorDetailsModalProps) {
   const isApp = operator.cargo?.includes('[APP]');
   const accessType = isApp ? 'Campo' : 'Desktop';
   // Remove special tags from cargo if we want to display the real cargo, but user said "Cargo continua existindo, mas deve aparecer no detalhe".
@@ -112,11 +113,15 @@ export function OperatorDetailsModal({ operator, onClose, onEdit, onInactivate, 
               </span>
             ) : operator.segments && operator.segments.length > 0 ? (
               <div className="flex flex-wrap gap-2">
-                {operator.segments.map(seg => (
-                  <span key={seg} className="text-xs font-semibold text-slate-700 bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200">
-                    {seg}
-                  </span>
-                ))}
+                {operator.segments.map(segId => {
+                  const segData = segmentsList.find(s => s.id === segId);
+                  const segName = segData ? segData.nome : segId;
+                  return (
+                    <span key={segId} className="text-xs font-semibold text-slate-700 bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200">
+                      {segName}
+                    </span>
+                  );
+                })}
               </div>
             ) : (
               <span className="text-xs text-amber-600 bg-amber-50 px-3 py-1.5 rounded-lg font-medium">Nenhum segmento definido</span>

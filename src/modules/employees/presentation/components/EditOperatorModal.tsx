@@ -4,7 +4,8 @@ import { Button } from '@/shared/components/ui/Button';
 import { Input } from '@/shared/components/ui/Input';
 import { Operator, OperatorPerfil } from '../../domain/entities/Operator';
 import { SupabaseOperatorRepository } from '../../infrastructure/repositories/SupabaseOperatorRepository';
-import { useQueryClient } from '@tanstack/react-query';
+import { SupabaseSegmentRepository } from '../../infrastructure/repositories/SupabaseSegmentRepository';
+import { useQueryClient, useQuery } from '@tanstack/react-query';
 
 interface EditOperatorModalProps {
   operator: Operator;
@@ -21,6 +22,16 @@ export function EditOperatorModal({ operator, orgId, onClose }: EditOperatorModa
     telefone: operator.telefone || '',
     cargo: operator.cargo || '',
     perfil: operator.perfil as OperatorPerfil,
+    todos_segmentos: operator.todos_segmentos || false,
+    segment_ids: operator.segments || [],
+  });
+
+  const { data: segmentsList = [] } = useQuery({
+    queryKey: ['segments', orgId],
+    queryFn: async () => {
+      const repo = new SupabaseSegmentRepository();
+      return repo.listSegments(orgId);
+    }
   });
 
   const [saving, setSaving] = useState(false);
@@ -44,6 +55,8 @@ export function EditOperatorModal({ operator, orgId, onClose }: EditOperatorModa
         telefone: form.telefone || undefined,
         cargo: form.cargo || undefined,
         perfil: form.perfil,
+        todos_segmentos: form.todos_segmentos,
+        segments: form.todos_segmentos ? [] : form.segment_ids,
       } as any);
 
       setSuccess(true);
@@ -58,6 +71,8 @@ export function EditOperatorModal({ operator, orgId, onClose }: EditOperatorModa
           telefone: form.telefone,
           cargo: form.cargo,
           perfil: form.perfil,
+          todos_segmentos: form.todos_segmentos,
+          segments: form.todos_segmentos ? [] : form.segment_ids,
         } : item);
       });
       
@@ -153,13 +168,41 @@ export function EditOperatorModal({ operator, orgId, onClose }: EditOperatorModa
                 </select>
               </div>
 
-              {/* Segmentos (Em breve) */}
-              <div className="space-y-2 pt-2 border-t border-slate-100">
+              {/* Segmentos Autorizados */}
+              <div className="space-y-3 pt-2 border-t border-slate-100">
                 <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                  Categorias Autorizadas
+                  Segmentos Autorizados
                 </label>
-                <div className="flex items-center justify-center p-4 bg-slate-50 border border-slate-100 border-dashed rounded-xl text-xs text-slate-400 font-medium">
-                  🚀 Edição de categorias autorizadas estará disponível em breve!
+                <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-2">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input 
+                      type="checkbox" 
+                      className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                      checked={form.todos_segmentos}
+                      onChange={(e) => setForm(f => ({ ...f, todos_segmentos: e.target.checked, segment_ids: e.target.checked ? [] : f.segment_ids }))}
+                    />
+                    <span className="text-sm font-semibold text-slate-700">Todos os Segmentos</span>
+                  </label>
+                  
+                  <div className={`pl-6 grid grid-cols-2 gap-2 transition-opacity ${form.todos_segmentos ? 'opacity-40 pointer-events-none' : 'opacity-100'}`}>
+                    {segmentsList.map(seg => (
+                      <label key={seg.id} className="flex items-center gap-2 cursor-pointer">
+                        <input 
+                          type="checkbox" 
+                          className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                          checked={form.segment_ids.includes(seg.id)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setForm(f => ({ ...f, segment_ids: [...f.segment_ids, seg.id] }));
+                            } else {
+                              setForm(f => ({ ...f, segment_ids: f.segment_ids.filter(id => id !== seg.id) }));
+                            }
+                          }}
+                        />
+                        <span className="text-xs font-medium text-slate-600 truncate" title={seg.nome}>{seg.nome}</span>
+                      </label>
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>

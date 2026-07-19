@@ -59,6 +59,7 @@ serve(async (req: Request) => {
           perfil,
           status: 'pendente',
           telefone: body.telefone || null,
+          todos_segmentos: body.todos_segmentos || false,
           deleted_at: null,
           invited_at: new Date().toISOString(),
           gestor_id: invited_by_id || null
@@ -109,6 +110,7 @@ serve(async (req: Request) => {
           cargo,
           perfil,
           status: 'pendente',
+          todos_segmentos: body.todos_segmentos || false,
           gestor_id: invited_by_id || null,
           invited_at: new Date().toISOString(),
         });
@@ -146,6 +148,7 @@ serve(async (req: Request) => {
         perfil,
         token, // Rastreável
         status: 'pendente',
+        todos_segmentos: body.todos_segmentos || false,
         segment_ids: resolvedSegmentIds,
         sent_at: new Date().toISOString(),
         expires_at: new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString(), // 72 horas

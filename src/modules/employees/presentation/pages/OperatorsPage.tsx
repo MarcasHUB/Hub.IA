@@ -12,6 +12,7 @@ import { Card, CardContent } from '@/shared/components/ui/Card';
 import { EntityCard } from '@/shared/components/ui/EntityCard';
 import { Operator, OperatorPerfil, OperatorStatus, operatorFullName } from '@/modules/employees/domain/entities/Operator';
 import { SupabaseOperatorRepository } from '../../infrastructure/repositories/SupabaseOperatorRepository';
+import { SupabaseSegmentRepository } from '../../infrastructure/repositories/SupabaseSegmentRepository';
 import { SupabaseDelegationRepository } from '../../infrastructure/repositories/SupabaseDelegationRepository';
 import { EditOperatorModal } from '../components/EditOperatorModal';
 import { OperatorDetailsModal } from '../components/OperatorDetailsModal';
@@ -55,11 +56,6 @@ function PerfilBadge({ perfil }: { perfil: OperatorPerfil }) {
 }
 
 // ─── Modal de Convite ─────────────────────────────────────────────────────────
-const SEGMENTOS_DISPONIVEIS = [
-  'EPI', 'Uniformes', 'Ferramentas Elétricas', 'Ferramentas Manuais',
-  'Bombas', 'Motores', 'Pneumática', 'Hidráulica', 'Rolamentos',
-  'Instrumentação', 'Serviços', 'Outros',
-];
 
 function InviteModal({ onClose, onInvite }: { onClose: () => void; onInvite: (op: Operator) => void }) {
   const [form, setForm] = useState({
@@ -74,6 +70,15 @@ function InviteModal({ onClose, onInvite }: { onClose: () => void; onInvite: (op
   const [successData, setSuccessData] = useState<{ op: Operator; token: string; expires_at: string; invite_url: string; } | null>(null);
   const [copiedLink, setCopiedLink] = useState(false);
   const [copiedEmail, setCopiedEmail] = useState(false);
+
+  const orgId = localStorage.getItem('supplyhub_organization_id') || '00000000-0000-0000-0000-000000000000';
+  const { data: segmentsList = [] } = useQuery({
+    queryKey: ['segments', orgId],
+    queryFn: async () => {
+      const repo = new SupabaseSegmentRepository();
+      return repo.listSegments(orgId);
+    }
+  });
 
   const toggleSegmento = (s: string) => {
     setSegmentosSel(prev => prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s]);
@@ -100,6 +105,7 @@ function InviteModal({ onClose, onInvite }: { onClose: () => void; onInvite: (op
         cargo: finalCargo,
         perfil: form.perfil,
         segment_ids: todosSegmentos ? [] : segmentosSel,
+        todos_segmentos: todosSegmentos,
         invited_by_id: loggedOperator.id || undefined,
         organization_id: orgId,
       });
@@ -317,15 +323,15 @@ function InviteModal({ onClose, onInvite }: { onClose: () => void; onInvite: (op
                 {/* Segmentos individuais */}
                 {!todosSegmentos && (
                   <div className="flex flex-wrap gap-2 p-3 rounded-xl border border-slate-200 bg-slate-50">
-                    {SEGMENTOS_DISPONIVEIS.map(seg => (
-                      <label key={seg} className="flex items-center gap-1.5 cursor-pointer">
+                    {segmentsList.map(seg => (
+                      <label key={seg.id} className="flex items-center gap-1.5 cursor-pointer">
                         <input
                           type="checkbox"
-                          checked={segmentosSel.includes(seg)}
-                          onChange={() => toggleSegmento(seg)}
+                          checked={segmentosSel.includes(seg.id)}
+                          onChange={() => toggleSegmento(seg.id)}
                           className="h-3.5 w-3.5 rounded border-slate-300 accent-indigo-600"
                         />
-                        <span className="text-xs font-semibold text-slate-700">{seg}</span>
+                        <span className="text-xs font-semibold text-slate-700">{seg.nome}</span>
                       </label>
                     ))}
                   </div>
@@ -370,6 +376,14 @@ export default function OperatorsPage() {
     queryFn: async () => {
       const repo = new SupabaseOperatorRepository();
       return repo.listOperators(orgId);
+    }
+  });
+
+  const { data: segmentsList = [] } = useQuery({
+    queryKey: ['segments', orgId],
+    queryFn: async () => {
+      const repo = new SupabaseSegmentRepository();
+      return repo.listSegments(orgId);
     }
   });
 
@@ -568,6 +582,7 @@ export default function OperatorsPage() {
           onInactivate={() => handleUpdateStatus(detailsOperator, 'inativo')}
           onReactivate={() => handleUpdateStatus(detailsOperator, 'ativo')}
           onDelete={() => handleDeleteOperator(detailsOperator)}
+          segmentsList={segmentsList}
         />
       )}
 

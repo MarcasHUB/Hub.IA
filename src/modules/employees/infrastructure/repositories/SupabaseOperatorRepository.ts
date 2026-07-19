@@ -15,6 +15,7 @@ export class SupabaseOperatorRepository implements IOperatorRepository {
     cargo?: string;
     perfil: string;
     segment_ids: string[];
+    todos_segmentos?: boolean;
     invited_by_id?: string;
     organization_id: string;
   }): Promise<{ success: boolean; message: string; user?: any; token?: string; expires_at?: string }> {
@@ -70,7 +71,7 @@ export class SupabaseOperatorRepository implements IOperatorRepository {
   async listOperators(organizationId: string): Promise<Operator[]> {
     const { data, error } = await supabase
       .from('operators')
-      .select('*')
+      .select('*, operator_segments(segment_id)')
       .eq('organization_id', organizationId)
       .is('deleted_at', null)
       .order('nome', { ascending: true });
@@ -79,7 +80,11 @@ export class SupabaseOperatorRepository implements IOperatorRepository {
       throw error;
     }
 
-    return data as Operator[];
+    // Map `operator_segments` para um array de strings `segments` para o frontend
+    return (data as any[]).map(op => ({
+      ...op,
+      segments: op.operator_segments ? op.operator_segments.map((os: any) => os.segment_id) : []
+    })) as Operator[];
   }
 
   async getInvitationByEmail(email: string): Promise<Invitation | null> {
@@ -127,15 +132,14 @@ export class SupabaseOperatorRepository implements IOperatorRepository {
 
   async updateOperator(id: string, payload: Partial<Operator>): Promise<void> {
     // Implementa allowlist explícita: envia SOMENTE colunas reais da tabela operators.
-    // Ignora qualquer outra coisa do payload (ex: segments, todos_segmentos).
     const allowedPayload: any = {};
     if (payload.nome !== undefined) allowedPayload.nome = payload.nome;
     if (payload.sobrenome !== undefined) allowedPayload.sobrenome = payload.sobrenome;
     if (payload.telefone !== undefined) allowedPayload.telefone = payload.telefone;
     if (payload.cargo !== undefined) allowedPayload.cargo = payload.cargo;
     if (payload.perfil !== undefined) allowedPayload.perfil = payload.perfil;
-    // Permitir status aqui se necessário, embora updateOperatorStatus já faça isso.
     if (payload.status !== undefined) allowedPayload.status = payload.status;
+    if (payload.todos_segmentos !== undefined) allowedPayload.todos_segmentos = payload.todos_segmentos;
     
     allowedPayload.updated_at = new Date().toISOString();
     
@@ -145,6 +149,31 @@ export class SupabaseOperatorRepository implements IOperatorRepository {
       .eq('id', id);
 
     if (error) throw error;
+
+    // Atualizar tabela N:N se o array de segmentos foi passado
+    if (payload.segments !== undefined) {
+      // 1. Limpar vínculos anteriores
+      const { error: delError } = await supabase
+        .from('operator_segments')
+        .delete()
+        .eq('operator_id', id);
+        
+      if (delError) throw delError;
+
+      // 2. Se não for "todos_segmentos", e tiver segmentos a inserir, criar novos vínculos
+      if (!payload.todos_segmentos && payload.segments && payload.segments.length > 0) {
+        const links = payload.segments.map(segId => ({
+          operator_id: id,
+          segment_id: segId
+        }));
+        
+        const { error: insError } = await supabase
+          .from('operator_segments')
+          .insert(links);
+          
+        if (insError) throw insError;
+      }
+    }
   }
 
   async deleteOperator(id: string): Promise<void> {

@@ -92,6 +92,7 @@ serve(async (req: Request) => {
       .from('operators')
       .update({
         status: 'ativo',
+        todos_segmentos: invite.todos_segmentos || false,
         accepted_at: now,
         updated_at: now,
       })
@@ -99,6 +100,22 @@ serve(async (req: Request) => {
 
     if (operatorUpdateError) {
       throw operatorUpdateError;
+    }
+
+    // 4.5. Inserir vínculos de segmentos, se aplicável (caso não seja 'todos')
+    if (invite.todos_segmentos !== true && invite.segment_ids && invite.segment_ids.length > 0) {
+      const links = invite.segment_ids.map((segId: string) => ({
+        operator_id: userId,
+        segment_id: segId
+      }));
+      
+      const { error: segmentsError } = await supabase
+        .from('operator_segments')
+        .insert(links);
+
+      if (segmentsError) {
+        throw segmentsError;
+      }
     }
 
     // 5. Atualizar o convite na tabela operator_invitations
