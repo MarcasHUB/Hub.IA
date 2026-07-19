@@ -128,12 +128,22 @@ export class SupabaseOperatorRepository implements IOperatorRepository {
   }
 
   async updateOperator(id: string, payload: Partial<Operator>): Promise<void> {
-    // Evita tentar atualizar campos de controle indesejados caso venham no payload
-    const { id: _, organization_id, created_at, updated_at, deleted_at, status, email, accepted_at, ...updateData } = payload as any;
+    // Implementa allowlist explícita: envia SOMENTE colunas reais da tabela operators.
+    // Ignora qualquer outra coisa do payload (ex: segments, todos_segmentos).
+    const allowedPayload: any = {};
+    if (payload.nome !== undefined) allowedPayload.nome = payload.nome;
+    if (payload.sobrenome !== undefined) allowedPayload.sobrenome = payload.sobrenome;
+    if (payload.telefone !== undefined) allowedPayload.telefone = payload.telefone;
+    if (payload.cargo !== undefined) allowedPayload.cargo = payload.cargo;
+    if (payload.perfil !== undefined) allowedPayload.perfil = payload.perfil;
+    // Permitir status aqui se necessário, embora updateOperatorStatus já faça isso.
+    if (payload.status !== undefined) allowedPayload.status = payload.status;
+    
+    allowedPayload.updated_at = new Date().toISOString();
     
     const { error } = await supabase
       .from('operators')
-      .update({ ...updateData, updated_at: new Date().toISOString() })
+      .update(allowedPayload)
       .eq('id', id);
 
     if (error) throw error;

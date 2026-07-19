@@ -23,16 +23,9 @@ export function EditOperatorModal({ operator, orgId, onClose }: EditOperatorModa
     perfil: operator.perfil as OperatorPerfil,
   });
 
-  const [segmentosSel, setSegmentosSel] = useState<string[]>(operator.segments || []);
-  const [todosSegmentos, setTodosSegmentos] = useState(operator.todos_segmentos || false);
-
   const [saving, setSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [success, setSuccess] = useState(false);
-
-  const toggleSegmento = (s: string) => {
-    setSegmentosSel(prev => prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s]);
-  };
 
   const handleSave = async () => {
     if (!form.nome.trim()) {
@@ -51,9 +44,7 @@ export function EditOperatorModal({ operator, orgId, onClose }: EditOperatorModa
         telefone: form.telefone || undefined,
         cargo: form.cargo || undefined,
         perfil: form.perfil,
-        segments: todosSegmentos ? [] : segmentosSel,
-        todos_segmentos: todosSegmentos
-      });
+      } as any);
 
       setSuccess(true);
       
@@ -67,8 +58,6 @@ export function EditOperatorModal({ operator, orgId, onClose }: EditOperatorModa
           telefone: form.telefone,
           cargo: form.cargo,
           perfil: form.perfil,
-          segments: todosSegmentos ? [] : segmentosSel,
-          todos_segmentos: todosSegmentos
         } : item);
       });
       
@@ -85,7 +74,7 @@ export function EditOperatorModal({ operator, orgId, onClose }: EditOperatorModa
     }
   };
 
-  const valid = form.nome.trim() && (todosSegmentos || segmentosSel.length > 0);
+  const valid = form.nome.trim() !== '';
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
@@ -164,37 +153,14 @@ export function EditOperatorModal({ operator, orgId, onClose }: EditOperatorModa
                 </select>
               </div>
 
-              {/* Segmentos */}
+              {/* Segmentos (Em breve) */}
               <div className="space-y-2 pt-2 border-t border-slate-100">
-                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 flex justify-between">
+                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
                   Categorias Autorizadas
-                  <label className="flex items-center gap-1.5 cursor-pointer normal-case">
-                    <input
-                      type="checkbox"
-                      checked={todosSegmentos}
-                      onChange={e => setTodosSegmentos(e.target.checked)}
-                      className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 h-3 w-3"
-                    />
-                    <span className="text-xs font-semibold text-indigo-600">Acesso a Todas</span>
-                  </label>
                 </label>
-                {!todosSegmentos && (
-                  <div className="flex flex-wrap gap-1.5 p-3 bg-slate-50 rounded-xl border border-slate-100">
-                    {['Embalagens', 'Matérias-primas', 'Serviços TI', 'MRO', 'Fretes', 'Marketing', 'Limpeza'].map(seg => (
-                      <button
-                        key={seg}
-                        onClick={() => toggleSegmento(seg)}
-                        className={`px-2.5 py-1 text-[10px] font-bold rounded-full transition-all ${
-                          segmentosSel.includes(seg)
-                            ? 'bg-indigo-600 text-white shadow-sm'
-                            : 'bg-white border border-slate-200 text-slate-600 hover:border-indigo-300 hover:text-indigo-600'
-                        }`}
-                      >
-                        {seg}
-                      </button>
-                    ))}
-                  </div>
-                )}
+                <div className="flex items-center justify-center p-4 bg-slate-50 border border-slate-100 border-dashed rounded-xl text-xs text-slate-400 font-medium">
+                  🚀 Edição de categorias autorizadas estará disponível em breve!
+                </div>
               </div>
             </div>
 
