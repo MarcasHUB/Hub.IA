@@ -5,10 +5,42 @@ import App from './App.tsx';
 import './index.css';
 
 // Tratamento global para erros de lazy loading de módulos (novo deploy durante uso)
-window.addEventListener('vite:preloadError', (event) => {
-  console.warn('Falha no lazy load do Vite, forçando reload da página para obter novos assets.', event);
-  window.location.reload();
+const CHUNK_RELOAD_KEY = 'supplyhub_chunk_reload_attempted';
+
+function shouldReloadForChunkError(message: string) {
+  return (
+    message.includes('Failed to fetch dynamically imported module') ||
+    message.includes('Importing a module script failed') ||
+    message.includes('ChunkLoadError') ||
+    message.includes('Loading chunk') ||
+    message.includes('dynamically imported module')
+  );
+}
+
+const handleChunkError = (message: string) => {
+  if (shouldReloadForChunkError(message)) {
+    const alreadyReloaded = sessionStorage.getItem(CHUNK_RELOAD_KEY);
+    if (!alreadyReloaded) {
+      sessionStorage.setItem(CHUNK_RELOAD_KEY, 'true');
+      console.warn('Falha no lazy load do Vite detectada. Forçando reload...');
+      window.location.reload();
+    }
+  }
+};
+
+window.addEventListener('error', (event) => {
+  handleChunkError(event.message || '');
 });
+
+window.addEventListener('unhandledrejection', (event) => {
+  const message = String(event.reason?.message || event.reason || '');
+  handleChunkError(message);
+});
+
+// Limpa a flag se renderizou com sucesso
+setTimeout(() => {
+  sessionStorage.removeItem(CHUNK_RELOAD_KEY);
+}, 3000);
 
 const queryClient = new QueryClient({
   defaultOptions: {
