@@ -25,10 +25,39 @@ const MinhaEmpresaPage = React.lazy(() => import('../../modules/organizations/pr
 const AcceptInvitePage = React.lazy(() => import('../../modules/employees/presentation/pages/AcceptInvitePage'));
 const AppAccessChoicePage = React.lazy(() => import('../../modules/landing/presentation/pages/AppAccessChoicePage'));
 
+class ChunkErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean }> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError(error: Error) {
+    if (error?.message?.includes('Failed to fetch dynamically imported module')) {
+      return { hasError: true };
+    }
+    return { hasError: false };
+  }
+
+  componentDidCatch(error: Error) {
+    if (error?.message?.includes('Failed to fetch dynamically imported module')) {
+      window.location.reload();
+    }
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return <div className="p-8 flex justify-center text-slate-500">Atualizando sistema para a versão mais recente...</div>;
+    }
+    return this.props.children;
+  }
+}
+
 const SuspenseWrapper = ({ children }: { children: React.ReactNode }) => (
-  <Suspense fallback={<div className="p-8 flex justify-center text-slate-500">Carregando...</div>}>
-    {children}
-  </Suspense>
+  <ChunkErrorBoundary>
+    <Suspense fallback={<div className="p-8 flex justify-center text-slate-500">Carregando...</div>}>
+      {children}
+    </Suspense>
+  </ChunkErrorBoundary>
 );
 
 export const router = createBrowserRouter([
