@@ -70,21 +70,12 @@ export async function onRequestPost(context: any) {
       });
     }
 
-    if (!token) {
-      return new Response(JSON.stringify({ success: false, message: 'Token não fornecido' }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
     // Função auxiliar para evitar barra dupla no link
     function joinUrl(baseUrl: string, path: string) {
       const cleanBase = baseUrl.replace(/\/+$/, '');
       const cleanPath = path.replace(/^\/+/, '');
       return `${cleanBase}/${cleanPath}`;
     }
-
-    const publicUrl = env.APP_PUBLIC_URL || 'https://supplyhub.ia.br';
     let toEmail = '';
     let toName = '';
     let subject = '';
