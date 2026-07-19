@@ -39,9 +39,11 @@ serve(async (req: Request) => {
     const origin = req.headers.get('origin') || 'http://localhost:5173';
     const redirectUrl = `${origin}/aceitar-convite?token=${token}`;
 
-    const { data: inviteData, error: inviteError } = await supabase.auth.admin.inviteUserByEmail(email, {
-      redirectTo: redirectUrl,
-      data: {
+    const { data: inviteData, error: inviteError } = await supabase.auth.admin.createUser({
+      email,
+      email_confirm: false,
+      password: crypto.randomUUID(),
+      user_metadata: {
         nome,
         sobrenome,
         cargo,

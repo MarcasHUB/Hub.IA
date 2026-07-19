@@ -4,6 +4,7 @@ import {
   Users, UserPlus, Shield, UserCheck, Search,
   Mail, MoreVertical, XCircle, Layers, CheckCircle2, Copy
 } from 'lucide-react';
+import { EmailService } from '@/shared/utils/EmailService';
 import { Button } from '@/shared/components/ui/Button';
 import { Input } from '@/shared/components/ui/Input';
 import { ClearableInput } from '@/shared/components/ui/ClearableInput';
@@ -95,7 +96,15 @@ function InviteModal({ onClose, onInvite }: { onClose: () => void; onInvite: (op
         organization_id: orgId,
       });
 
-      if (res.success) {
+      if (res.success && res.token) {
+        // Enviar o e-mail transacional via Cloudflare Functions
+        const emailRes = await EmailService.sendTransactionalEmail('operator_invite', res.token);
+        
+        if (!emailRes.success) {
+          setErrorMsg(`Convite salvo, mas falha no envio do e-mail: ${emailRes.message}`);
+          return;
+        }
+
         const newOp: Operator = {
           id: res.user?.id || `op-${Date.now()}`,
           organization_id: orgId,

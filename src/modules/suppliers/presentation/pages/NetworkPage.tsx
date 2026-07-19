@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import { supabase } from '@/infrastructure/supabase/client';
+import { EmailService } from '@/shared/utils/EmailService';
 import { Search, Building2, Network, Users, MapPin, Globe, Plus, X, Loader2 } from 'lucide-react';
 import { Button } from '@/shared/components/ui/Button';
 import { Input } from '@/shared/components/ui/Input';
@@ -328,8 +330,40 @@ export default function NetworkPage() {
               e.preventDefault();
               if (!newCompName.trim() || !newCompDoc.trim() || !newCompEmail.trim()) return;
 
-              // Em produção isso chamaria InvitationService
-              // Simulação para atualização da UI local:
+              // 1. Gera token rastreável para o fornecedor
+              const tokenHash = crypto.randomUUID();
+              const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(); // 7 dias
+
+              // 2. Insere na tabela 'invitations'
+              const { error: inviteError } = await supabase.from('invitations').insert({
+                organization_id: tenantId,
+                name: newCompName,
+                company: newCompName,
+                email: newCompEmail,
+                document: newCompDoc,
+                status: 'pendente',
+                token_hash: tokenHash,
+                expires_at: expiresAt
+              });
+
+              if (inviteError) {
+                alert(`Erro ao criar convite no banco: ${inviteError.message}`);
+                return;
+              }
+
+              // 3. Dispara o envio via Cloudflare Functions
+              const emailRes = await EmailService.sendTransactionalEmail('supplier_invite', tokenHash);
+
+              if (!emailRes.success) {
+                // Atualiza status local mas avisa que o e-mail falhou
+                alert(`Convite salvo, mas falha no envio do e-mail: ${emailRes.message}`);
+                
+                // (Opcional) Podemos marcar o convite no banco como falha, 
+                // mas a tabela requests/companies não é afetada porque ela só mostra o que deu sucesso absoluto.
+                return;
+              }
+
+              // Simulação para atualização da UI local de empresas "convidadas"
               const newCompany: Company = {
                 id: `net-${Date.now()}`,
                 name: newCompName,
@@ -347,29 +381,13 @@ export default function NetworkPage() {
               const updatedList = [newCompany, ...companies];
               setCompanies(updatedList);
               
-              // Persist to Supabase
-              repo.save({
-                id: crypto.randomUUID(),
-                buyerOrganizationId: tenantId,
-                supplierOrganizationId: newCompany.id,
-                status: 'Inativo',
-                connectionType: 'network',
-                connectedAt: new Date(),
-                approvedBy: '',
-                notes: newCompDesc,
-                createdAt: new Date()
-              }).catch(err => {
-                console.error("Erro ao salvar connection_request:", err);
-                alert("Falha ao salvar convite na rede.");
-              });
-              
               // Simula notificação UI
               addMockNotification({
-                title: 'Convite enviado!',
-                message: `O e-mail foi disparado para ${newCompEmail}.`,
+                title: 'Convite enviado com sucesso!',
+                message: `O e-mail foi disparado para ${newCompEmail} via Mailtrap.`,
                 type: 'connection_request_received',
                 is_read: false,
-                });
+              });
 
               // Reseta campos e fecha
               setNewCompName('');
