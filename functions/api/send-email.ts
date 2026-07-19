@@ -96,16 +96,30 @@ export async function onRequestPost(context: any) {
       subject = 'Convite para ingressar na SupplyHUB';
       const link = `${publicUrl}/aceitar-convite?token=${invite.token}`;
 
+      const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(link)}`;
+
       htmlContent = `
         <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; color: #333;">
           <h2>Bem-vindo à SupplyHUB!</h2>
           <p>Olá <strong>${toName}</strong>,</p>
           <p>Você foi convidado para atuar como operador(a) na SupplyHUB.</p>
-          <p>Para ativar sua conta e definir sua senha, clique no botão abaixo (válido por 72 horas):</p>
-          <a href="${link}" style="display: inline-block; padding: 12px 24px; background-color: #4F46E5; color: #fff; text-decoration: none; border-radius: 4px; font-weight: bold; margin-top: 16px;">Aceitar Convite</a>
+          <p>Clique no botão abaixo para definir sua senha e ativar sua conta:</p>
+          <p>
+            <a href="${link}" style="display: inline-block; padding: 12px 24px; background-color: #4F46E5; color: #fff; text-decoration: none; border-radius: 4px; font-weight: bold; margin-top: 16px;">Aceitar Convite</a>
+          </p>
+          
+          <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; font-size: 14px; color: #666;">
+            <p>Se o botão não abrir no celular, copie e cole este link no navegador:</p>
+            <p style="word-break: break-all;"><a href="${link}" style="color: #4F46E5;">${link}</a></p>
+            
+            <p style="margin-top: 20px;">Ou escaneie o QR Code abaixo com a câmera do celular:</p>
+            <img src="${qrCodeUrl}" alt="QR Code do Convite" width="150" height="150" style="margin-top: 10px; border: 1px solid #ddd; padding: 5px; border-radius: 8px;" />
+          </div>
+
+          <p style="margin-top: 30px; font-size: 12px; color: #999;">Este convite expira em 72 horas.</p>
         </div>
       `;
-      textContent = `Olá ${toName},\n\nVocê foi convidado para a SupplyHUB.\nAcesse: ${link}`;
+      textContent = `Olá ${toName},\n\nVocê foi convidado para acessar o SupplyHub.\n\nClique no botão ou copie e cole este link no navegador:\n${link}\n\nEste convite expira em 72 horas.`;
     }
 
     // FLUXO: CONVITE DE FORNECEDOR/EMPRESA
