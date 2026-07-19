@@ -47,6 +47,7 @@ export function operatorStatusLabel(status: OperatorStatus): string {
     bloqueado: 'Bloqueado',
     ferias: 'Férias',
     substituido: 'Substituído',
+    cancelado: 'Cancelado',
   };
   return map[status];
 }

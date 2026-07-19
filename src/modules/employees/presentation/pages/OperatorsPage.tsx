@@ -22,6 +22,7 @@ const STATUS_CONFIG: Record<OperatorStatus, { label: string; dot: string; badge:
   bloqueado:   { label: 'Bloqueado',   dot: 'bg-red-500',    badge: 'bg-red-50 text-red-700 border-red-200' },
   ferias:      { label: 'Férias',      dot: 'bg-blue-400',   badge: 'bg-blue-50 text-blue-700 border-blue-200' },
   substituido: { label: 'Substituído', dot: 'bg-violet-400', badge: 'bg-violet-50 text-violet-700 border-violet-200' },
+  cancelado:   { label: 'Cancelado',   dot: 'bg-slate-500',  badge: 'bg-slate-50 text-slate-500 border-slate-200' },
 };
 
 const PERFIL_CONFIG: Record<OperatorPerfil, { label: string; badge: string; icon: any }> = {
