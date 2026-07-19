@@ -12,10 +12,42 @@ export default function AcceptInvitePage() {
   const navigate = useNavigate();
   const token = searchParams.get('token');
 
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [invitation, setInvitation] = useState<Invitation | null>(null);
   const [errorMsg, setErrorMsg] = useState('');
   const [errorTitle, setErrorTitle] = useState('');
+
+  // Função para extrair o token puro de várias fontes (UUID, link normal ou Safe Link)
+  const extractToken = (input: string | null): string | null => {
+    if (!input) return null;
+    const str = input.trim();
+    
+    // É um UUID puro?
+    if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str)) {
+      return str;
+    }
+    
+    try {
+      const urlObj = new URL(str);
+      
+      // Outlook Safe Links
+      if (urlObj.hostname.includes('safelinks.protection.outlook.com')) {
+        const realUrlStr = urlObj.searchParams.get('url');
+        if (realUrlStr) {
+          const realUrl = new URL(realUrlStr);
+          return realUrl.searchParams.get('token');
+        }
+      }
+      
+      // Link padrão
+      return urlObj.searchParams.get('token');
+    } catch (e) {
+      return null; // Não é URL válida nem UUID
+    }
+  };
+
+  const [activeToken, setActiveToken] = useState<string | null>(extractToken(searchParams.get('token') || ''));
+  const [manualInput, setManualInput] = useState('');
 
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -27,17 +59,20 @@ export default function AcceptInvitePage() {
 
   useEffect(() => {
     async function validateToken() {
-      if (!token) {
-        setErrorMsg('Token de convite não encontrado no endereço de e-mail.');
-        setLoading(false);
+      if (!activeToken) {
+        // Modo entrada manual
         return;
       }
 
+      setLoading(true);
+      setErrorMsg('');
+      setErrorTitle('');
+      
       try {
-        const invite = await repo.getInvitationByToken(token);
+        const invite = await repo.getInvitationByToken(activeToken);
         if (!invite) {
           setErrorTitle('Convite inválido');
-          setErrorMsg('O link informado não foi encontrado ou é inválido.');
+          setErrorMsg('O código ou link informado não foi encontrado ou é inválido.');
         } else if (invite.status === 'aceito') {
           setErrorTitle('Convite já utilizado');
           setErrorMsg('Este convite já foi aceito anteriormente. Você pode acessar sua conta pelo login.');
@@ -58,11 +93,22 @@ export default function AcceptInvitePage() {
     }
 
     validateToken();
-  }, [token]);
+  }, [activeToken]);
+
+  const handleManualSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const token = extractToken(manualInput);
+    if (token) {
+      setActiveToken(token);
+    } else {
+      setErrorTitle('Código inválido');
+      setErrorMsg('O texto colado não contém um código de convite válido.');
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!token || !invitation) return;
+    if (!activeToken || !invitation) return;
 
     if (password.length < 6) {
       setErrorMsg('A senha deve conter no mínimo 6 caracteres.');
@@ -82,7 +128,7 @@ export default function AcceptInvitePage() {
       const ua = navigator.userAgent;
       
       const res = await repo.acceptInvite({
-        token,
+        token: activeToken,
         password,
         ip: '127.0.0.1', // Simplificado para simulação local
         user_agent: ua,
@@ -175,6 +221,43 @@ export default function AcceptInvitePage() {
                   Voltar ao Login
                 </Button>
               </div>
+            ) : !activeToken ? (
+              // Formulário de Entrada Manual de Código
+              <form onSubmit={handleManualSubmit} className="space-y-6 text-center animate-in fade-in duration-300">
+                <div className="h-14 w-14 rounded-full bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center mx-auto">
+                  <Key className="h-7 w-7 text-indigo-400" />
+                </div>
+                <div className="space-y-2">
+                  <h3 className="text-xl font-bold">Aceitar Convite</h3>
+                  <p className="text-xs text-slate-400 leading-relaxed">
+                    Cole o código do convite ou o link recebido por e-mail.
+                  </p>
+                </div>
+                
+                {errorMsg && (
+                  <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-xs text-red-400 text-left">
+                    <strong className="block mb-1">{errorTitle}</strong>
+                    {errorMsg}
+                  </div>
+                )}
+                
+                <div className="space-y-4">
+                  <Input
+                    type="text"
+                    value={manualInput}
+                    onChange={e => setManualInput(e.target.value)}
+                    placeholder="Cole o código do convite"
+                    className="h-12 bg-slate-950 border-slate-700 text-slate-200 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 w-full"
+                    required
+                  />
+                  <Button
+                    type="submit"
+                    className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold h-11 rounded-xl"
+                  >
+                    Continuar
+                  </Button>
+                </div>
+              </form>
             ) : (
               // Formulário de Definição de Senha
               <form onSubmit={handleSubmit} className="space-y-6">

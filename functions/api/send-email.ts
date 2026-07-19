@@ -109,12 +109,17 @@ export async function onRequestPost(context: any) {
           <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; font-size: 14px; color: #666;">
             <p>Se o botão não abrir no celular, copie e cole este link no navegador:</p>
             <p style="word-break: break-all;"><a href="${link}" style="color: #4F46E5;">${link}</a></p>
+            
+            <p style="margin-top: 20px;">Se o seu aplicativo de e-mail alterar o link, acesse <a href="${publicUrl}/aceitar-convite" style="color: #4F46E5;">${publicUrl}/aceitar-convite</a> e informe este código:</p>
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 12px; margin-top: 10px; font-family: monospace; font-size: 16px; font-weight: bold; letter-spacing: 1px; color: #334155; text-align: center;">
+              ${invite.token}
+            </div>
           </div>
 
           <p style="margin-top: 30px; font-size: 12px; color: #999;">Este convite expira em 72 horas.</p>
         </div>
       `;
-      textContent = `Olá ${toName},\n\nVocê foi convidado para acessar o SupplyHub.\n\nClique no botão ou copie e cole este link no navegador:\n${link}\n\nEste convite expira em 72 horas.`;
+      textContent = `Olá ${toName},\n\nVocê foi convidado para acessar o SupplyHub.\n\nClique no botão ou copie e cole este link no navegador:\n${link}\n\nCódigo do convite:\n${invite.token}\n\nEste convite expira em 72 horas.`;
     }
 
     // FLUXO: CONVITE DE FORNECEDOR/EMPRESA
