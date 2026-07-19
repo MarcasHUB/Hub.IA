@@ -2,53 +2,67 @@
 -- Migration: Políticas RLS para operator_invitations
 -- ==========================================
 
--- Habilitar RLS (caso não esteja habilitado)
-ALTER TABLE operator_invitations ENABLE ROW LEVEL SECURITY;
+-- Habilitar RLS
+ALTER TABLE public.operator_invitations ENABLE ROW LEVEL SECURITY;
 
 -- Garante que os campos de status de e-mail existam
-ALTER TABLE operator_invitations
+ALTER TABLE public.operator_invitations
     ADD COLUMN IF NOT EXISTS email_sent_at TIMESTAMPTZ,
     ADD COLUMN IF NOT EXISTS email_status VARCHAR(50),
     ADD COLUMN IF NOT EXISTS email_error TEXT,
     ADD COLUMN IF NOT EXISTS cancelled_at TIMESTAMPTZ;
 
--- Remove as políticas antigas para evitar duplicidade (ignora erro se não existir)
-DO $$
-BEGIN
-    DROP POLICY IF EXISTS "operator_invitations_org_select" ON operator_invitations;
-    DROP POLICY IF EXISTS "operator_invitations_org_update" ON operator_invitations;
-    DROP POLICY IF EXISTS "operator_invitations_org_insert" ON operator_invitations;
-EXCEPTION
-    WHEN undefined_object THEN
-        NULL;
-END $$;
+-- Remove policies antigas para evitar duplicidade
+DROP POLICY IF EXISTS "operator_invitations_org_select" ON public.operator_invitations;
+DROP POLICY IF EXISTS "operator_invitations_org_update" ON public.operator_invitations;
+DROP POLICY IF EXISTS "operator_invitations_org_insert" ON public.operator_invitations;
 
--- Policy de SELECT: Usuário autenticado só pode selecionar convites onde organization_id seja igual à do usuário
+-- SELECT: usuário autenticado só pode ler convites da própria organização
 CREATE POLICY "operator_invitations_org_select"
-ON operator_invitations
+ON public.operator_invitations
 FOR SELECT
+TO authenticated
 USING (
-    organization_id = (
-        SELECT organization_id FROM user_roles WHERE user_id = auth.uid() LIMIT 1
+    EXISTS (
+        SELECT 1
+        FROM public.user_roles ur
+        WHERE ur.user_id = auth.uid()
+          AND ur.organization_id = operator_invitations.organization_id
     )
 );
 
--- Policy de UPDATE: Usuário autenticado só pode atualizar convites da sua organização
+-- UPDATE: usuário autenticado só pode atualizar convites da própria organização
 CREATE POLICY "operator_invitations_org_update"
-ON operator_invitations
+ON public.operator_invitations
 FOR UPDATE
+TO authenticated
 USING (
-    organization_id = (
-        SELECT organization_id FROM user_roles WHERE user_id = auth.uid() LIMIT 1
+    EXISTS (
+        SELECT 1
+        FROM public.user_roles ur
+        WHERE ur.user_id = auth.uid()
+          AND ur.organization_id = operator_invitations.organization_id
+    )
+)
+WITH CHECK (
+    EXISTS (
+        SELECT 1
+        FROM public.user_roles ur
+        WHERE ur.user_id = auth.uid()
+          AND ur.organization_id = operator_invitations.organization_id
     )
 );
 
--- Policy de INSERT (Opcional, já que é feito via Edge Function com role admin, mas bom ter)
+-- INSERT: usuário autenticado só pode inserir convites na própria organização
 CREATE POLICY "operator_invitations_org_insert"
-ON operator_invitations
+ON public.operator_invitations
 FOR INSERT
+TO authenticated
 WITH CHECK (
-    organization_id = (
-        SELECT organization_id FROM user_roles WHERE user_id = auth.uid() LIMIT 1
+    EXISTS (
+        SELECT 1
+        FROM public.user_roles ur
+        WHERE ur.user_id = auth.uid()
+          AND ur.organization_id = operator_invitations.organization_id
     )
 );
