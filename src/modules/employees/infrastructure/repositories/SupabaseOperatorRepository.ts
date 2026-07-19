@@ -75,6 +75,7 @@ export class SupabaseOperatorRepository implements IOperatorRepository {
       .from('operators')
       .select('*')
       .eq('organization_id', organizationId)
+      .neq('status', 'cancelado')
       .is('deleted_at', null)
       .order('nome', { ascending: true });
 
@@ -130,5 +131,20 @@ export class SupabaseOperatorRepository implements IOperatorRepository {
       .eq('status', 'pendente');
 
     if (error) throw error;
+  }
+
+  async updateEmailStatus(token: string, status: string, errorMessage?: string): Promise<void> {
+    const { error } = await supabase
+      .from('operator_invitations')
+      .update({
+        email_status: status,
+        email_error: errorMessage || null,
+        email_sent_at: status === 'sent' ? new Date().toISOString() : undefined
+      })
+      .eq('token', token);
+
+    if (error) {
+      console.error('Falha ao atualizar status de email do operator_invitation', error);
+    }
   }
 }

@@ -101,9 +101,12 @@ function InviteModal({ onClose, onInvite }: { onClose: () => void; onInvite: (op
         const emailRes = await EmailService.sendTransactionalEmail('operator_invite', res.token);
         
         if (!emailRes.success) {
+          await repo.updateEmailStatus(res.token, 'failed', emailRes.message);
           setErrorMsg(`Convite salvo, mas falha no envio do e-mail: ${emailRes.message}`);
           return;
         }
+
+        await repo.updateEmailStatus(res.token, 'sent');
 
         const newOp: Operator = {
           id: res.user?.id || `op-${Date.now()}`,
