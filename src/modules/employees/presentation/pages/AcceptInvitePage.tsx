@@ -10,7 +10,6 @@ import { Invitation } from '../../domain/entities/Invitation';
 export default function AcceptInvitePage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const token = searchParams.get('token');
 
   const [loading, setLoading] = useState(false);
   const [invitation, setInvitation] = useState<Invitation | null>(null);
