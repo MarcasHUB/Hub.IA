@@ -8,7 +8,8 @@ export type OperatorStatus =
   | 'inativo'
   | 'bloqueado'
   | 'ferias'
-  | 'substituido';
+  | 'substituido'
+  | 'cancelado';
 
 export interface Operator {
   id: string;
