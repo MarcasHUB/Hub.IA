@@ -13,6 +13,7 @@ import { EntityCard } from '@/shared/components/ui/EntityCard';
 import { Operator, OperatorPerfil, OperatorStatus, operatorFullName } from '@/modules/employees/domain/entities/Operator';
 import { SupabaseOperatorRepository } from '../../infrastructure/repositories/SupabaseOperatorRepository';
 import { SupabaseDelegationRepository } from '../../infrastructure/repositories/SupabaseDelegationRepository';
+import { EditOperatorModal } from '../components/EditOperatorModal';
 
 // ─── Badges ───────────────────────────────────────────────────────────────────
 const STATUS_CONFIG: Record<OperatorStatus, { label: string; dot: string; badge: string }> = {
@@ -364,8 +365,12 @@ export default function OperatorsPage() {
   });
 
   const [showInvite, setShowInvite] = useState(false);
+  const [editingOperator, setEditingOperator] = useState<Operator | null>(null);
   const [search, setSearch] = useState('');
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
+  
+  type TabType = 'todos' | 'ativos' | 'pendentes' | 'inativos' | 'cancelados';
+  const [activeTab, setActiveTab] = useState<TabType>('todos');
 
   const getActiveDelegationStatus = (opId: string): 'origem' | 'substituto' | null => {
     const today = new Date();
@@ -386,10 +391,19 @@ export default function OperatorsPage() {
     return null;
   };
 
-  const filtered = operators.filter(op =>
+  const baseFiltered = operators.filter(op =>
     operatorFullName(op).toLowerCase().includes(search.toLowerCase()) ||
     op.email.toLowerCase().includes(search.toLowerCase())
   );
+
+  const filtered = baseFiltered.filter(op => {
+    if (activeTab === 'todos') return op.status !== 'cancelado';
+    if (activeTab === 'ativos') return op.status === 'ativo';
+    if (activeTab === 'pendentes') return op.status === 'pendente';
+    if (activeTab === 'inativos') return op.status === 'inativo';
+    if (activeTab === 'cancelados') return op.status === 'cancelado';
+    return true;
+  });
 
   const handleInvite = () => {
     queryClient.invalidateQueries({ queryKey: ['operators', orgId] });
@@ -479,15 +493,52 @@ export default function OperatorsPage() {
     }
   };
 
+  const handleDeleteOperator = async (op: Operator) => {
+    setActiveMenu(null);
+    if (!window.confirm(`ATENÇÃO: Deseja realmente excluir o operador ${op.nome} ${op.sobrenome}?\n\nEsta ação removerá o operador das listas do sistema, mas manterá o histórico salvo para auditoria.`)) {
+      return;
+    }
+    
+    const previousOperators = queryClient.getQueryData<Operator[]>(['operators', orgId]);
+    
+    queryClient.setQueryData(['operators', orgId], (old: Operator[] | undefined) => {
+      if (!old) return [];
+      return old.filter(item => item.id !== op.id);
+    });
+
+    try {
+      const repo = new SupabaseOperatorRepository();
+      await repo.deleteOperator(op.id);
+    } catch (err: any) {
+      console.error(err);
+      alert('Erro ao excluir o operador.');
+      if (previousOperators) {
+        queryClient.setQueryData(['operators', orgId], previousOperators);
+      }
+    } finally {
+      await queryClient.invalidateQueries({ queryKey: ['operators'] });
+    }
+  };
+
+  // Contadores (ignorando cancelados do "total" para bater com a regra de "Todos")
+  const activeStatsList = operators.filter(o => o.status !== 'cancelado');
+  
   const stats = {
-    total: operators.length,
-    ativos: operators.filter(o => o.status === 'ativo').length,
-    pendentes: operators.filter(o => o.status === 'pendente').length,
+    total: activeStatsList.length,
+    ativos: activeStatsList.filter(o => o.status === 'ativo').length,
+    pendentes: activeStatsList.filter(o => o.status === 'pendente').length,
   };
 
   return (
     <div className="space-y-6 font-sans">
       {showInvite && <InviteModal onClose={() => setShowInvite(false)} onInvite={handleInvite} />}
+      {editingOperator && (
+        <EditOperatorModal 
+          operator={editingOperator} 
+          orgId={orgId} 
+          onClose={() => setEditingOperator(null)} 
+        />
+      )}
 
       {/* KPIs */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -508,28 +559,54 @@ export default function OperatorsPage() {
 
       {/* Filtros e Ações */}
       <Card className="rounded-2xl border-slate-200 shadow-sm bg-white">
-        <CardContent className="p-5 flex flex-col sm:flex-row gap-4 items-center justify-between">
-          <div className="relative w-full sm:max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-            <ClearableInput
-              placeholder="Buscar por nome ou e-mail..."
-              value={search}
-              onChange={setSearch}
-              onClear={() => setSearch('')}
-              className="pl-10 h-10 text-sm"
-            />
+        <CardContent className="p-0">
+          
+          {/* Abas Superiores */}
+          <div className="flex border-b border-slate-200 overflow-x-auto hide-scrollbar">
+            {[
+              { id: 'todos', label: 'Todos' },
+              { id: 'ativos', label: 'Ativos' },
+              { id: 'pendentes', label: 'Pendentes' },
+              { id: 'inativos', label: 'Inativos' },
+              { id: 'cancelados', label: 'Cancelados' },
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id as TabType)}
+                className={`px-5 py-3.5 text-xs font-bold whitespace-nowrap transition-colors border-b-2 ${
+                  activeTab === tab.id
+                    ? 'border-indigo-600 text-indigo-700'
+                    : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
           </div>
-          <Button
-            onClick={() => setShowInvite(true)}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white h-10 px-5 text-sm font-bold flex items-center gap-2 shrink-0 w-full sm:w-auto rounded-xl"
-          >
-            <UserPlus className="h-4 w-4" /> Convidar Operador
-          </Button>
+
+          <div className="p-5 flex flex-col sm:flex-row gap-4 items-center justify-between">
+            <div className="relative w-full sm:max-w-md">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+              <ClearableInput
+                placeholder="Buscar por nome ou e-mail..."
+                value={search}
+                onChange={setSearch}
+                onClear={() => setSearch('')}
+                className="pl-10 h-10 text-sm"
+              />
+            </div>
+            <Button
+              onClick={() => setShowInvite(true)}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white h-10 px-5 text-sm font-bold flex items-center gap-2 shrink-0 w-full sm:w-auto rounded-xl"
+            >
+              <UserPlus className="h-4 w-4" /> Convidar Operador
+            </Button>
+          </div>
         </CardContent>
       </Card>
 
-      {/* CONVITES PENDENTES */}
-      {filtered.filter(op => op.status === 'pendente').length > 0 && (
+      {/* CONVITES PENDENTES (Mostra apenas se tiver aba pendentes ou todos) */}
+      {(activeTab === 'todos' || activeTab === 'pendentes') && filtered.filter(op => op.status === 'pendente').length > 0 && (
         <div className="space-y-4">
           <h3 className="text-sm font-bold text-slate-900 px-1">Convites Pendentes</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
@@ -575,15 +652,15 @@ export default function OperatorsPage() {
                       </div>
                     </td>
                   </tr>
-                ) : filtered.filter(op => op.status !== 'pendente').length === 0 ? (
+                ) : filtered.filter(op => op.status !== 'pendente').length === 0 && (activeTab === 'todos' || activeTab === 'pendentes') ? (
                   <tr>
                     <td colSpan={7} className="px-6 py-12 text-center text-slate-400 text-sm">
-                      Nenhum operador encontrado.
+                      Os convites pendentes estão sendo exibidos nos cards acima.
                     </td>
                   </tr>
                 ) : (
                   filtered.filter(op => op.status !== 'pendente').map(op => (
-                    <tr key={op.id} className="hover:bg-slate-50/50 transition-colors">
+                    <tr key={op.id} className={`transition-colors ${op.status === 'cancelado' ? 'bg-slate-50/50 opacity-60 grayscale' : 'hover:bg-slate-50/50'}`}>
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
                           <div className="h-9 w-9 rounded-full bg-gradient-to-br from-indigo-500 to-violet-500 flex items-center justify-center shrink-0 shadow-sm">
@@ -656,18 +733,29 @@ export default function OperatorsPage() {
                               <div className="fixed inset-0 z-40" onClick={() => setActiveMenu(null)}></div>
                               <div className="absolute right-0 z-50 mt-1 w-40 origin-top-right rounded-xl bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none overflow-hidden">
                                 <div className="py-1">
+                                  {op.status === 'pendente' && (
+                                    <>
+                                      <button onClick={() => handleCopyLink(op)} className="w-full text-left px-4 py-2 text-xs text-slate-700 hover:bg-slate-50 font-medium">Copiar Link do Convite</button>
+                                      <button onClick={() => { setActiveMenu(null); handleCancelInvite(op); }} className="w-full text-left px-4 py-2 text-xs text-amber-600 hover:bg-amber-50 font-medium">Cancelar Convite</button>
+                                    </>
+                                  )}
                                   {op.status === 'ativo' && (
                                     <>
-                                      <button onClick={() => setActiveMenu(null)} className="w-full text-left px-4 py-2 text-xs text-slate-700 hover:bg-slate-50 font-medium">Editar Operador</button>
+                                      <button onClick={() => { setActiveMenu(null); setEditingOperator(op); }} className="w-full text-left px-4 py-2 text-xs text-slate-700 hover:bg-slate-50 font-medium">Editar Operador</button>
                                       <button onClick={() => setActiveMenu(null)} className="w-full text-left px-4 py-2 text-xs text-slate-700 hover:bg-slate-50 font-medium">Delegar Funções</button>
                                       <button onClick={() => handleUpdateStatus(op, 'inativo')} className="w-full text-left px-4 py-2 text-xs text-amber-600 hover:bg-amber-50 font-medium">Inativar Operador</button>
                                     </>
                                   )}
                                   {op.status === 'inativo' && (
                                     <>
-                                      <button onClick={() => setActiveMenu(null)} className="w-full text-left px-4 py-2 text-xs text-slate-700 hover:bg-slate-50 font-medium">Editar Operador</button>
+                                      <button onClick={() => { setActiveMenu(null); setEditingOperator(op); }} className="w-full text-left px-4 py-2 text-xs text-slate-700 hover:bg-slate-50 font-medium">Editar Operador</button>
                                       <button onClick={() => handleUpdateStatus(op, 'ativo')} className="w-full text-left px-4 py-2 text-xs text-green-600 hover:bg-green-50 font-medium">Reativar Operador</button>
                                     </>
+                                  )}
+                                  {op.status !== 'cancelado' && (
+                                    <div className="border-t border-slate-100 mt-1 py-1">
+                                      <button onClick={() => handleDeleteOperator(op)} className="w-full text-left px-4 py-2 text-xs text-red-600 hover:bg-red-50 font-medium">Excluir Operador</button>
+                                    </div>
                                   )}
                                 </div>
                               </div>

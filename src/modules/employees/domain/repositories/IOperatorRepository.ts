@@ -28,7 +28,7 @@ export interface IOperatorRepository {
   cancelInvite(email: string, operatorId: string): Promise<void>;
   resendInvite(email: string): Promise<void>;
   
-  // Opções adicionais que podemos precisar depois
-  // updateOperator(id: string, payload: Partial<Operator>): Promise<Operator>;
+  updateOperator(id: string, payload: Partial<Operator>): Promise<void>;
+  deleteOperator(id: string): Promise<void>;
   updateOperatorStatus(id: string, status: OperatorStatus): Promise<void>;
 }

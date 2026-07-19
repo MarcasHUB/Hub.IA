@@ -75,7 +75,6 @@ export class SupabaseOperatorRepository implements IOperatorRepository {
       .from('operators')
       .select('*')
       .eq('organization_id', organizationId)
-      .neq('status', 'cancelado')
       .is('deleted_at', null)
       .order('nome', { ascending: true });
 
@@ -124,6 +123,27 @@ export class SupabaseOperatorRepository implements IOperatorRepository {
     const { error } = await supabase
       .from('operators')
       .update({ status, updated_at: new Date().toISOString() })
+      .eq('id', id);
+
+    if (error) throw error;
+  }
+
+  async updateOperator(id: string, payload: Partial<Operator>): Promise<void> {
+    // Evita tentar atualizar campos de controle indesejados caso venham no payload
+    const { id: _, organization_id, created_at, updated_at, deleted_at, status, email, accepted_at, ...updateData } = payload as any;
+    
+    const { error } = await supabase
+      .from('operators')
+      .update({ ...updateData, updated_at: new Date().toISOString() })
+      .eq('id', id);
+
+    if (error) throw error;
+  }
+
+  async deleteOperator(id: string): Promise<void> {
+    const { error } = await supabase
+      .from('operators')
+      .update({ deleted_at: new Date().toISOString(), updated_at: new Date().toISOString() })
       .eq('id', id);
 
     if (error) throw error;
