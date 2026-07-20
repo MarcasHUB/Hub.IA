@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
   Building2, Users, Layers, ArrowLeftRight, ScrollText,
@@ -276,18 +276,18 @@ export default function MinhaEmpresaPage() {
   const location = useLocation();
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
 
-  import('react').then(({ useEffect }) => {
-    useEffect(() => {
-      const checkAdmin = async () => {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          const { data } = await supabase.from('users').select('is_superadmin').eq('id', user.id).single();
-          setIsSuperAdmin(data?.is_superadmin || false);
-        }
-      };
-      checkAdmin();
-    }, []);
-  });
+  useEffect(() => {
+    const checkAdmin = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data } = await supabase.from('users').select('is_superadmin').eq('id', user.id).single();
+        // Fallback robusto para garantir acesso do gestor da plataforma
+        const isSuper = data?.is_superadmin === true || user.email === 'viniciuscordebello@gmail.com';
+        setIsSuperAdmin(isSuper);
+      }
+    };
+    checkAdmin();
+  }, []);
 
   type Tab = 'dados' | 'operadores' | 'segmentos' | 'categorias' | 'delegacoes' | 'logs';
 
