@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/infrastructure/supabase/client';
 import { Building2, Search, PackageOpen, MoreVertical, Shield } from 'lucide-react';
 import { Button } from '@/shared/components/ui/Button';
@@ -16,7 +15,6 @@ interface Organization {
 }
 
 export default function OrganizationsListPage() {
-  const navigate = useNavigate();
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [search, setSearch] = useState('');
   const [isLoading, setIsLoading] = useState(true);
@@ -145,3 +143,4 @@ export default function OrganizationsListPage() {
     </div>
   );
 }
+

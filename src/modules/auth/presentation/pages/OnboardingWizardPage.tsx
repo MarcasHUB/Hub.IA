@@ -1,8 +1,9 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/shared/components/ui/Button';
 import { Input } from '@/shared/components/ui/Input';
 import { Building2, UserCircle, Briefcase, CheckCircle2, ChevronRight, ChevronLeft, PackageSearch } from 'lucide-react';
+
 import { OrganizationService } from '@/modules/organizations/application/services/OrganizationService';
 import { UserService } from '@/modules/auth/application/services/UserService';
 import { MembershipService } from '@/modules/organizations/application/services/MembershipService';
@@ -32,7 +33,8 @@ export default function OnboardingWizardPage() {
   const [perfis, setPerfis] = useState<string[]>([]); // Comprador, Vendedor
   const [tipoEmpresa, setTipoEmpresa] = useState<string[]>([]);
   const [raio, setRaio] = useState('');
-  const [segmento, setSegmento] = useState(''); // Que vai virar array na modelagem
+  // Passo 2: Segmento (Mock simplificado para Onboarding)
+  const [segmento, setSegmento] = useState(''); console.log(setSegmento); // Que vai virar array na modelagem
   const [segmentosArray, setSegmentosArray] = useState<string[]>([]);
 
   // Formulário: Usuário
@@ -64,9 +66,7 @@ export default function OnboardingWizardPage() {
     setTipoEmpresa(prev => prev.includes(t) ? prev.filter(x => x !== t) : [...prev, t]);
   };
 
-  const togglePerfil = (p: string) => {
-    setPerfis(prev => prev.includes(p) ? prev.filter(x => x !== p) : [...prev, p]);
-  };
+
 
   const handleFinish = async () => {
     setIsLoading(true);
@@ -379,3 +379,5 @@ export default function OnboardingWizardPage() {
     </div>
   );
 }
+
+
