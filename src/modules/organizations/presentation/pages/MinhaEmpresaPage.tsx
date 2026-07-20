@@ -281,9 +281,8 @@ export default function MinhaEmpresaPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         const { data } = await supabase.from('users').select('is_superadmin').eq('id', user.id).single();
-        // Fallback robusto para garantir acesso do gestor da plataforma
-        const isSuper = data?.is_superadmin === true || user.email === 'viniciuscordebello@gmail.com';
-        setIsSuperAdmin(isSuper);
+        // Confiamos exclusivamente no banco de dados para segurança
+        setIsSuperAdmin(data?.is_superadmin === true);
       }
     };
     checkAdmin();

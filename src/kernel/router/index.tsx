@@ -1,9 +1,10 @@
-import React, { Suspense } from 'react';
+import React, { Suspense, lazy } from 'react';
 import { createBrowserRouter, Outlet } from 'react-router-dom';
 import { AppLayout } from '../layouts/AppLayout';
 import { AuthLayout } from '../layouts/AuthLayout';
 import LandingPage from '../../modules/landing/presentation/pages/LandingPage'; // imported directly for speed
 
+const GlobalAdminPage = lazy(() => import('../../modules/admin/presentation/pages/GlobalAdminPage'));
 const LoginPage = React.lazy(() => import('../../modules/auth/presentation/pages/LoginPage'));
 const OnboardingWizardPage = React.lazy(() => import('../../modules/auth/presentation/pages/OnboardingWizardPage'));
 const DashboardPage = React.lazy(() => import('../../modules/dashboard/presentation/pages/DashboardPage'));
@@ -159,6 +160,10 @@ export const router = createBrowserRouter([
       {
         path: '/messages',
         element: <SuspenseWrapper><MessagesPage /></SuspenseWrapper>,
+      },
+      {
+        path: '/admin',
+        element: <SuspenseWrapper><GlobalAdminPage /></SuspenseWrapper>,
       },
       {
         path: '/settings',

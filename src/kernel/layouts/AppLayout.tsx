@@ -113,7 +113,7 @@ export function AppLayout() {
           } else {
             setIsAdmin(false);
           }
-          if ((globalUser && globalUser.is_superadmin) || user.email === 'viniciuscordebello@gmail.com') {
+          if (globalUser && globalUser.is_superadmin) {
             setIsSuperAdmin(true);
           }
         }
