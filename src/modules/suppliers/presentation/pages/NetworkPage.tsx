@@ -136,6 +136,39 @@ export default function NetworkPage() {
   const [newCompWeb, setNewCompWeb] = useState('');
   const [isFetchingCnpj, setIsFetchingCnpj] = useState(false);
 
+  const matchSegments = (cnaeDesc: string) => {
+    const cnae = cnaeDesc.toLowerCase();
+    const suggestions = new Set<string>();
+    
+    if (cnae.includes('pain') && cnae.includes('elétric')) {
+      suggestions.add('Material Elétrico');
+      suggestions.add('Automação Industrial');
+    }
+    if (cnae.includes('epi') || cnae.includes('segurança')) {
+      suggestions.add('EPIs');
+    }
+    if (cnae.includes('transporte') || cnae.includes('logística')) {
+      suggestions.add('Logística');
+    }
+    if (cnae.includes('software') || cnae.includes('sistemas')) {
+      suggestions.add('TI & Software');
+    }
+    if (cnae.includes('hardware') || cnae.includes('infraestrutura') || cnae.includes('rede')) {
+      suggestions.add('TI & Hardware');
+    }
+    if (cnae.includes('metalúrgica') || cnae.includes('aço') || cnae.includes('ferro')) {
+      suggestions.add('Metalurgia');
+    }
+    if (cnae.includes('químic') || cnae.includes('plástic')) {
+      suggestions.add('Química');
+    }
+    if (cnae.includes('embalagem') || cnae.includes('papelão')) {
+      suggestions.add('Embalagens');
+    }
+    
+    return Array.from(suggestions);
+  };
+
   const handleCnpjBlur = async () => {
     const cleanCnpj = newCompDoc.replace(/\D/g, '');
     if (cleanCnpj.length !== 14) return;
@@ -148,7 +181,13 @@ export default function NetworkPage() {
         setNewCompCity(data.municipio || '');
         setNewCompState(data.uf || '');
         if (data.cnae_fiscal_descricao) {
-          setNewCompSeg(data.cnae_fiscal_descricao);
+          const suggested = matchSegments(data.cnae_fiscal_descricao);
+          if (suggested.length > 0) {
+            setNewCompSeg(suggested.join(', '));
+          } else {
+            // Fallback para exibir o nome do CNAE caso não ache de/para
+            setNewCompSeg(data.cnae_fiscal_descricao.substring(0, 80));
+          }
         }
       }
     } catch (e) {
@@ -335,6 +374,8 @@ export default function NetworkPage() {
               const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(); // 7 dias
 
               // 2. Insere na tabela 'invitations'
+              const segmentsArray = newCompSeg.split(',').map(s => s.trim()).filter(Boolean);
+              
               const { error: inviteError } = await supabase.from('invitations').insert({
                 organization_id: tenantId,
                 name: newCompName,
@@ -343,7 +384,10 @@ export default function NetworkPage() {
                 document: newCompDoc,
                 status: 'pendente',
                 token_hash: tokenHash,
-                expires_at: expiresAt
+                expires_at: expiresAt,
+                city: newCompCity,
+                state: newCompState,
+                segments: segmentsArray
               });
 
               if (inviteError) {
@@ -421,8 +465,8 @@ export default function NetworkPage() {
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700">Segmento Principal</label>
-                <Input placeholder="Ex: EPI / Proteção ou Material Elétrico" value={newCompSeg} onChange={e => setNewCompSeg(e.target.value)} />
+                <label className="text-xs font-bold text-slate-700">Segmentos (Separados por vírgula)</label>
+                <Input placeholder="Ex: Material Elétrico, EPIs" value={newCompSeg} onChange={e => setNewCompSeg(e.target.value)} />
               </div>
 
               <div className="grid grid-cols-2 gap-4">

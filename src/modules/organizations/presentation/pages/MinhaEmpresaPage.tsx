@@ -57,26 +57,70 @@ const MASTER_TABS: { id: string; label: string; icon: any; href: string; }[] = [
 // ─── Sub-página: Dados da Empresa ─────────────────────────────────────────────
 function DadosEmpresaTab() {
   const [form, setForm] = useState({
-    razao_social: localStorage.getItem('supplyhub_razao_social') || '',
-    nome_fantasia: localStorage.getItem('supplyhub_company_name') || '',
-    cnpj: localStorage.getItem('supplyhub_cnpj') || '',
-    email_corporativo: localStorage.getItem('supplyhub_email_corp') || '',
-    telefone: localStorage.getItem('supplyhub_telefone') || '',
-    gestor_principal: localStorage.getItem('supplyhub_gestor_principal') || '',
+    razao_social: '',
+    nome_fantasia: '',
+    cnpj: '',
+    email_corporativo: '',
+    telefone: '',
+    whatsapp: '',
+    site: '',
+    logo_url: '',
+    gestor_principal: '',
   });
   const [saved, setSaved] = useState(false);
+  const [completion, setCompletion] = useState(0);
+  const [orgId, setOrgId] = useState('');
+
+  import('@/infrastructure/supabase/client').then(({ supabase }) => {
+    useState(() => {
+      const load = async () => {
+        const id = localStorage.getItem('supplyhub_organization_id');
+        if (!id) return;
+        setOrgId(id);
+        const { data } = await supabase.from('organizations').select('*').eq('id', id).single();
+        if (data) {
+          setForm({
+            razao_social: data.name || '',
+            nome_fantasia: data.trade_name || '',
+            cnpj: data.document || '',
+            email_corporativo: data.commercial_email || '',
+            telefone: data.phone || '',
+            whatsapp: data.whatsapp || '',
+            site: data.website || '',
+            logo_url: data.logo_url || '',
+            gestor_principal: localStorage.getItem('supplyhub_gestor_principal') || '',
+          });
+          setCompletion(data.profile_completion || 50);
+        }
+      };
+      load();
+    });
+  });
 
   const handleChange = (field: string, value: string) => {
     setForm(f => ({ ...f, [field]: value }));
   };
 
-  const handleSave = () => {
-    localStorage.setItem('supplyhub_razao_social', form.razao_social);
-    localStorage.setItem('supplyhub_company_name', form.nome_fantasia);
-    localStorage.setItem('supplyhub_cnpj', form.cnpj);
-    localStorage.setItem('supplyhub_email_corp', form.email_corporativo);
-    localStorage.setItem('supplyhub_telefone', form.telefone);
-    localStorage.setItem('supplyhub_gestor_principal', form.gestor_principal);
+  const handleSave = async () => {
+    const { supabase } = await import('@/infrastructure/supabase/client');
+    let comp = 50;
+    if (form.logo_url) comp += 20;
+    if (form.site) comp += 10;
+    if (form.whatsapp) comp += 10;
+    
+    await supabase.from('organizations').update({
+      name: form.razao_social,
+      trade_name: form.nome_fantasia,
+      document: form.cnpj,
+      commercial_email: form.email_corporativo,
+      phone: form.telefone,
+      whatsapp: form.whatsapp,
+      website: form.site,
+      logo_url: form.logo_url,
+      profile_completion: comp
+    }).eq('id', orgId);
+
+    setCompletion(comp);
     setSaved(true);
     setTimeout(() => setSaved(false), 3000);
   };
@@ -103,11 +147,31 @@ function DadosEmpresaTab() {
 
   return (
     <div className="space-y-6 max-w-2xl">
-      <div>
-        <h2 className="text-lg font-bold text-slate-900">Dados da Empresa</h2>
-        <p className="text-sm text-slate-500 mt-0.5">
-          Informações institucionais utilizadas em convites, notificações e relatórios da Hub.IA.
-        </p>
+      <div className="flex items-start justify-between">
+        <div>
+          <h2 className="text-lg font-bold text-slate-900">Dados da Empresa</h2>
+          <p className="text-sm text-slate-500 mt-0.5">
+            Informações institucionais utilizadas em convites, notificações e relatórios da Hub.IA.
+          </p>
+        </div>
+        <div className="bg-white px-4 py-2 rounded-xl border border-slate-200 shadow-sm flex items-center gap-3">
+          <div className="flex-1">
+            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Perfil Público</p>
+            <p className="text-sm font-bold text-slate-900">{completion}% Completo</p>
+          </div>
+          <div className="h-10 w-10 rounded-full border-[3px] border-slate-100 flex items-center justify-center relative">
+            <svg className="absolute inset-0 h-full w-full -rotate-90 transform" viewBox="0 0 36 36">
+              <path
+                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                fill="none"
+                stroke={completion === 100 ? '#10b981' : '#4f46e5'}
+                strokeWidth="3"
+                strokeDasharray={`${completion}, 100`}
+              />
+            </svg>
+            <span className="text-[9px] font-bold text-slate-600">{completion}%</span>
+          </div>
+        </div>
       </div>
 
       <Card className="rounded-2xl border-slate-200 shadow-sm">
@@ -137,6 +201,18 @@ function DadosEmpresaTab() {
               icon={Phone}
               field="telefone"
               placeholder="(11) 3000-0000"
+            />
+            <Field
+              label="WhatsApp"
+              icon={Phone}
+              field="whatsapp"
+              placeholder="(11) 90000-0000"
+            />
+            <Field
+              label="Site"
+              icon={Globe}
+              field="site"
+              placeholder="www.suaempresa.com.br"
             />
           </div>
 
@@ -194,9 +270,24 @@ function DadosEmpresaTab() {
 
 // ─── MinhaEmpresaPage ─────────────────────────────────────────────────────────
 import { CategoriesPage } from '../../../categories/presentation/pages/CategoriesPage';
+import { supabase } from '@/infrastructure/supabase/client';
 
 export default function MinhaEmpresaPage() {
   const location = useLocation();
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+
+  import('react').then(({ useEffect }) => {
+    useEffect(() => {
+      const checkAdmin = async () => {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { data } = await supabase.from('users').select('is_superadmin').eq('id', user.id).single();
+          setIsSuperAdmin(data?.is_superadmin || false);
+        }
+      };
+      checkAdmin();
+    }, []);
+  });
 
   type Tab = 'dados' | 'operadores' | 'segmentos' | 'categorias' | 'delegacoes' | 'logs';
 
@@ -271,28 +362,30 @@ export default function MinhaEmpresaPage() {
               })}
             </div>
 
-            <div className="space-y-1">
-              <h3 className="px-3 text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Cadastros Master</h3>
-              {MASTER_TABS.map(tab => {
-                const Icon = tab.icon;
-                // placeholder for active state logic if we implement these routes inside this page
-                const isActive = false;
-                return (
-                  <Link
-                    key={tab.id}
-                    to={tab.href}
-                    className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all ${
-                      isActive
-                        ? 'bg-indigo-600 text-white shadow-sm'
-                        : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-                    }`}
-                  >
-                    <Icon className="h-4 w-4 shrink-0" />
-                    {tab.label}
-                  </Link>
-                );
-              })}
-            </div>
+            {isSuperAdmin && (
+              <div className="space-y-1">
+                <h3 className="px-3 text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Cadastros Master</h3>
+                {MASTER_TABS.map(tab => {
+                  const Icon = tab.icon;
+                  // placeholder for active state logic if we implement these routes inside this page
+                  const isActive = false;
+                  return (
+                    <Link
+                      key={tab.id}
+                      to={tab.href}
+                      className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+                        isActive
+                          ? 'bg-indigo-600 text-white shadow-sm'
+                          : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                      }`}
+                    >
+                      <Icon className="h-4 w-4 shrink-0" />
+                      {tab.label}
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
           </aside>
 
           {/* Área de conteúdo */}

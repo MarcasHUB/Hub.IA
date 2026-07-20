@@ -18,6 +18,7 @@ const QuotationsListPage = React.lazy(() => import('../../modules/quotations/pre
 const NewQuotationPage = React.lazy(() => import('../../modules/quotations/presentation/pages/NewQuotationPage'));
 const QuotationComparisonPage = React.lazy(() => import('../../modules/quotations/presentation/pages/QuotationComparisonPage'));
 const OrganizationPage = React.lazy(() => import('../../modules/organizations/presentation/pages/OrganizationPage'));
+const OrganizationsListPage = React.lazy(() => import('../../modules/organizations/presentation/pages/OrganizationsListPage'));
 const MessagesPage = React.lazy(() => import('../../modules/messages/presentation/pages/MessagesPage'));
 const QuotationResponsePage = React.lazy(() => import('../../modules/quotations/presentation/pages/QuotationResponsePage'));
 const SettingsPage = React.lazy(() => import('../../modules/settings/presentation/pages/SettingsPage'));
@@ -181,6 +182,14 @@ export const router = createBrowserRouter([
       },
       {
         path: '/empresa/logs',
+        element: <SuspenseWrapper><MinhaEmpresaPage /></SuspenseWrapper>,
+      },
+      {
+        path: '/empresa/empresas',
+        element: <SuspenseWrapper><OrganizationsListPage /></SuspenseWrapper>,
+      },
+      {
+        path: '/empresa/categorias',
         element: <SuspenseWrapper><MinhaEmpresaPage /></SuspenseWrapper>,
       },
     ]

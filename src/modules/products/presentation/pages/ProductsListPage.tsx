@@ -35,9 +35,19 @@ export default function ProductsListPage() {
 
   // Tenant ID mockado temporariamente (em produção virá do auth context)
   const tenantId = '00000000-0000-0000-0000-000000000000';
+  const [isSupplier, setIsSupplier] = useState(false);
 
   async function loadProducts() {
     try {
+      const { supabase } = await import('@/infrastructure/supabase/client');
+      const localTenant = localStorage.getItem('supplyhub_organization_id');
+      if (localTenant) {
+        const { data: orgData } = await supabase.from('organizations').select('company_role').eq('id', localTenant).single();
+        if (orgData?.company_role === 'seller' || orgData?.company_role === 'both') {
+          setIsSupplier(true);
+        }
+      }
+
       const data = await repo.findAll(tenantId);
       // Map domain to UI format
       setProducts(data.map(p => ({
@@ -122,14 +132,23 @@ export default function ProductsListPage() {
             </div>
             
             <div className="flex items-center gap-3 shrink-0">
-              <Button variant="outline" className="border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-200 h-10 px-4 font-bold shadow-sm">
-                <Upload className="h-4 w-4 mr-2 text-indigo-400" />
-                Importar em Massa
-              </Button>
-              <Button onClick={() => navigate('/products/new')} className="bg-indigo-600 hover:bg-indigo-700 text-white h-10 px-5 font-bold shadow-md shadow-indigo-900/20">
-                <Plus className="h-4 w-4 mr-1.5" />
-                Novo Produto
-              </Button>
+              {isSupplier ? (
+                <Button onClick={() => alert('Vincular Material ainda será implementado')} className="bg-indigo-600 hover:bg-indigo-700 text-white h-10 px-5 font-bold shadow-md shadow-indigo-900/20">
+                  <Search className="h-4 w-4 mr-1.5" />
+                  Vincular Material
+                </Button>
+              ) : (
+                <>
+                  <Button variant="outline" className="border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-200 h-10 px-4 font-bold shadow-sm">
+                    <Upload className="h-4 w-4 mr-2 text-indigo-400" />
+                    Importar em Massa
+                  </Button>
+                  <Button onClick={() => navigate('/products/new')} className="bg-indigo-600 hover:bg-indigo-700 text-white h-10 px-5 font-bold shadow-md shadow-indigo-900/20">
+                    <Plus className="h-4 w-4 mr-1.5" />
+                    Novo Produto
+                  </Button>
+                </>
+              )}
             </div>
           </div>
 
@@ -202,9 +221,15 @@ export default function ProductsListPage() {
               <p className="text-sm text-slate-500 mt-1 max-w-sm">
                 Cadastre novos itens ou importe sua planilha de materiais para começar a gerenciar seu catálogo.
               </p>
-              <Button onClick={() => navigate('/products/new')} className="mt-6 bg-indigo-600 hover:bg-indigo-700 font-bold">
-                <Plus className="h-4 w-4 mr-1.5" /> Adicionar Primeiro Produto
-              </Button>
+              {isSupplier ? (
+                <Button onClick={() => alert('Vincular Material ainda será implementado')} className="mt-6 bg-indigo-600 hover:bg-indigo-700 font-bold">
+                  <Search className="h-4 w-4 mr-1.5" /> Adicionar Primeiro Produto
+                </Button>
+              ) : (
+                <Button onClick={() => navigate('/products/new')} className="mt-6 bg-indigo-600 hover:bg-indigo-700 font-bold">
+                  <Plus className="h-4 w-4 mr-1.5" /> Adicionar Primeiro Produto
+                </Button>
+              )}
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6 pb-24">

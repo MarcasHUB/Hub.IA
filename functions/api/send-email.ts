@@ -220,20 +220,35 @@ export async function onRequestPost(context: any) {
 
       toEmail = invite.email;
       toName = invite.name || invite.company;
-      subject = 'Convite para conectar na SupplyHUB';
-      // Aqui assumimos que o token é o próprio hash/token gerado no frontend (salvo em token_hash ou similar, se for token puro)
-      const link = `${publicUrl}/fornecedor/aceite?token=${invite.token_hash}`;
+      subject = 'Sua empresa foi convidada para fazer parte da Rede Hub.IA de Suprimentos';
+      
+      const link = joinUrl(publicUrl, `onboarding?token=${invite.token_hash}`);
 
       htmlContent = `
-        <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; color: #333;">
-          <h2>Sua empresa foi convidada para a Rede SupplyHUB</h2>
+        <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; color: #333; line-height: 1.5;">
+          <h2 style="color: #111827;">Bem-vindo à Rede Hub.IA</h2>
           <p>Olá <strong>${toName}</strong>,</p>
-          <p>Uma empresa deseja conectar-se a você (<strong>${invite.company}</strong>) através da plataforma SupplyHUB.</p>
-          <p>Para se cadastrar gratuitamente e responder a cotações, clique no botão abaixo:</p>
-          <a href="${link}" style="display: inline-block; padding: 12px 24px; background-color: #4F46E5; color: #fff; text-decoration: none; border-radius: 4px; font-weight: bold; margin-top: 16px;">Conectar à Rede</a>
+          <p>Sua empresa foi convidada para participar da <strong>Rede Hub.IA de Suprimentos</strong>.</p>
+          <p>A Hub.IA conecta empresas compradoras e fornecedoras em um ambiente único para geração de negócios, cotações, parcerias estratégicas e oportunidades comerciais.</p>
+          
+          <div style="background-color: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; margin: 24px 0;">
+            <h3 style="margin-top: 0; color: #111827; font-size: 16px;">Dados já identificados</h3>
+            <p style="margin: 8px 0 0 0;"><strong>Razão Social:</strong> ${invite.company}</p>
+            <p style="margin: 4px 0 0 0;"><strong>CNPJ:</strong> ${invite.document}</p>
+          </div>
+
+          <p style="font-weight: bold; margin-bottom: 8px;">Próximo passo</p>
+          <p style="margin-top: 0;">Clique abaixo para acessar a plataforma e concluir seu cadastro.</p>
+          <a href="${link}" style="display: inline-block; padding: 12px 24px; background-color: #4F46E5; color: #fff; text-decoration: none; border-radius: 4px; font-weight: bold; margin-top: 8px;">Acessar Plataforma</a>
+          
+          <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; font-size: 12px; color: #666;">
+            <p>Se o botão não funcionar, copie e cole o link abaixo no seu navegador:</p>
+            <p style="word-break: break-all;"><a href="${link}" style="color: #4F46E5;">${link}</a></p>
+          </div>
         </div>
       `;
-      textContent = `Olá ${toName},\n\nSua empresa foi convidada para a Rede SupplyHUB.\nAcesse: ${link}`;
+      
+      textContent = `Olá ${toName},\n\nBem-vindo à Rede Hub.IA\n\nSua empresa foi convidada para participar da Rede Hub.IA de Suprimentos.\nA Hub.IA conecta empresas compradoras e fornecedoras em um ambiente único para geração de negócios, cotações, parcerias estratégicas e oportunidades comerciais.\n\nDados já identificados:\nRazão Social: ${invite.company}\nCNPJ: ${invite.document}\n\nPróximo passo:\nClique no link abaixo para acessar a plataforma e concluir seu cadastro:\n${link}`;
     }
 
     // Disparar Mailtrap

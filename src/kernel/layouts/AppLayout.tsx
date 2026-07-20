@@ -64,6 +64,7 @@ export function AppLayout() {
   const [authReady, setAuthReady] = useState(false);
   const [profileReady, setProfileReady] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -81,6 +82,7 @@ export function AppLayout() {
             setIsAdmin(false);
             setAuthReady(true);
             setProfileReady(true);
+            navigate('/login?reason=session_expired');
           }
           return;
         }
@@ -98,11 +100,21 @@ export function AppLayout() {
           throw opError;
         }
 
+        // Verifica a flag global de Super Admin
+        const { data: globalUser } = await supabase
+          .from('users')
+          .select('is_superadmin')
+          .eq('id', user.id)
+          .single();
+
         if (isMounted) {
           if (operator && operator.perfil === 'administrador') {
             setIsAdmin(true);
           } else {
             setIsAdmin(false);
+          }
+          if (globalUser && globalUser.is_superadmin) {
+            setIsSuperAdmin(true);
           }
         }
       } catch (err: any) {
@@ -183,8 +195,12 @@ export function AppLayout() {
       baseItems.push({ name: 'Minha Empresa', href: '/empresa' });
     }
 
+    if (isSuperAdmin) {
+      baseItems.push({ name: 'Administração Global', href: '/admin' });
+    }
+
     return baseItems;
-  }, [isAdmin]);
+  }, [isAdmin, isSuperAdmin]);
 
   useEffect(() => {
     // Forçar limpeza de org-1 legado do localStorage
