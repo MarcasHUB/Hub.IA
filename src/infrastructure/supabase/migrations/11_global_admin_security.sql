@@ -3,7 +3,10 @@
 -- 0. COLUNAS DE IDENTIFICAÇÃO E RECUPERAÇÃO PERMANENTE (ROOT KEY)
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS cpf VARCHAR(14);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_profiles_cpf ON public.profiles(cpf);
+
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS is_founder boolean DEFAULT false;
+-- Garantia estrutural de que existirá no máximo UM único Founder em toda a plataforma
+CREATE UNIQUE INDEX IF NOT EXISTS idx_single_founder ON public.profiles(is_founder) WHERE is_founder = true;
 
 -- 1. PROMOÇÃO INICIAL DO FUNDADOR
 -- Atualiza o registro raiz para marcá-lo como fundador e conceder acesso operacional
