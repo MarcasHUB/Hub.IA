@@ -95,15 +95,15 @@ export default function GlobalAdminPage() {
   return (
     <div className="flex-1 bg-slate-50 min-h-full flex flex-col font-sans">
       {/* HEADER BANNER */}
-      <div className="bg-purple-900 rounded-2xl mx-6 mt-6 mb-6 px-8 py-8 shadow-md">
+      <div className="bg-slate-900 rounded-2xl mx-6 mt-6 mb-6 px-8 py-8 shadow-md">
         <div className="max-w-[1600px] mx-auto">
           <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
             <div>
               <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white flex items-center gap-3">
-                <Shield className="h-7 w-7 text-purple-400" />
+                <Shield className="h-7 w-7 text-indigo-400" />
                 Administração Global
               </h1>
-              <p className="text-purple-200 mt-1 text-sm max-w-2xl">
+              <p className="text-slate-400 mt-1 text-sm max-w-2xl">
                 Gerenciamento de acesso e governança mestre da plataforma Hub.IA
               </p>
             </div>
@@ -129,7 +129,7 @@ export default function GlobalAdminPage() {
                       to={tab.href}
                       className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all ${
                         isActive
-                          ? 'bg-purple-600 text-white shadow-sm'
+                          ? 'bg-indigo-600 text-white shadow-sm'
                           : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
                       }`}
                     >
@@ -151,7 +151,14 @@ export default function GlobalAdminPage() {
             {activeTab === 'campo' && (
               <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-200">
                 <h2 className="text-xl font-bold text-slate-800 mb-4">App Campo</h2>
-                <p className="text-slate-600">Configurações do aplicativo de operação de campo (Em breve).</p>
+                <p className="text-slate-600 mb-6">Ambiente de homologação e atualizações do aplicativo de operação de campo antes de colocar em operação.</p>
+                <Link 
+                  to="/pwa-choice"
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white h-10 px-5 rounded-xl font-bold inline-flex items-center shadow-md transition-colors"
+                  title="Testar Acesso APP / Solicitação de Campo"
+                >
+                  Testar Acesso APP Campo
+                </Link>
               </div>
             )}
           </main>

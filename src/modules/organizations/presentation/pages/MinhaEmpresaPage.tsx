@@ -311,17 +311,6 @@ export default function MinhaEmpresaPage() {
                 <strong className="text-white">{companyName}</strong>.
               </p>
             </div>
-            
-            {/* Botão temporário para teste de solicitação de campo (PWA) */}
-            <div className="flex items-center gap-3 shrink-0">
-              <Link 
-                to="/pwa-choice"
-                className="bg-indigo-600 hover:bg-indigo-700 text-white h-10 px-5 rounded-xl font-bold flex items-center shadow-md transition-colors"
-                title="Testar Acesso APP / Solicitação de Campo"
-              >
-                Testar Acesso APP Campo
-              </Link>
-            </div>
           </div>
         </div>
       </div>
