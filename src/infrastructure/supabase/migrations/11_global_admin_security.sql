@@ -80,7 +80,7 @@ CREATE POLICY "users_read_policy"
 ON public.profiles FOR SELECT TO authenticated
 USING (
     id = auth.uid() OR
-    organization_id = public.get_auth_user_organization_id() OR
+    public.has_org_access(organization_id) OR
     public.is_super_admin()
 );
 
@@ -100,33 +100,33 @@ WITH CHECK (
 DROP POLICY IF EXISTS tenant_isolation_policy_suppliers ON public.suppliers;
 CREATE POLICY tenant_isolation_policy_suppliers ON public.suppliers 
 FOR ALL TO authenticated 
-USING (organization_id = public.get_auth_user_organization_id() OR public.is_super_admin());
+USING (public.has_org_access(organization_id) OR public.is_super_admin());
 
 -- Categories
 DROP POLICY IF EXISTS tenant_isolation_policy_categories ON public.categories;
 CREATE POLICY tenant_isolation_policy_categories ON public.categories 
 FOR ALL TO authenticated 
-USING (organization_id = public.get_auth_user_organization_id() OR public.is_super_admin());
+USING (public.has_org_access(organization_id) OR public.is_super_admin());
 
 -- Products
 DROP POLICY IF EXISTS tenant_isolation_policy_products ON public.products;
 CREATE POLICY tenant_isolation_policy_products ON public.products 
 FOR ALL TO authenticated 
-USING (organization_id = public.get_auth_user_organization_id() OR public.is_super_admin());
+USING (public.has_org_access(organization_id) OR public.is_super_admin());
 
 -- Quotations
 DROP POLICY IF EXISTS tenant_isolation_policy_quotations ON public.quotation_requests;
 CREATE POLICY tenant_isolation_policy_quotations ON public.quotation_requests 
 FOR ALL TO authenticated 
-USING (organization_id = public.get_auth_user_organization_id() OR public.is_super_admin());
+USING (public.has_org_access(organization_id) OR public.is_super_admin());
 
 -- Bids
 DROP POLICY IF EXISTS tenant_isolation_policy_bids ON public.supplier_quotations;
 CREATE POLICY tenant_isolation_policy_bids ON public.supplier_quotations 
 FOR ALL TO authenticated 
 USING (
-  supplier_id IN (SELECT id FROM suppliers WHERE organization_id = public.get_auth_user_organization_id()) OR 
-  request_id IN (SELECT id FROM quotation_requests WHERE organization_id = public.get_auth_user_organization_id()) OR
+  supplier_id IN (SELECT id FROM suppliers WHERE public.has_org_access(organization_id)) OR 
+  request_id IN (SELECT id FROM quotation_requests WHERE public.has_org_access(organization_id)) OR
   public.is_super_admin()
 );
 
@@ -156,7 +156,7 @@ FOR SELECT TO authenticated USING (true);
 DROP POLICY IF EXISTS "organizations_update" ON public.organizations;
 CREATE POLICY "organizations_update" ON public.organizations 
 FOR UPDATE TO authenticated 
-USING (id = public.get_auth_user_organization_id() OR public.is_super_admin());
+USING (public.has_org_access(id) OR public.is_super_admin());
 
 -- 6. Tabela Logs (Bypass para ver todos os logs do sistema)
 -- No original era `public.logs`. Let's check if the table exists, but if it doesn't we can just create it or skip it.
@@ -174,12 +174,12 @@ ALTER TABLE public.logs ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "logs_org_select" ON public.logs;
 CREATE POLICY "logs_org_select" ON public.logs 
 FOR SELECT TO authenticated 
-USING (organization_id = public.get_auth_user_organization_id() OR public.is_super_admin());
+USING (public.has_org_access(organization_id) OR public.is_super_admin());
 
 DROP POLICY IF EXISTS "logs_org_insert" ON public.logs;
 CREATE POLICY "logs_org_insert" ON public.logs 
 FOR INSERT TO authenticated 
-WITH CHECK (organization_id = public.get_auth_user_organization_id() OR public.is_super_admin());
+WITH CHECK (public.has_org_access(organization_id) OR public.is_super_admin());
 
 -- Recarregar schema cache
 NOTIFY pgrst, 'reload schema';
