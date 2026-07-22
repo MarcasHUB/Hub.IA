@@ -362,6 +362,26 @@ export function AppLayout() {
                   <div className="h-3.5 w-24 bg-slate-200 rounded-md animate-pulse" />
                 </div>
               )}
+
+              {isSuperAdmin && (
+                <>
+                  <div className="h-4 w-px bg-slate-300 shrink-0" />
+                  <Link
+                    to="/admin"
+                    className={cn(
+                      'flex items-center gap-1.5 text-[12px] font-bold uppercase tracking-wide transition-colors leading-none',
+                      location.pathname.startsWith('/admin')
+                        ? 'text-indigo-700'
+                        : 'text-slate-500 hover:text-slate-900'
+                    )}
+                  >
+                    <div className="flex flex-col items-center justify-center space-y-[2px]">
+                      <span>ADM</span>
+                      <span>GLOBAL</span>
+                    </div>
+                  </Link>
+                </>
+              )}
             </div>
           </nav>
 
@@ -369,27 +389,6 @@ export function AppLayout() {
           <div className="flex items-center gap-5 shrink-0">
             
             <div className="h-5 w-px bg-slate-200 shrink-0 hidden md:block" />
-
-            {isSuperAdmin && (
-              <>
-                <Link
-                  to="/admin"
-                  className={cn(
-                    'flex items-center gap-1.5 text-[12px] font-bold uppercase tracking-wide transition-colors leading-none',
-                    location.pathname.startsWith('/admin')
-                      ? 'text-indigo-700'
-                      : 'text-slate-500 hover:text-slate-900'
-                  )}
-                >
-                  <div className="flex flex-col items-center justify-center space-y-[2px]">
-                    <span>ADM</span>
-                    <span>GLOBAL</span>
-                  </div>
-                </Link>
-
-                <div className="h-5 w-px bg-slate-200 shrink-0 hidden md:block" />
-              </>
-            )}
 
             {/* Card da Empresa Minimalista */}
             <Link to="/empresa" className="hidden md:flex items-center gap-2 hover:opacity-80 transition-opacity" title="Área da Empresa">
