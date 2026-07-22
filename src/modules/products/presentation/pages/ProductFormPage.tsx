@@ -92,11 +92,7 @@ export default function ProductFormPage({
   // Related data states
   const [availableCategories, setAvailableCategories] = useState<{id: string, name: string}[]>([]);
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
-  const [attachments, setAttachments] = useState<Record<string, boolean>>({
-    'Catálogo': false,
-    'Desenho': false,
-    'Ficha técnica': false
-  });
+  const [attachmentsList, setAttachmentsList] = useState<{type: string, filename: string, base64: string, uploadedAt: string, user: string}[]>([]);
 
   // Segmentos não mais usados no form, substituídos por categorias
 
@@ -163,7 +159,7 @@ export default function ProductFormPage({
             }));
             setClassification(prev => ({
               ...prev,
-              category: product.categoryName || product.categoryId || '',
+              category: product.categoryId || '',
               baseUom: product.uom || ''
             }));
             setCommercial(prev => ({
@@ -174,6 +170,9 @@ export default function ProductFormPage({
             // Mocked supplier mapping
             if (product.supplierId) {
                setSuppliers([{ id: '', name: 'Fornecedor', document: '' }]);
+            }
+            if (product.attachments && Array.isArray(product.attachments)) {
+               setAttachmentsList(product.attachments);
             }
           }
         } catch (e) {
@@ -237,7 +236,8 @@ export default function ProductFormPage({
         basicInfo.availableForPurchase,
         basicInfo.availableForSale,
         basicInfo.imageUrl,
-        basicInfo.technicalDescription
+        basicInfo.technicalDescription,
+        attachmentsList
       );
 
       await repo.save(newProduct);
@@ -506,34 +506,54 @@ export default function ProductFormPage({
                         <div className="space-y-2 border-t border-slate-100 pt-3">
                           <Label>Evidência Técnica</Label>
                           <div className="flex flex-wrap gap-3">
-                            {Object.entries(attachments).map(([doc, isAttached]) => (
-                              <label 
-                                key={doc} 
-                                className={`
-                                  relative overflow-hidden cursor-pointer text-xs px-3 py-1.5 border rounded-lg flex items-center gap-2 transition-all shadow-sm
-                                  ${isAttached 
-                                    ? 'bg-green-50 border-green-200 text-green-700 hover:bg-green-100' 
-                                    : 'bg-red-50 border-red-200 text-red-700 hover:bg-red-100'
-                                  }
-                                `}
-                              >
-                                <div className={`w-2 h-2 rounded-full ${isAttached ? 'bg-green-500' : 'bg-red-500 animate-pulse'}`} />
-                                <FileText className="w-3.5 h-3.5" />
-                                <span className="font-medium">Adicionar {doc}</span>
-                                
-                                <input 
-                                  type="file" 
-                                  className="hidden" 
-                                  onChange={(e) => {
-                                    if (e.target.files && e.target.files.length > 0) {
-                                      setAttachments(prev => ({ ...prev, [doc]: true }));
-                                    }
-                                  }}
-                                />
-                                
-                                <div className="absolute inset-0 z-10 w-full h-full opacity-0" title={isAttached ? 'Arquivo anexado' : 'Anexo não informado'} />
-                              </label>
-                            ))}
+                            {['Catálogo', 'Desenho', 'Ficha técnica'].map(type => {
+                              const isAttached = attachmentsList.some(a => a.type === type);
+                              return (
+                                <label key={type} className={`flex items-center gap-2 px-4 py-2 border rounded-xl text-sm font-semibold cursor-pointer transition-colors shadow-sm ${
+                                  isAttached 
+                                    ? 'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100'
+                                    : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                                }`}>
+                                  <input 
+                                    type="file" 
+                                    className="hidden" 
+                                    onChange={(e) => {
+                                      if (e.target.files && e.target.files[0]) {
+                                        const file = e.target.files[0];
+                                        const reader = new FileReader();
+                                        reader.onloadend = () => {
+                                          const newAttachment = {
+                                            type,
+                                            filename: file.name,
+                                            base64: reader.result as string,
+                                            uploadedAt: new Date().toISOString(),
+                                            user: 'Usuário Atual' // Isso viria do Auth context
+                                          };
+                                          setAttachmentsList(prev => {
+                                            // Remove anexo antigo do mesmo tipo se houver
+                                            const filtered = prev.filter(a => a.type !== type);
+                                            return [...filtered, newAttachment];
+                                          });
+                                        };
+                                        reader.readAsDataURL(file);
+                                      }
+                                    }}
+                                  />
+                                  <FileText className={`h-4 w-4 ${isAttached ? 'text-emerald-600' : 'text-slate-400'}`} /> 
+                                  {isAttached ? 'Anexo: ' + type : 'Adicionar ' + type}
+                                  <div className="ml-2 relative flex h-2.5 w-2.5">
+                                    {isAttached ? (
+                                      <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75"></span>
+                                    ) : (
+                                      <>
+                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                                        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500"></span>
+                                      </>
+                                    )}
+                                  </div>
+                                </label>
+                              );
+                            })}
                           </div>
                         </div>
                       </div>
@@ -680,11 +700,10 @@ export default function ProductFormPage({
             )}
 
             {/* Outras abas (Documentos, Histórico) */}
-            {['documents', 'history'].includes(activeTab) && (
+            {activeTab === 'history' && (
               <div className="flex flex-col items-center justify-center py-20 text-center animate-in fade-in slide-in-from-bottom-2 duration-300">
                 <div className="h-16 w-16 bg-slate-50 rounded-full flex items-center justify-center mb-4">
-                  {activeTab === 'documents' && <FileText className="h-8 w-8 text-slate-400" />}
-                  {activeTab === 'history' && <History className="h-8 w-8 text-slate-400" />}
+                  <History className="h-8 w-8 text-slate-400" />
                 </div>
                 <h3 className="text-lg font-bold text-slate-900 mb-1">
                   Módulo em Construção
@@ -692,10 +711,74 @@ export default function ProductFormPage({
                 <p className="text-slate-500 max-w-sm">
                   A visualização detalhada desta aba estará disponível na próxima etapa da implementação.
                 </p>
-                {activeTab === 'documents' && (
-                  <Button className="mt-6 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50">
-                    <Plus className="h-4 w-4 mr-2" /> Upload de Documento Técnico
-                  </Button>
+              </div>
+            )}
+
+            {activeTab === 'documents' && (
+              <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+                <div className="flex justify-between items-center mb-6">
+                  <div>
+                    <h3 className="text-lg font-bold text-slate-900">Documentos Técnicos</h3>
+                    <p className="text-sm text-slate-500">Documentos e anexos técnicos vinculados a este material.</p>
+                  </div>
+                </div>
+
+                {attachmentsList.length === 0 ? (
+                  <div className="py-12 text-center border-2 border-dashed border-slate-200 rounded-xl bg-slate-50">
+                    <FileText className="h-10 w-10 text-slate-300 mx-auto mb-3" />
+                    <h4 className="text-sm font-medium text-slate-900">Nenhum documento anexado</h4>
+                    <p className="text-sm text-slate-500 mt-1">Vá na aba "Informações Básicas" para fazer upload de evidências técnicas.</p>
+                  </div>
+                ) : (
+                  <div className="border rounded-xl bg-white overflow-hidden overflow-x-auto">
+                    <table className="w-full text-sm text-left whitespace-nowrap">
+                      <thead className="bg-slate-50 border-b text-slate-600 font-medium">
+                        <tr>
+                          <th className="px-4 py-3">Nome do Arquivo</th>
+                          <th className="px-4 py-3">Tipo</th>
+                          <th className="px-4 py-3 text-center">Data Upload</th>
+                          <th className="px-4 py-3">Usuário</th>
+                          <th className="px-4 py-3 text-center">Ações</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y">
+                        {attachmentsList.map((doc, idx) => (
+                          <tr key={idx} className="hover:bg-slate-50/50">
+                            <td className="px-4 py-3 font-medium text-slate-900">
+                              {doc.filename}
+                            </td>
+                            <td className="px-4 py-3">
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-100">
+                                {doc.type}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 text-center text-slate-500">
+                              {new Date(doc.uploadedAt).toLocaleDateString()}
+                            </td>
+                            <td className="px-4 py-3 text-slate-500">
+                              {doc.user}
+                            </td>
+                            <td className="px-4 py-3">
+                              <div className="flex items-center justify-center gap-3">
+                                <a href={doc.base64} download={doc.filename} className="text-indigo-600 hover:text-indigo-800 text-xs font-semibold">
+                                  Download
+                                </a>
+                                <a href={doc.base64} target="_blank" rel="noreferrer" className="text-indigo-600 hover:text-indigo-800 text-xs font-semibold">
+                                  Visualizar
+                                </a>
+                                <button 
+                                  onClick={() => setAttachmentsList(prev => prev.filter(a => a.type !== doc.type))}
+                                  className="text-red-600 hover:text-red-800 text-xs font-semibold"
+                                >
+                                  Excluir
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 )}
               </div>
             )}
@@ -899,6 +982,7 @@ export default function ProductFormPage({
 
         {isCategoryModalOpen && (
           <CategoryModal 
+            tenantId={tenantId}
             onClose={() => setIsCategoryModalOpen(false)}
             onSave={handleSaveCategory}
           />

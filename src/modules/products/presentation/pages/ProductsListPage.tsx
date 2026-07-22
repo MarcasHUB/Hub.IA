@@ -52,15 +52,16 @@ export default function ProductsListPage() {
       }
 
       const data = await repo.findAll(tenantId);
+      const activeData = data.filter(p => p.status !== 'Inactive');
       // Map domain to UI format
-      setProducts(data.map(p => ({
+      setProducts(activeData.map(p => ({
         id: p.id,
         name: p.name,
         sku: p.sku,
         unit: p.uom || 'UN',
         partNumber: 'PN-' + p.sku,
         supplier: p.supplierId || 'Fornecedor',
-        category: p.categoryName || 'Sem segmento',
+        category: p.categoryName || 'Sem categoria',
         manufacturer: p.manufacturer || 'Desconhecido',
         price: p.price,
         status: p.status === 'Draft' ? 'Draft' : 'Active',

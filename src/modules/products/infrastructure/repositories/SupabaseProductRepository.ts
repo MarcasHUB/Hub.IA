@@ -84,7 +84,8 @@ export class SupabaseProductRepository implements IProductRepository {
                 price: product.price,
                 available_for_purchase: product.availableForPurchase,
                 available_for_sale: product.availableForSale,
-                status: product.status
+                status: product.status,
+                attachments: product.attachments || []
             },
             updated_at: new Date().toISOString()
         };
@@ -113,15 +114,12 @@ export class SupabaseProductRepository implements IProductRepository {
             throw new Error("Este material possui histórico ou vínculo com cotações e não pode ser excluído fisicamente.");
         }
 
-        const { error } = await supabase
-            .from('products')
-            .delete()
-            .eq('id', id)
-            .eq('organization_id', actualTenant);
-            
-        if (error) {
-            console.error('Supabase delete product error:', error);
-            throw error;
+        const product = await this.findById(id, actualTenant);
+        if (product) {
+            product.status = ProductStatus.INACTIVE;
+            await this.save(product);
+        } else {
+            throw new Error("Produto não encontrado.");
         }
     }
 
@@ -146,7 +144,8 @@ export class SupabaseProductRepository implements IProductRepository {
             meta.available_for_purchase ?? true,
             meta.available_for_sale ?? false,
             meta.image_url || '',
-            meta.technical_description || ''
+            meta.technical_description || '',
+            meta.attachments || []
         );
     }
 }

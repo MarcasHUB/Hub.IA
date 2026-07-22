@@ -181,6 +181,7 @@ export function CategoriesPage() {
       {modalOpen && (
         <CategoryModal
           cat={editingCategory}
+          tenantId={tenantId}
           onClose={() => { setModalOpen(false); setEditingCategory(undefined); }}
           onSave={handleSave}
         />

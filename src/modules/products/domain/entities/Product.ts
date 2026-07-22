@@ -31,7 +31,8 @@ export class Product {
         public availableForPurchase: boolean = true,
         public availableForSale: boolean = false,
         public imageUrl?: string,
-        public technicalDescription?: string
+        public technicalDescription?: string,
+        public attachments?: any[]
     ) {}
 
     get isComplete(): boolean {
