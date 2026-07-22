@@ -9,9 +9,10 @@ import { SupabaseCategoryRepository } from '../../infrastructure/repositories/Su
 import { supabase } from '@/infrastructure/supabase/client';
 
 export function CategoryModal({
-  cat, onClose, onSave,
+  cat, tenantId = 'GLOBAL', onClose, onSave,
 }: {
   cat?: Category;
+  tenantId?: string;
   onClose: () => void;
   onSave: (c: Category) => void;
 }) {
@@ -35,7 +36,7 @@ export function CategoryModal({
     } else {
       onSave(new Category(
         crypto.randomUUID(),
-        'GLOBAL',
+        tenantId,
         name.trim(),
         description.trim(),
         undefined,

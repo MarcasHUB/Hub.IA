@@ -34,7 +34,7 @@ export class SupabaseProductRepository implements IProductRepository {
         const actualTenant = await this.resolveTenantId(tenantId);
         const { data, error } = await supabase
             .from('products')
-            .select(`*`)
+            .select(`*, categories(name)`)
             .eq('id', id)
             .eq('organization_id', actualTenant)
             .single();
@@ -48,7 +48,7 @@ export class SupabaseProductRepository implements IProductRepository {
         const actualTenant = await this.resolveTenantId(tenantId);
         const { data, error } = await supabase
             .from('products')
-            .select(`*`)
+            .select(`*, categories(name)`)
             .eq('organization_id', actualTenant)
             .order('created_at', { ascending: false });
             
@@ -141,7 +141,7 @@ export class SupabaseProductRepository implements IProductRepository {
             meta.status || ProductStatus.ACTIVE,
             new Date(row.created_at),
             new Date(row.updated_at),
-            undefined,
+            row.categories?.name,
             meta.manufacturer_code || '',
             meta.available_for_purchase ?? true,
             meta.available_for_sale ?? false,

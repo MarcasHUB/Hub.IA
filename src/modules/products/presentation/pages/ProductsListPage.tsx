@@ -332,7 +332,14 @@ export default function ProductsListPage() {
 
                     <div className="p-4 flex flex-col flex-1">
                       <div className="flex items-center justify-between mb-2">
-                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">SKU: {product.sku}</span>
+                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider group/sku relative cursor-help">
+                          Cód. Fab: {product.manufacturerCode || 'ND'}
+                          {product.sku && (
+                             <span className="absolute bottom-full left-0 mb-1 w-max opacity-0 invisible group-hover/sku:opacity-100 group-hover/sku:visible bg-slate-800 text-white text-[10px] py-1 px-2 rounded transition-all z-10 pointer-events-none">
+                               SKU Revenda: {product.sku}
+                             </span>
+                          )}
+                        </span>
                         <Badge variant="outline" className="text-[10px] font-bold bg-slate-50 text-slate-600 border-slate-200">
                           {product.unit}
                         </Badge>

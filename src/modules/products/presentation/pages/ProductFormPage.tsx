@@ -74,9 +74,11 @@ export default function ProductFormPage({
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
-      // Generate a local preview URL
-      const objectUrl = URL.createObjectURL(file);
-      setBasicInfo(prev => ({ ...prev, imageUrl: objectUrl }));
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setBasicInfo(prev => ({ ...prev, imageUrl: reader.result as string }));
+      };
+      reader.readAsDataURL(file);
     }
   };
 
@@ -377,7 +379,9 @@ export default function ProductFormPage({
                   <div className="flex-1 space-y-5">
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                       <div className="space-y-2">
-                        <Label>Fabricante / Marca *</Label>
+                        <div className="flex items-center h-5">
+                          <Label>Fabricante / Marca *</Label>
+                        </div>
                         <Input 
                           value={basicInfo.manufacturer} 
                           onChange={e => setBasicInfo({...basicInfo, manufacturer: e.target.value})}
@@ -385,7 +389,7 @@ export default function ProductFormPage({
                         />
                       </div>
                       <div className="space-y-2">
-                        <div className="flex items-center justify-between">
+                        <div className="flex items-center justify-between h-5">
                           <Label>Categoria *</Label>
                           <button 
                             onClick={() => setIsCategoryModalOpen(true)}
@@ -406,7 +410,9 @@ export default function ProductFormPage({
                         </select>
                       </div>
                       <div className="space-y-2">
-                        <Label>Código Fabricante *</Label>
+                        <div className="flex items-center h-5">
+                          <Label>Código Fabricante *</Label>
+                        </div>
                         <Input 
                           value={basicInfo.manufacturerCode} 
                           onChange={e => setBasicInfo({...basicInfo, manufacturerCode: e.target.value})}
@@ -809,7 +815,7 @@ export default function ProductFormPage({
             className="bg-indigo-600 hover:bg-indigo-700 text-white h-10 px-8 font-bold shadow-sm"
           >
             <Save className="h-4 w-4 mr-2" />
-            Salvar Produto
+            Salvar Material
           </Button>
         </div>
 
@@ -818,12 +824,12 @@ export default function ProductFormPage({
           isOpen={actionModal.isOpen}
           title={
             actionModal.type === 'cancel' ? 'Deseja cancelar?' :
-            actionModal.type === 'save' ? 'Confirma novo produto?' : 
+            actionModal.type === 'save' ? 'Confirma novo material?' : 
             'Salvar como rascunho?'
           }
           description={
             actionModal.type === 'cancel' ? 'Todas as alterações não salvas serão perdidas.' :
-            'O produto será salvo na sua base de dados.'
+            'O material será salvo na sua base de dados.'
           }
           confirmText={actionModal.type === 'cancel' ? 'Sim, cancelar' : 'Sim'}
           cancelText="Não"
