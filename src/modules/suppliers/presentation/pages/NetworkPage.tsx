@@ -1,12 +1,11 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/infrastructure/supabase/client';
-import { EmailService } from '@/shared/utils/EmailService';
-import { Search, Building2, Network, Users, MapPin, Globe, Plus, X, Loader2 } from 'lucide-react';
+import { Plus, Search, X, MapPin, Globe, Users, Network, Building2 } from 'lucide-react';
 import { Button } from '@/shared/components/ui/Button';
-import { Input } from '@/shared/components/ui/Input';
 import { ClearableInput } from '@/shared/components/ui/ClearableInput';
 import { Badge } from '@/shared/components/ui/Badge';
 import { EntityCard } from '@/shared/components/ui/EntityCard';
+import { InviteCompanyModal } from '../components/InviteCompanyModal';
 import { useNotifications } from '@/modules/notifications/presentation/context/NotificationContext';
 import { SupabaseOrganizationConnectionRepository } from '../../infrastructure/repositories/SupabaseOrganizationConnectionRepository';
 
@@ -126,76 +125,6 @@ export default function NetworkPage() {
 
   // Estados locais para cadastrar nova empresa na rede
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [newCompName, setNewCompName] = useState('');
-  const [newCompDoc, setNewCompDoc] = useState('');
-  const [newCompEmail, setNewCompEmail] = useState('');
-  const [newCompSeg, setNewCompSeg] = useState('');
-  const [newCompCity, setNewCompCity] = useState('');
-  const [newCompState, setNewCompState] = useState('');
-  const [newCompDesc, setNewCompDesc] = useState('');
-  const [newCompWeb, setNewCompWeb] = useState('');
-  const [isFetchingCnpj, setIsFetchingCnpj] = useState(false);
-
-  const matchSegments = (cnaeDesc: string) => {
-    const cnae = cnaeDesc.toLowerCase();
-    const suggestions = new Set<string>();
-    
-    if (cnae.includes('pain') && cnae.includes('elétric')) {
-      suggestions.add('Material Elétrico');
-      suggestions.add('Automação Industrial');
-    }
-    if (cnae.includes('epi') || cnae.includes('segurança')) {
-      suggestions.add('EPIs');
-    }
-    if (cnae.includes('transporte') || cnae.includes('logística')) {
-      suggestions.add('Logística');
-    }
-    if (cnae.includes('software') || cnae.includes('sistemas')) {
-      suggestions.add('TI & Software');
-    }
-    if (cnae.includes('hardware') || cnae.includes('infraestrutura') || cnae.includes('rede')) {
-      suggestions.add('TI & Hardware');
-    }
-    if (cnae.includes('metalúrgica') || cnae.includes('aço') || cnae.includes('ferro')) {
-      suggestions.add('Metalurgia');
-    }
-    if (cnae.includes('químic') || cnae.includes('plástic')) {
-      suggestions.add('Química');
-    }
-    if (cnae.includes('embalagem') || cnae.includes('papelão')) {
-      suggestions.add('Embalagens');
-    }
-    
-    return Array.from(suggestions);
-  };
-
-  const handleCnpjBlur = async () => {
-    const cleanCnpj = newCompDoc.replace(/\D/g, '');
-    if (cleanCnpj.length !== 14) return;
-    setIsFetchingCnpj(true);
-    try {
-      const response = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${cleanCnpj}`);
-      if (response.ok) {
-        const data = await response.json();
-        setNewCompName(data.razao_social || data.nome_fantasia || '');
-        setNewCompCity(data.municipio || '');
-        setNewCompState(data.uf || '');
-        if (data.cnae_fiscal_descricao) {
-          const suggested = matchSegments(data.cnae_fiscal_descricao);
-          if (suggested.length > 0) {
-            setNewCompSeg(suggested.join(', '));
-          } else {
-            // Fallback para exibir o nome do CNAE caso não ache de/para
-            setNewCompSeg(data.cnae_fiscal_descricao.substring(0, 80));
-          }
-        }
-      }
-    } catch (e) {
-      console.error("Falha ao buscar CNPJ na BrasilAPI", e);
-    } finally {
-      setIsFetchingCnpj(false);
-    }
-  };
 
   const isHubIA = true;
 
@@ -346,152 +275,21 @@ export default function NetworkPage() {
           ))}
         </div>
       )}
-      {/* Modal: Cadastrar Empresa na Rede B2B */}
-      {isCreateModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
-          <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 border border-slate-200 flex flex-col">
-            
-            {/* Header Modal */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50">
-              <div>
-                <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                  <Building2 className="h-5 w-5 text-indigo-600" /> Cadastrar Empresa na Rede B2B
-                </h3>
-                <p className="text-[10px] text-slate-400 mt-0.5">Adicione empresas para convidar e conectar no ecossistema real.</p>
-              </div>
-              <button onClick={() => setIsCreateModalOpen(false)} className="p-1.5 hover:bg-slate-100 rounded-full">
-                <X className="h-4 w-4 text-slate-500" />
-              </button>
-            </div>
-
-            {/* Form */}
-            <form onSubmit={async (e) => {
-              e.preventDefault();
-              if (!newCompName.trim() || !newCompDoc.trim() || !newCompEmail.trim()) return;
-
-              // 1. Gera token rastreável para o fornecedor
-              const tokenHash = crypto.randomUUID();
-              const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(); // 7 dias
-
-              // 2. Insere na tabela 'invitations'
-              const segmentsArray = newCompSeg.split(',').map(s => s.trim()).filter(Boolean);
-              
-              const { error: inviteError } = await supabase.from('invitations').insert({
-                organization_id: tenantId,
-                name: newCompName,
-                company: newCompName,
-                email: newCompEmail,
-                document: newCompDoc,
-                status: 'pendente',
-                token_hash: tokenHash,
-                expires_at: expiresAt,
-                city: newCompCity,
-                state: newCompState,
-                segments: segmentsArray
-              });
-
-              if (inviteError) {
-                alert(`Erro ao criar convite no banco: ${inviteError.message}`);
-                return;
-              }
-
-              // 3. Dispara o envio via Cloudflare Functions
-              const emailRes = await EmailService.sendTransactionalEmail('supplier_invite', tokenHash);
-
-              if (!emailRes.success) {
-                // Atualiza status local mas avisa que o e-mail falhou
-                alert(`Convite salvo, mas falha no envio do e-mail: ${emailRes.message}`);
-                
-                // (Opcional) Podemos marcar o convite no banco como falha, 
-                // mas a tabela requests/companies não é afetada porque ela só mostra o que deu sucesso absoluto.
-                return;
-              }
-
-              // Simulação para atualização da UI local de empresas "convidadas"
-              const newCompany: Company = {
-                id: `net-${Date.now()}`,
-                name: newCompName,
-                document: newCompDoc,
-                segment: newCompSeg || 'Geral',
-                city: newCompCity || 'São Paulo',
-                state: newCompState || 'SP',
-                description: newCompDesc || 'Convidado via Rede B2B.',
-                website: newCompWeb || undefined,
-                employeesRange: '10–50',
-                connected: false,
-                invited: true
-              };
-
-              const updatedList = [newCompany, ...companies];
-              setCompanies(updatedList);
-              
-              // Simula notificação UI
-              addMockNotification({
-                title: 'Convite enviado com sucesso!',
-                message: `O e-mail foi disparado para ${newCompEmail} via Mailtrap.`,
-                type: 'connection_request_received',
-                is_read: false,
-              });
-
-              // Reseta campos e fecha
-              setNewCompName('');
-              setNewCompDoc('');
-              setNewCompEmail('');
-              setNewCompSeg('');
-              setNewCompCity('');
-              setNewCompState('');
-              setNewCompDesc('');
-              setNewCompWeb('');
-              setIsCreateModalOpen(false);
-            }} className="p-6 space-y-4">
-              
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5 relative">
-                  <label className="text-xs font-bold text-slate-700">CNPJ *</label>
-                  <div className="relative">
-                    <Input placeholder="Ex: 00.000.000/0001-00" value={newCompDoc} onChange={e => setNewCompDoc(e.target.value)} onBlur={handleCnpjBlur} required />
-                    {isFetchingCnpj && <Loader2 className="absolute right-3 top-2.5 h-4 w-4 animate-spin text-slate-400" />}
-                  </div>
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-700">E-mail do Fornecedor *</label>
-                  <Input type="email" placeholder="contato@fornecedor.com.br" value={newCompEmail} onChange={e => setNewCompEmail(e.target.value)} required />
-                </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700">Razão Social / Nome Fantasia *</label>
-                <Input placeholder="Ex: Metalúrgica Norte" value={newCompName} onChange={e => setNewCompName(e.target.value)} required />
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700">Segmentos (Separados por vírgula)</label>
-                <Input placeholder="Ex: Material Elétrico, EPIs" value={newCompSeg} onChange={e => setNewCompSeg(e.target.value)} />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-700">Cidade</label>
-                  <Input placeholder="Ex: São Paulo" value={newCompCity} onChange={e => setNewCompCity(e.target.value)} />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-700">Estado (UF)</label>
-                  <Input placeholder="Ex: SP" value={newCompState} onChange={e => setNewCompState(e.target.value)} maxLength={2} />
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-2 pt-4 border-t border-slate-100">
-                <Button type="button" variant="outline" onClick={() => setIsCreateModalOpen(false)} className="h-9 text-xs">Cancelar</Button>
-                <Button type="submit" disabled={isFetchingCnpj} className="bg-indigo-600 hover:bg-indigo-700 text-white h-9 text-xs font-bold shadow-sm">
-                  Convidar para a Rede
-                </Button>
-              </div>
-            </form>
-          </div>
+      <InviteCompanyModal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        onSuccess={(newCompany: any) => {
+          const updatedList = [newCompany, ...companies];
+          setCompanies(updatedList);
+          addMockNotification({
+            title: 'Convite enviado com sucesso!',
+            message: `O e-mail foi disparado para ${newCompany.email} via Mailtrap.`,
+            type: 'connection_request_received',
+            is_read: false,
+          });
+        }}
+      />
         </div>
-      )}
-      
-      </div>
       </div>
     </div>
   );

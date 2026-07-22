@@ -22,7 +22,6 @@ const OrganizationPage = React.lazy(() => import('../../modules/organizations/pr
 const OrganizationsListPage = React.lazy(() => import('../../modules/organizations/presentation/pages/OrganizationsListPage'));
 const MessagesPage = React.lazy(() => import('../../modules/messages/presentation/pages/MessagesPage'));
 const QuotationResponsePage = React.lazy(() => import('../../modules/quotations/presentation/pages/QuotationResponsePage'));
-const SettingsPage = React.lazy(() => import('../../modules/settings/presentation/pages/SettingsPage'));
 const MinhaEmpresaPage = React.lazy(() => import('../../modules/organizations/presentation/pages/MinhaEmpresaPage'));
 const AcceptInvitePage = React.lazy(() => import('../../modules/employees/presentation/pages/AcceptInvitePage'));
 const AppAccessChoicePage = React.lazy(() => import('../../modules/landing/presentation/pages/AppAccessChoicePage'));
@@ -166,15 +165,31 @@ export const router = createBrowserRouter([
         element: <SuspenseWrapper><GlobalAdminPage /></SuspenseWrapper>,
       },
       {
-        path: '/settings',
-        element: <SuspenseWrapper><SettingsPage /></SuspenseWrapper>,
-      },
-      {
         path: '/empresa',
         element: <SuspenseWrapper><MinhaEmpresaPage /></SuspenseWrapper>,
       },
       {
-        path: '/empresa/operadores',
+        path: '/empresa/comercial',
+        element: <SuspenseWrapper><MinhaEmpresaPage /></SuspenseWrapper>,
+      },
+      {
+        path: '/empresa/colaboradores',
+        element: <SuspenseWrapper><MinhaEmpresaPage /></SuspenseWrapper>,
+      },
+      {
+        path: '/empresa/operadores', // backward compat
+        element: <SuspenseWrapper><MinhaEmpresaPage /></SuspenseWrapper>,
+      },
+      {
+        path: '/empresa/solicitantes',
+        element: <SuspenseWrapper><MinhaEmpresaPage /></SuspenseWrapper>,
+      },
+      {
+        path: '/empresa/permissoes',
+        element: <SuspenseWrapper><MinhaEmpresaPage /></SuspenseWrapper>,
+      },
+      {
+        path: '/empresa/aprovacoes',
         element: <SuspenseWrapper><MinhaEmpresaPage /></SuspenseWrapper>,
       },
       {

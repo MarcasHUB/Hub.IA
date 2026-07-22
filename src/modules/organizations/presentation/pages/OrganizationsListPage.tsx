@@ -4,6 +4,7 @@ import { Building2, Search, PackageOpen, MoreVertical, Shield } from 'lucide-rea
 import { Button } from '@/shared/components/ui/Button';
 import { ClearableInput } from '@/shared/components/ui/ClearableInput';
 import { Badge } from '@/shared/components/ui/Badge';
+import { InviteCompanyModal } from '../../../suppliers/presentation/components/InviteCompanyModal';
 
 interface Organization {
   id: string;
@@ -18,6 +19,7 @@ export default function OrganizationsListPage() {
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [search, setSearch] = useState('');
   const [isLoading, setIsLoading] = useState(true);
+  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
 
   useEffect(() => {
     async function loadData() {
@@ -67,7 +69,7 @@ export default function OrganizationsListPage() {
             </div>
             
             <div className="flex items-center gap-3 shrink-0">
-              <Button onClick={() => alert('Em breve')} className="bg-indigo-600 hover:bg-indigo-700 text-white h-10 px-5 font-bold shadow-md shadow-indigo-900/20">
+              <Button onClick={() => setIsInviteModalOpen(true)} className="bg-indigo-600 hover:bg-indigo-700 text-white h-10 px-5 font-bold shadow-md shadow-indigo-900/20">
                 Nova Empresa
               </Button>
             </div>
@@ -140,6 +142,23 @@ export default function OrganizationsListPage() {
           )}
         </div>
       </div>
+
+      <InviteCompanyModal
+        isOpen={isInviteModalOpen}
+        onClose={() => setIsInviteModalOpen(false)}
+        onSuccess={(newCompany: any) => {
+          // Add the new company to the state as pending/invited if applicable
+          // We can just refetch data or append it
+          setOrganizations([{
+            id: newCompany.id,
+            name: newCompany.name,
+            trade_name: newCompany.name,
+            document: newCompany.document,
+            company_role: 'pendente',
+            profile_completion: 0
+          }, ...organizations]);
+        }}
+      />
     </div>
   );
 }

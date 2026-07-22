@@ -44,22 +44,8 @@ export function AppLayout() {
   const [companyName, setCompanyName] = useState<string>(
     localStorage.getItem('supplyhub_company_name') || 'SupplyHub B2B'
   );
-  const [operatorEmail, setOperatorEmail] = useState<string>(() => {
-    const saved = localStorage.getItem('supplyhub_logged_operator');
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      return parsed.email || 'viniciuscordebello@gmail.com';
-    }
-    return 'viniciuscordebello@gmail.com';
-  });
-  const [operatorName, setOperatorName] = useState<string>(() => {
-    const saved = localStorage.getItem('supplyhub_logged_operator');
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      return parsed.nome || 'Cordebello';
-    }
-    return 'Cordebello';
-  });
+  const [operatorProfile, setOperatorProfile] = useState<string>('Carregando...');
+  const [operatorName, setOperatorName] = useState<string>('Usuário');
 
   const [authReady, setAuthReady] = useState(false);
   const [profileReady, setProfileReady] = useState(false);
@@ -89,33 +75,40 @@ export function AppLayout() {
         
         if (isMounted) setAuthReady(true);
 
-        // Verifica o perfil do operador via RLS
-        const { data: operator, error: opError } = await supabase
+        // Verifica o perfil do operador
+        const { data: operator } = await supabase
           .from('operators')
-          .select('perfil')
+          .select('perfil, nome, sobrenome')
           .eq('id', user.id)
           .single();
           
-        if (opError) {
-          throw opError;
-        }
-
-        // Verifica a flag global de Super Admin
+        // Verifica dados do profile (nome real e flag de super admin)
         const { data: globalUser } = await supabase
-          .from('users')
-          .select('is_superadmin')
+          .from('profiles')
+          .select('full_name, is_super_admin')
           .eq('id', user.id)
           .single();
 
         if (isMounted) {
-          if (operator && operator.perfil === 'administrador') {
+          let currentProfile = 'Operador';
+          if (globalUser?.is_super_admin) {
+            currentProfile = 'Administrador Global';
+            setIsSuperAdmin(true);
             setIsAdmin(true);
+          } else if (operator?.perfil === 'administrador') {
+            currentProfile = 'Administrador';
+            setIsAdmin(true);
+            setIsSuperAdmin(false);
           } else {
             setIsAdmin(false);
+            setIsSuperAdmin(false);
           }
-          if (globalUser && globalUser.is_superadmin) {
-            setIsSuperAdmin(true);
-          }
+          
+          setOperatorProfile(currentProfile);
+          
+          // Nome (prioriza o full_name do profile, fallback pro operator)
+          const nameToSet = globalUser?.full_name || (operator ? `${operator.nome} ${operator.sobrenome || ''}`.trim() : 'Usuário');
+          setOperatorName(nameToSet);
         }
       } catch (err: any) {
         console.error('Erro ao verificar perfil:', err);
@@ -191,16 +184,9 @@ export function AppLayout() {
       { name: 'Cotações',       href: '/quotations' },
     ];
 
-    if (isAdmin) {
-      baseItems.push({ name: 'Minha Empresa', href: '/empresa' });
-    }
-
-    if (isSuperAdmin) {
-      baseItems.push({ name: 'Administração Global', href: '/admin' });
-    }
 
     return baseItems;
-  }, [isAdmin, isSuperAdmin]);
+  }, []);
 
   useEffect(() => {
     // Forçar limpeza de org-1 legado do localStorage
@@ -211,12 +197,8 @@ export function AppLayout() {
     const handleUpdate = () => {
       setCompanyLogo(localStorage.getItem('supplyhub_company_logo'));
       setCompanyName(localStorage.getItem('supplyhub_company_name') || 'SupplyHub B2B');
-      const saved = localStorage.getItem('supplyhub_logged_operator');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        setOperatorEmail(parsed.email || 'viniciuscordebello@gmail.com');
-        setOperatorName(parsed.nome || 'Cordebello');
-      }
+      // Aqui não atualizamos mais o Operador do localStorage para evitar piscar dados antigos
+      // A responsabilidade de manter o operador agora é do loadAuth (profiles)
     };
     window.addEventListener('company_profile_updated', handleUpdate);
     return () => window.removeEventListener('company_profile_updated', handleUpdate);
@@ -376,6 +358,26 @@ export function AppLayout() {
                   <div className="h-3.5 w-24 bg-slate-200 rounded-md animate-pulse" />
                 </div>
               )}
+
+              {isSuperAdmin && (
+                <>
+                  <div className="h-4 w-px bg-slate-300 shrink-0" />
+                  <Link
+                    to="/admin"
+                    className={cn(
+                      'flex items-center gap-1.5 text-[12px] font-bold uppercase tracking-wide transition-colors leading-none',
+                      location.pathname.startsWith('/admin')
+                        ? 'text-indigo-700'
+                        : 'text-slate-500 hover:text-slate-900'
+                    )}
+                  >
+                    <div className="flex flex-col items-center justify-center space-y-[2px]">
+                      <span>ADM</span>
+                      <span>GLOBAL</span>
+                    </div>
+                  </Link>
+                </>
+              )}
             </div>
           </nav>
 
@@ -385,7 +387,7 @@ export function AppLayout() {
             <div className="h-5 w-px bg-slate-200 shrink-0 hidden md:block" />
 
             {/* Card da Empresa Minimalista */}
-            <Link to="/organizations" className="hidden md:flex items-center gap-2 hover:opacity-80 transition-opacity" title="Configurações da Empresa">
+            <Link to="/empresa" className="hidden md:flex items-center gap-2 hover:opacity-80 transition-opacity" title="Área da Empresa">
               <CompanyLogo logo={companyLogo} />
               <span className="text-sm font-bold text-slate-800">{companyName}</span>
             </Link>
@@ -395,11 +397,11 @@ export function AppLayout() {
             {/* Operador Minimalista (Sem separador entre ele e a empresa) */}
             <div className="hidden md:flex items-center gap-3">
               <div className="flex flex-col text-right leading-tight">
-                <span className="text-sm font-bold text-slate-800">{operatorName}</span>
-                <span className="text-[10px] font-medium text-slate-400">{operatorEmail}</span>
+                <span className="text-sm font-bold text-slate-800 capitalize">{operatorName}</span>
+                <span className="text-[10px] font-bold text-indigo-600 tracking-wide uppercase">{operatorProfile}</span>
               </div>
               <Link
-                to="/settings"
+                to="/empresa/operadores"
                 className="text-slate-400 hover:text-indigo-600 transition-colors"
                 title="Configurações do Usuário"
               >
