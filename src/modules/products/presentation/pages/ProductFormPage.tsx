@@ -23,6 +23,9 @@ import { SupabaseProductSupplierRepository } from '../../infrastructure/reposito
 import { SupabaseCategoryRepository } from '../../../categories/infrastructure/repositories/SupabaseCategoryRepository';
 import { Product, ProductStatus } from '../../domain/entities/Product'; 
 import { LinkSupplierModal } from '../components/LinkSupplierModal';
+import { supabase } from '@/infrastructure/supabase/client';
+import { CategoryModal } from '../../../categories/presentation/pages/CategoriesPage';
+import { Category } from '../../../categories/domain/entities/Category';
 
 const repo = new SupabaseProductRepository();
 const productSupplierRepo = new SupabaseProductSupplierRepository();
@@ -49,9 +52,11 @@ export default function ProductFormPage({
 
   // Aggregates State
   const [basicInfo, setBasicInfo] = useState({
-    name: '', sku: '', manufacturer: '', description: '', status: 'Active', imageUrl: '', manufacturerCode: '', availableForPurchase: true, availableForSale: false,
+    name: '', sku: '', manufacturer: '', description: '', status: 'Active', imageUrl: '', manufacturerCode: '', technicalDescription: '', availableForPurchase: true, availableForSale: false,
     role: 'revenda', salesCode: ''
   });
+  
+  const [businessModel, setBusinessModel] = useState<'manufacturer' | 'reseller' | 'both'>('reseller');
   const [classification, setClassification] = useState({
     category: '', subcategory: '', purchasingGroup: '', ncm: '', baseUom: ''
   });
@@ -84,6 +89,12 @@ export default function ProductFormPage({
 
   // Related data states
   const [availableCategories, setAvailableCategories] = useState<{id: string, name: string}[]>([]);
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+  const [attachments, setAttachments] = useState<Record<string, boolean>>({
+    'Catálogo': false,
+    'Desenho': false,
+    'Ficha técnica': false
+  });
 
   // Segmentos não mais usados no form, substituídos por categorias
 
@@ -121,6 +132,15 @@ export default function ProductFormPage({
       } catch(e) {
         console.error("Failed to load categories", e);
       }
+      
+      try {
+        const { data: orgData } = await supabase.from('organizations').select('business_model').eq('id', tenantId).single();
+        if (orgData && orgData.business_model) {
+           setBusinessModel(orgData.business_model as 'manufacturer' | 'reseller' | 'both');
+        }
+      } catch(e) {
+        console.error("Failed to load organization profile", e);
+      }
 
       if (isEditing && id) {
         try {
@@ -132,6 +152,7 @@ export default function ProductFormPage({
               sku: product.sku || '',
               manufacturer: product.manufacturer || '',
               manufacturerCode: product.manufacturerCode || '',
+              technicalDescription: product.technicalDescription || '',
               description: product.description || '',
               imageUrl: product.imageUrl || '',
               availableForPurchase: product.availableForPurchase ?? true,
@@ -161,11 +182,37 @@ export default function ProductFormPage({
     loadData();
   }, [id, isEditing]);
 
-  const handleSave = async () => {
-    // Basic validation
-    if (!basicInfo.name.trim() || !basicInfo.sku.trim()) {
-      alert("Nome e SKU são obrigatórios");
-      return;
+  const handleSaveCategory = async (c: Category) => {
+    try {
+      await categoryRepo.save(c);
+      const cats = await categoryRepo.findAll(tenantId);
+      setAvailableCategories(cats.filter(c => c.status === 'Active').map(c => ({id: c.id, name: c.name})));
+      setClassification(prev => ({ ...prev, category: c.id }));
+      setIsCategoryModalOpen(false);
+    } catch (e: any) {
+      console.error(e);
+      alert(`Erro ao salvar categoria: ${e?.message || JSON.stringify(e)}`);
+    }
+  };
+
+  const handleSave = async (forceDraft: boolean = false) => {
+    // Basic validation based on business model
+    const statusToSave = forceDraft ? 'Draft' : basicInfo.status;
+    
+    if (statusToSave !== 'Draft') {
+      const isComplete = Boolean(
+        basicInfo.imageUrl && 
+        basicInfo.name && 
+        basicInfo.manufacturer &&
+        classification.category && 
+        basicInfo.manufacturerCode && 
+        basicInfo.technicalDescription &&
+        (businessModel === 'manufacturer' || basicInfo.sku)
+      );
+      if (!isComplete) {
+        alert("Para Salvar Produto, preencha todos os campos obrigatórios (marcados com *). Para salvar incompleto, use Salvar Rascunho.");
+        return;
+      }
     }
 
     try {
@@ -180,14 +227,15 @@ export default function ProductFormPage({
         classification.baseUom || 'UN',
         basicInfo.manufacturer,
         Number(commercial.targetPrice) || 0,
-        basicInfo.status === 'Draft' ? ProductStatus.DRAFT : ProductStatus.ACTIVE,
+        statusToSave === 'Draft' ? ProductStatus.DRAFT : ProductStatus.ACTIVE,
         new Date(),
         new Date(),
         undefined, // categoryName (not needed for save)
         basicInfo.manufacturerCode,
         basicInfo.availableForPurchase,
         basicInfo.availableForSale,
-        basicInfo.imageUrl
+        basicInfo.imageUrl,
+        basicInfo.technicalDescription
       );
 
       await repo.save(newProduct);
@@ -204,9 +252,9 @@ export default function ProductFormPage({
       } else {
         navigate('/products');
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
-      alert("Erro ao salvar produto");
+      alert(`Erro ao salvar produto: ${e?.message || JSON.stringify(e)}`);
     }
   };
 
@@ -327,36 +375,25 @@ export default function ProductFormPage({
                   </div>
 
                   <div className="flex-1 space-y-5">
-                    {/* Linha 1 */}
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                       <div className="space-y-2">
-                        <Label>Código do Fabricante *</Label>
-                        <Input 
-                          value={basicInfo.manufacturerCode} 
-                          onChange={e => setBasicInfo({...basicInfo, manufacturerCode: e.target.value})}
-                          placeholder="Ex: PN-12345"
-                        />
-                      </div>
-                      {basicInfo.role === 'revenda' && (
-                        <div className="space-y-2">
-                          <Label>Código de Venda</Label>
-                          <Input 
-                            value={basicInfo.salesCode} 
-                            onChange={e => setBasicInfo({...basicInfo, salesCode: e.target.value})}
-                            placeholder="Mesmo do fabricante ou interno"
-                          />
-                        </div>
-                      )}
-                      <div className={`space-y-2 ${basicInfo.role === 'fabricante' ? 'md:col-span-2' : ''}`}>
                         <Label>Fabricante / Marca *</Label>
                         <Input 
                           value={basicInfo.manufacturer} 
                           onChange={e => setBasicInfo({...basicInfo, manufacturer: e.target.value})}
-                          placeholder="Ex: Volk, 3M"
+                          placeholder="Ex: WEG, SKF, 3M"
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label>Categoria</Label>
+                        <div className="flex items-center justify-between">
+                          <Label>Categoria *</Label>
+                          <button 
+                            onClick={() => setIsCategoryModalOpen(true)}
+                            className="text-[10px] font-bold text-indigo-600 hover:text-indigo-700 flex items-center gap-1"
+                          >
+                            <Plus className="h-3 w-3" /> Nova Categoria
+                          </button>
+                        </div>
                         <select 
                            value={classification.category} 
                            onChange={e => setClassification({...classification, category: e.target.value})}
@@ -368,32 +405,52 @@ export default function ProductFormPage({
                            ))}
                         </select>
                       </div>
+                      <div className="space-y-2">
+                        <Label>Código Fabricante *</Label>
+                        <Input 
+                          value={basicInfo.manufacturerCode} 
+                          onChange={e => setBasicInfo({...basicInfo, manufacturerCode: e.target.value})}
+                          placeholder="Ex: W22-100CV"
+                        />
+                      </div>
                     </div>
                     
                     {/* Linha 2 */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label>Nome do Produto *</Label>
+                        <Label>Nome do Produto (Descrição Curta) *</Label>
                         <Input 
                           value={basicInfo.name} 
                           onChange={e => setBasicInfo({...basicInfo, name: e.target.value})}
-                          placeholder="Ex: Luva de Proteção Térmica"
+                          placeholder="Ex: Motor Elétrico Trifásico 15CV"
                         />
                       </div>
-                      <div className="space-y-2">
-                        <Label>SKU / Código Interno</Label>
-                        <Input 
-                          value={basicInfo.sku} 
-                          onChange={e => setBasicInfo({...basicInfo, sku: e.target.value})}
-                          placeholder="Ex: EPI-LUV-001"
-                        />
-                      </div>
+                      {businessModel !== 'manufacturer' && (
+                        <div className="space-y-2">
+                          <Label>Código Comercial da Revenda (SKU) *</Label>
+                          <Input 
+                            value={basicInfo.sku} 
+                            onChange={e => setBasicInfo({...basicInfo, sku: e.target.value})}
+                            placeholder="Ex: MOT-00123"
+                          />
+                        </div>
+                      )}
+                      {businessModel === 'manufacturer' && (
+                        <div className="space-y-2">
+                          <Label>SKU / Código Interno (Opcional)</Label>
+                          <Input 
+                            value={basicInfo.sku} 
+                            onChange={e => setBasicInfo({...basicInfo, sku: e.target.value})}
+                            placeholder="Uso interno (Opcional)"
+                          />
+                        </div>
+                      )}
                     </div>
 
                     {/* Linha 3 */}
                     <div className="flex flex-col md:flex-row gap-5">
                       <div className="w-full md:w-64 shrink-0 space-y-3">
-                        <Label>Foto do Produto</Label>
+                        <Label>Foto do Produto *</Label>
                         <div 
                           className="aspect-[4/3] w-full rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50 flex flex-col items-center justify-center text-slate-400 hover:bg-slate-100 hover:border-slate-300 transition-colors cursor-pointer overflow-hidden relative group"
                           onClick={() => fileInputRef.current?.click()}
@@ -424,17 +481,17 @@ export default function ProductFormPage({
 
                       <div className="flex-1 flex flex-col gap-4">
                         <div className="space-y-2">
-                          <Label>Descrição Técnica</Label>
+                          <Label>Descrição Técnica Completa *</Label>
                           <textarea 
                             className="w-full min-h-[80px] max-h-[100px] resize-y p-3 bg-white border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                             placeholder="Detalhes completos, norma técnica, material..."
-                            maxLength={250}
-                            value={basicInfo.description}
-                            onChange={e => setBasicInfo({...basicInfo, description: e.target.value})}
+                            maxLength={500}
+                            value={basicInfo.technicalDescription}
+                            onChange={e => setBasicInfo({...basicInfo, technicalDescription: e.target.value})}
                           />
                           <div className="text-right">
                             <span className="text-[10px] text-slate-400 font-medium">
-                              {basicInfo.description.length}/250
+                              {basicInfo.technicalDescription.length}/500
                             </span>
                           </div>
                         </div>
@@ -442,12 +499,34 @@ export default function ProductFormPage({
                         {/* Evidência Técnica */}
                         <div className="space-y-2 border-t border-slate-100 pt-3">
                           <Label>Evidência Técnica</Label>
-                          <div className="flex flex-wrap gap-2">
-                            {['Catálogo', 'Desenho', 'Ficha técnica', 'Imagem', 'Documento técnico'].map(doc => (
-                              <button key={doc} type="button" className="text-xs px-3 py-1.5 border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-50 hover:text-indigo-600 hover:border-indigo-200 transition-colors flex items-center gap-1.5 shadow-sm">
+                          <div className="flex flex-wrap gap-3">
+                            {Object.entries(attachments).map(([doc, isAttached]) => (
+                              <label 
+                                key={doc} 
+                                className={`
+                                  relative overflow-hidden cursor-pointer text-xs px-3 py-1.5 border rounded-lg flex items-center gap-2 transition-all shadow-sm
+                                  ${isAttached 
+                                    ? 'bg-green-50 border-green-200 text-green-700 hover:bg-green-100' 
+                                    : 'bg-red-50 border-red-200 text-red-700 hover:bg-red-100'
+                                  }
+                                `}
+                              >
+                                <div className={`w-2 h-2 rounded-full ${isAttached ? 'bg-green-500' : 'bg-red-500 animate-pulse'}`} />
                                 <FileText className="w-3.5 h-3.5" />
-                                Adicionar {doc}
-                              </button>
+                                <span className="font-medium">Adicionar {doc}</span>
+                                
+                                <input 
+                                  type="file" 
+                                  className="hidden" 
+                                  onChange={(e) => {
+                                    if (e.target.files && e.target.files.length > 0) {
+                                      setAttachments(prev => ({ ...prev, [doc]: true }));
+                                    }
+                                  }}
+                                />
+                                
+                                <div className="absolute inset-0 z-10 w-full h-full opacity-0" title={isAttached ? 'Arquivo anexado' : 'Anexo não informado'} />
+                              </label>
                             ))}
                           </div>
                         </div>
@@ -755,7 +834,7 @@ export default function ProductFormPage({
               navigate('/products');
             } else {
               setActionModal({ ...actionModal, isOpen: false });
-              handleSave();
+              handleSave(actionModal.type === 'draft');
             }
           }}
           onCancel={() => setActionModal({ ...actionModal, isOpen: false })}
@@ -812,6 +891,12 @@ export default function ProductFormPage({
           </div>
         )}
 
+        {isCategoryModalOpen && (
+          <CategoryModal 
+            onClose={() => setIsCategoryModalOpen(false)}
+            onSave={handleSaveCategory}
+          />
+        )}
       </div>
     </div>
   );

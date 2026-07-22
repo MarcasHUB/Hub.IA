@@ -6,8 +6,9 @@ import { ClearableInput } from '@/shared/components/ui/ClearableInput';
 import { Card, CardContent } from '@/shared/components/ui/Card';
 import { Category, CategoryStatus } from '../../domain/entities/Category';
 import { SupabaseCategoryRepository } from '../../infrastructure/repositories/SupabaseCategoryRepository';
+import { supabase } from '@/infrastructure/supabase/client';
 
-function CategoryModal({
+export function CategoryModal({
   cat, onClose, onSave,
 }: {
   cat?: Category;
@@ -109,10 +110,25 @@ export function CategoriesPage() {
   const repo = new SupabaseCategoryRepository();
   const tenantId = localStorage.getItem('supplyhub_organization_id') || '00000000-0000-0000-0000-000000000000';
 
+  const [productCounts, setProductCounts] = useState<Record<string, number>>({});
+  
   const loadData = async () => {
     try {
       const data = await repo.findAll(tenantId);
       setCategories(data);
+      
+      const { data: countsData } = await supabase
+         .from('products')
+         .select('category_id')
+         .eq('organization_id', tenantId);
+         
+      if (countsData) {
+        const counts = countsData.reduce((acc: Record<string, number>, row: any) => {
+           acc[row.category_id] = (acc[row.category_id] || 0) + 1;
+           return acc;
+        }, {});
+        setProductCounts(counts);
+      }
     } catch (e) {
       console.error(e);
     }
@@ -211,6 +227,16 @@ export function CategoriesPage() {
       {/* GRID DE CATEGORIAS */}
       <div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          <Card
+            onClick={() => { setEditingCategory(undefined); setModalOpen(true); }}
+            className="rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50/50 hover:bg-slate-50 hover:border-indigo-300 cursor-pointer transition-all flex flex-col items-center justify-center min-h-[160px] group shadow-none"
+          >
+            <div className="h-10 w-10 rounded-full bg-white border border-slate-200 flex items-center justify-center mb-3 group-hover:scale-110 group-hover:border-indigo-200 transition-all shadow-sm">
+              <Plus className="h-5 w-5 text-indigo-500" />
+            </div>
+            <p className="font-bold text-slate-600 group-hover:text-indigo-600">Nova Categoria</p>
+            <p className="text-[10px] text-slate-400 mt-1">Adicionar ao catálogo</p>
+          </Card>
           {filtered.map(cat => (
             <Card
               key={cat.id}
@@ -241,7 +267,7 @@ export function CategoriesPage() {
                 
                 <div className="flex items-center gap-2 text-[10px] text-slate-400 mb-4">
                   <Package className="h-3 w-3" />
-                  <span>0 material(is)</span>
+                  <span>{productCounts[cat.id] || 0} material(is)</span>
                 </div>
 
                 <div className="flex items-center gap-2 pt-3 border-t border-slate-100">

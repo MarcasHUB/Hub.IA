@@ -243,10 +243,27 @@ export default function ProductsListPage() {
                     {/* Imagem Cover / Placeholder */}
                     <div className="aspect-[4/3] w-full bg-slate-50 border-b border-slate-100 flex flex-col items-center justify-center relative rounded-t-2xl group-hover:bg-slate-100/50 transition-colors">
                       {/* Categoria Badge - Top Left */}
-                      <div className="absolute top-3 left-3 z-10">
+                      <div className="absolute top-3 left-3 z-10 flex flex-col gap-2">
                         <Badge variant="outline" className="bg-white text-indigo-600 border-slate-200 font-medium px-2 py-0.5 rounded-lg shadow-sm text-[10px]">
                           {product.category}
                         </Badge>
+                        {product.isComplete ? (
+                          <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 font-medium px-2 py-0.5 rounded-lg shadow-sm text-[10px] w-fit">
+                            Completo
+                          </Badge>
+                        ) : (
+                          <div className="flex items-center gap-1.5 group/tooltip relative">
+                            <div className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse border-2 border-white shadow-sm shadow-red-500/50"></div>
+                            <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200 font-medium px-2 py-0.5 rounded-lg shadow-sm text-[10px] w-fit cursor-help">
+                              Incompleto
+                            </Badge>
+                            
+                            {/* Tooltip */}
+                            <div className="absolute left-0 top-full mt-1 w-48 bg-slate-900 text-white text-[10px] p-2 rounded-lg opacity-0 invisible group-hover/tooltip:opacity-100 group-hover/tooltip:visible transition-all z-50 pointer-events-none shadow-xl border border-slate-800">
+                              Cadastro incompleto. Faltam informações obrigatórias.
+                            </div>
+                          </div>
+                        )}
                       </div>
 
                       {product.imageUrl ? (
@@ -327,8 +344,8 @@ export default function ProductsListPage() {
                       
                       <div className="flex flex-wrap gap-1.5 mb-2.5">
                         <span className="inline-flex items-center px-1.5 py-0.5 rounded border border-slate-200 bg-white text-[9px] font-medium text-slate-500">Fab: {product.manufacturer || 'ND'}</span>
-                        <span className="inline-flex items-center px-1.5 py-0.5 rounded border border-slate-200 bg-white text-[9px] font-medium text-slate-500">PN: {product.partNumber || 'ND'}</span>
-                        <span className="inline-flex items-center px-1.5 py-0.5 rounded border border-slate-200 bg-white text-[9px] font-medium text-slate-500">Fornec: {product.supplier || 'ND'}</span>
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded border border-slate-200 bg-white text-[9px] font-medium text-slate-500">PN: {product.manufacturerCode || 'ND'}</span>
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded border border-slate-200 bg-white text-[9px] font-medium text-slate-500">Fornec: {product.supplierId || 'ND'}</span>
                       </div>
 
                       {product.description && (

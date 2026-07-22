@@ -30,6 +30,18 @@ export class Product {
         public manufacturerCode?: string,
         public availableForPurchase: boolean = true,
         public availableForSale: boolean = false,
-        public imageUrl?: string
+        public imageUrl?: string,
+        public technicalDescription?: string
     ) {}
+
+    get isComplete(): boolean {
+        return !!(
+            this.imageUrl?.trim() &&
+            this.name?.trim() &&
+            this.manufacturer?.trim() &&
+            this.categoryId?.trim() &&
+            this.manufacturerCode?.trim() &&
+            this.technicalDescription?.trim()
+        );
+    }
 }
