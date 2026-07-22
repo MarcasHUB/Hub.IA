@@ -11,50 +11,42 @@ import { Card, CardContent } from '@/shared/components/ui/Card';
 import DelegationsPage from '../../../employees/presentation/pages/DelegationsPage';
 import AccessLogsPage from '../../../employees/presentation/pages/AccessLogsPage';
 import OperatorsPage from '../../../employees/presentation/pages/OperatorsPage';
-import SegmentsPage from '../../../employees/presentation/pages/SegmentsPage';
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
-type Tab = 'dados' | 'operadores' | 'segmentos' | 'delegacoes' | 'logs';
+type Tab = 'dados' | 'comercial' | 'colaboradores' | 'solicitantes' | 'permissoes' | 'aprovacoes' | 'delegacoes' | 'logs';
 
-const EMPRESA_TABS: { id: Tab; label: string; icon: any; href: string; desc: string }[] = [
+const EMPRESA_SECTIONS = [
   {
-    id: 'dados',
-    label: 'Dados da Empresa',
-    icon: Building2,
-    href: '/empresa',
-    desc: 'Razão social, CNPJ e contatos',
+    title: 'DADOS DA EMPRESA',
+    items: [
+      { id: 'dados', label: 'Dados Gerais', icon: Building2, href: '/empresa' },
+      { id: 'comercial', label: 'Perfil Comercial', icon: Hash, href: '/empresa/comercial' },
+    ]
   },
   {
-    id: 'operadores',
-    label: 'Colaboradores/Operadores',
-    icon: Users,
-    href: '/empresa/operadores',
-    desc: 'Convites, perfis e acessos',
+    title: 'PESSOAS',
+    items: [
+      { id: 'colaboradores', label: 'Colaboradores', icon: Users, href: '/empresa/colaboradores' },
+      { id: 'solicitantes', label: 'Solicitantes', icon: UserCheck, href: '/empresa/solicitantes' },
+    ]
   },
   {
-    id: 'delegacoes',
-    label: 'Delegações',
-    icon: ArrowLeftRight,
-    href: '/empresa/delegacoes',
-    desc: 'Férias e substituições temporárias',
+    title: 'GOVERNANÇA',
+    items: [
+      { id: 'permissoes', label: 'Permissões', icon: Shield, href: '/empresa/permissoes' },
+      { id: 'aprovacoes', label: 'Aprovações', icon: CheckCircle2, href: '/empresa/aprovacoes' },
+    ]
   },
   {
-    id: 'logs',
-    label: 'Logs',
-    icon: ScrollText,
-    href: '/empresa/logs',
-    desc: 'Auditoria e acessos',
-  },
+    title: 'OPERAÇÃO',
+    items: [
+      { id: 'delegacoes', label: 'Delegações', icon: ArrowLeftRight, href: '/empresa/delegacoes' },
+      { id: 'logs', label: 'Logs', icon: ScrollText, href: '/empresa/logs' },
+    ]
+  }
 ];
 
-const MASTER_TABS: { id: string; label: string; icon: any; href: string; }[] = [
-  { id: 'master-empresas', label: 'Empresas', icon: Building2, href: '/empresa/empresas' },
-  { id: 'master-material', label: 'Material', icon: Layers, href: '/products' },
-  { id: 'master-categoria', label: 'Categoria', icon: Layers, href: '/empresa/categorias' },
-  { id: 'master-segmentos', label: 'Segmentos', icon: Layers, href: '/empresa/segmentos' },
-];
 
-// ─── Sub-página: Dados da Empresa ─────────────────────────────────────────────
 function DadosEmpresaTab() {
   const [form, setForm] = useState({
     razao_social: '',
@@ -269,7 +261,6 @@ function DadosEmpresaTab() {
 
 
 // ─── MinhaEmpresaPage ─────────────────────────────────────────────────────────
-import { CategoriesPage } from '../../../categories/presentation/pages/CategoriesPage';
 import { supabase } from '@/infrastructure/supabase/client';
 
 export default function MinhaEmpresaPage() {
@@ -288,12 +279,14 @@ export default function MinhaEmpresaPage() {
     checkAdmin();
   }, []);
 
-  type Tab = 'dados' | 'operadores' | 'segmentos' | 'categorias' | 'delegacoes' | 'logs';
+  type Tab = 'dados' | 'comercial' | 'colaboradores' | 'solicitantes' | 'permissoes' | 'aprovacoes' | 'delegacoes' | 'logs';
 
   const activeTab: Tab = (() => {
-    if (location.pathname.includes('/operadores')) return 'operadores';
-    if (location.pathname.includes('/segmentos')) return 'segmentos';
-    if (location.pathname.includes('/categorias')) return 'categorias';
+    if (location.pathname.includes('/comercial')) return 'comercial';
+    if (location.pathname.includes('/colaboradores') || location.pathname.includes('/operadores')) return 'colaboradores';
+    if (location.pathname.includes('/solicitantes')) return 'solicitantes';
+    if (location.pathname.includes('/permissoes')) return 'permissoes';
+    if (location.pathname.includes('/aprovacoes')) return 'aprovacoes';
     if (location.pathname.includes('/delegacoes')) return 'delegacoes';
     if (location.pathname.includes('/logs')) return 'logs';
     return 'dados';
@@ -339,35 +332,12 @@ export default function MinhaEmpresaPage() {
 
           {/* Sidebar de navegação */}
           <aside className="w-56 shrink-0 space-y-6">
-            <div className="space-y-1">
-              <h3 className="px-3 text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Minha Empresa</h3>
-              {EMPRESA_TABS.map(tab => {
-                const Icon = tab.icon;
-                const isActive = activeTab === tab.id;
-                return (
-                  <Link
-                    key={tab.id}
-                    to={tab.href}
-                    className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all ${
-                      isActive
-                        ? 'bg-indigo-600 text-white shadow-sm'
-                        : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-                    }`}
-                  >
-                    <Icon className="h-4 w-4 shrink-0" />
-                    {tab.label}
-                  </Link>
-                );
-              })}
-            </div>
-
-            {isSuperAdmin && (
-              <div className="space-y-1">
-                <h3 className="px-3 text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Cadastros Master</h3>
-                {MASTER_TABS.map(tab => {
+            {EMPRESA_SECTIONS.map((section, idx) => (
+              <div key={idx} className="space-y-1">
+                <h3 className="px-3 text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">{section.title}</h3>
+                {section.items.map(tab => {
                   const Icon = tab.icon;
-                  // placeholder for active state logic if we implement these routes inside this page
-                  const isActive = false;
+                  const isActive = activeTab === tab.id;
                   return (
                     <Link
                       key={tab.id}
@@ -384,15 +354,37 @@ export default function MinhaEmpresaPage() {
                   );
                 })}
               </div>
-            )}
+            ))}
           </aside>
 
           {/* Área de conteúdo */}
           <main className="flex-1 min-w-0">
             {activeTab === 'dados' && <DadosEmpresaTab />}
-            {activeTab === 'operadores' && <OperatorsPage />}
-            {activeTab === 'segmentos' && <SegmentsPage />}
-            {activeTab === 'categorias' && <CategoriesPage />}
+            {activeTab === 'comercial' && (
+              <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-200">
+                <h2 className="text-xl font-bold text-slate-800 mb-4">Perfil Comercial</h2>
+                <p className="text-slate-600">Configurações do perfil comercial (Em breve).</p>
+              </div>
+            )}
+            {activeTab === 'colaboradores' && <OperatorsPage />}
+            {activeTab === 'solicitantes' && (
+              <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-200">
+                <h2 className="text-xl font-bold text-slate-800 mb-4">Solicitantes</h2>
+                <p className="text-slate-600">Gestão de solicitantes (Em breve).</p>
+              </div>
+            )}
+            {activeTab === 'permissoes' && (
+              <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-200">
+                <h2 className="text-xl font-bold text-slate-800 mb-4">Permissões</h2>
+                <p className="text-slate-600">Gestão de permissões de acesso (Em breve).</p>
+              </div>
+            )}
+            {activeTab === 'aprovacoes' && (
+              <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-200">
+                <h2 className="text-xl font-bold text-slate-800 mb-4">Aprovações</h2>
+                <p className="text-slate-600">Gestão de alçadas de aprovação (Em breve).</p>
+              </div>
+            )}
             {activeTab === 'delegacoes' && <DelegationsPage />}
             {activeTab === 'logs' && <AccessLogsPage />}
           </main>

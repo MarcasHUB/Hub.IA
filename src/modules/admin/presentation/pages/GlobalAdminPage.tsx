@@ -1,9 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Shield, ShieldAlert, Users, Building2, Layers, Smartphone, Loader2 } from 'lucide-react';
+import { Shield, ShieldAlert, Building2, Layers, Smartphone, Loader2 } from 'lucide-react';
 import { supabase } from '@/infrastructure/supabase/client';
 
-import GlobalUsersTab from './GlobalUsersTab';
 import OrganizationsListPage from '../../../organizations/presentation/pages/OrganizationsListPage';
 import ProductsListPage from '../../../products/presentation/pages/ProductsListPage';
 import { CategoriesPage } from '../../../categories/presentation/pages/CategoriesPage';
@@ -11,22 +10,16 @@ import SegmentsPage from '../../../employees/presentation/pages/SegmentsPage';
 
 const ADMIN_SECTIONS = [
   {
-    title: 'Governança',
+    title: 'Cadastros Master',
     items: [
-      { id: 'usuarios', label: 'Usuários da Plataforma', icon: Users, href: '/admin' },
-      { id: 'empresas', label: 'Master de Empresas', icon: Building2, href: '/admin/empresas' },
+      { id: 'empresas', label: 'Empresas', icon: Building2, href: '/admin' },
+      { id: 'materiais', label: 'Materiais', icon: Layers, href: '/admin/materiais' },
+      { id: 'categorias', label: 'Categorias', icon: Layers, href: '/admin/categorias' },
+      { id: 'segmentos', label: 'Segmentos', icon: Layers, href: '/admin/segmentos' },
     ]
   },
   {
-    title: 'Catálogos Master',
-    items: [
-      { id: 'materiais', label: 'Materiais Globais', icon: Layers, href: '/admin/materiais' },
-      { id: 'categorias', label: 'Categorias Padrão', icon: Layers, href: '/admin/categorias' },
-      { id: 'segmentos', label: 'Segmentos Padrão', icon: Layers, href: '/admin/segmentos' },
-    ]
-  },
-  {
-    title: 'Operação de Campo',
+    title: 'Configurações Avançadas',
     items: [
       { id: 'campo', label: 'App Campo', icon: Smartphone, href: '/admin/campo' },
     ]
@@ -65,15 +58,14 @@ export default function GlobalAdminPage() {
     }
   };
 
-  type Tab = 'usuarios' | 'empresas' | 'materiais' | 'categorias' | 'segmentos' | 'campo';
+  type Tab = 'empresas' | 'materiais' | 'categorias' | 'segmentos' | 'campo';
 
   const activeTab: Tab = (() => {
-    if (location.pathname.includes('/empresas')) return 'empresas';
     if (location.pathname.includes('/materiais')) return 'materiais';
     if (location.pathname.includes('/categorias')) return 'categorias';
     if (location.pathname.includes('/segmentos')) return 'segmentos';
     if (location.pathname.includes('/campo')) return 'campo';
-    return 'usuarios';
+    return 'empresas';
   })();
 
   if (isLoading) {
@@ -152,16 +144,14 @@ export default function GlobalAdminPage() {
 
           {/* Área de conteúdo */}
           <main className="flex-1 min-w-0">
-            {activeTab === 'usuarios' && <GlobalUsersTab />}
             {activeTab === 'empresas' && <OrganizationsListPage />}
             {activeTab === 'materiais' && <ProductsListPage />}
             {activeTab === 'categorias' && <CategoriesPage />}
             {activeTab === 'segmentos' && <SegmentsPage />}
             {activeTab === 'campo' && (
-              <div className="flex flex-col items-center justify-center py-20 text-slate-400">
-                <Smartphone className="h-14 w-14 mb-4 text-slate-200" />
-                <p className="font-medium">App Campo Master</p>
-                <p className="text-sm mt-1">Gestão de permissões de aplicativo em desenvolvimento.</p>
+              <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-200">
+                <h2 className="text-xl font-bold text-slate-800 mb-4">App Campo</h2>
+                <p className="text-slate-600">Configurações do aplicativo de operação de campo (Em breve).</p>
               </div>
             )}
           </main>

@@ -42,7 +42,7 @@ export function AppLayout() {
     localStorage.getItem('supplyhub_company_logo')
   );
   const [companyName, setCompanyName] = useState<string>(
-    localStorage.getItem('supplyhub_company_name') || 'SupplyHub B2B'
+    localStorage.getItem('supplyhub_company_name') || 'Hub.IA'
   );
   const [operatorProfile, setOperatorProfile] = useState<string>('Carregando...');
   const [operatorName, setOperatorName] = useState<string>('Usuário');
@@ -196,7 +196,7 @@ export function AppLayout() {
 
     const handleUpdate = () => {
       setCompanyLogo(localStorage.getItem('supplyhub_company_logo'));
-      setCompanyName(localStorage.getItem('supplyhub_company_name') || 'SupplyHub B2B');
+      setCompanyName(localStorage.getItem('supplyhub_company_name') || 'Hub.IA');
       // Aqui não atualizamos mais o Operador do localStorage para evitar piscar dados antigos
       // A responsabilidade de manter o operador agora é do loadAuth (profiles)
     };
@@ -318,7 +318,7 @@ export function AppLayout() {
               <Link
                 to="/suppliers/network"
                 className={cn(
-                  'flex items-center gap-1 text-[12px] font-bold uppercase tracking-wide transition-colors',
+                  'flex items-center gap-1 text-[12px] font-bold uppercase tracking-wide transition-colors whitespace-nowrap',
                   location.pathname.startsWith('/suppliers/network')
                     ? 'text-indigo-700'
                     : 'text-slate-500 hover:text-slate-900'
