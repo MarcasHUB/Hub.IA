@@ -52,7 +52,7 @@ export default function GlobalUsersTab() {
 
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        const { data: myUser } = await supabase.from('profiles').select('full_name, organization_id').eq('id', user.id).single();
+        const { data: myUser } = await supabase.from('profiles').select('full_name, organization_id').eq('user_id', user.id).single();
         if (myUser) {
           await supabase.from('logs').insert({
             organization_id: myUser.organization_id,

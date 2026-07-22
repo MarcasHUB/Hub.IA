@@ -86,7 +86,7 @@ export function AppLayout() {
         const { data: globalUser } = await supabase
           .from('profiles')
           .select('full_name, is_super_admin')
-          .eq('id', user.id)
+          .eq('user_id', user.id)
           .single();
 
         console.log('USER AUTH', user);

@@ -47,7 +47,7 @@ export default function GlobalAdminPage() {
       const { data: currentUser } = await supabase
         .from('profiles')
         .select('is_super_admin')
-        .eq('id', user.id)
+        .eq('user_id', user.id)
         .single();
 
       setIsSuperAdmin(currentUser?.is_super_admin === true);

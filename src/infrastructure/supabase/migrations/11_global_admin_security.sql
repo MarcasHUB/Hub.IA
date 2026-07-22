@@ -20,7 +20,7 @@ RETURNS boolean AS $$
 BEGIN
   RETURN EXISTS (
     SELECT 1 FROM public.profiles 
-    WHERE id = auth.uid() 
+    WHERE user_id = auth.uid() 
     AND is_founder = true
   );
 END;
@@ -37,7 +37,7 @@ BEGIN
 
   RETURN EXISTS (
     SELECT 1 FROM public.profiles 
-    WHERE id = auth.uid() 
+    WHERE user_id = auth.uid() 
     AND is_super_admin = true
   );
 END;
@@ -57,7 +57,7 @@ BEGIN
         IF NOT public.is_super_admin() THEN
             RAISE EXCEPTION 'Operação não permitida: Apenas Administradores Globais podem alterar privilégios de SuperAdmin.';
         END IF;
-        IF NEW.id = auth.uid() AND NEW.is_super_admin = false THEN
+        IF NEW.user_id = auth.uid() AND NEW.is_super_admin = false THEN
             RAISE EXCEPTION 'Prevenção de bloqueio: Você não pode remover seu próprio privilégio de SuperAdmin.';
         END IF;
     END IF;
@@ -79,7 +79,7 @@ DROP POLICY IF EXISTS "users_read_policy" ON public.profiles;
 CREATE POLICY "users_read_policy"
 ON public.profiles FOR SELECT TO authenticated
 USING (
-    id = auth.uid() OR
+    user_id = auth.uid() OR
     public.has_org_access(organization_id) OR
     public.is_super_admin()
 );
@@ -89,10 +89,10 @@ DROP POLICY IF EXISTS "users_update_policy" ON public.profiles;
 CREATE POLICY "users_update_policy"
 ON public.profiles FOR UPDATE TO authenticated
 USING (
-    id = auth.uid() OR public.is_super_admin()
+    user_id = auth.uid() OR public.is_super_admin()
 )
 WITH CHECK (
-    id = auth.uid() OR public.is_super_admin()
+    user_id = auth.uid() OR public.is_super_admin()
 );
 
 -- 4. Bypass de SuperAdmin nas Policies Principais (Phase 1)
