@@ -33,9 +33,20 @@ export default function OnboardingWizardPage() {
   const [perfis, setPerfis] = useState<string[]>([]); // Comprador, Vendedor
   const [tipoEmpresa, setTipoEmpresa] = useState<string[]>([]);
   const [raio, setRaio] = useState('');
-  // Passo 2: Segmento (Mock simplificado para Onboarding)
-  const [segmento, setSegmento] = useState(''); console.log(setSegmento); // Que vai virar array na modelagem
-  const [segmentosArray, setSegmentosArray] = useState<string[]>([]);
+  // Passo 2: Segmento (Atuação Empresarial)
+  const [selectedSegments, setSelectedSegments] = useState<string[]>([]);
+  const [globalSegments, setGlobalSegments] = useState<any[]>([]);
+
+  useEffect(() => {
+    const fetchSegments = async () => {
+      const { supabase } = await import('@/infrastructure/supabase/client');
+      const { data, error } = await supabase.from('segments').select('*').is('organization_id', null).order('nome');
+      if (data && !error) {
+        setGlobalSegments(data);
+      }
+    };
+    fetchSegments();
+  }, []);
 
   // Formulário: Usuário
   const [userName, setUserName] = useState('');
@@ -55,7 +66,6 @@ export default function OnboardingWizardPage() {
         setCidade(data.city || '');
         setEstado(data.state || '');
         setUserEmail(data.email || '');
-        setSegmentosArray(data.segments || []);
         setInviteId(data.id);
       }
     };
@@ -64,6 +74,10 @@ export default function OnboardingWizardPage() {
 
   const toggleTipo = (t: string) => {
     setTipoEmpresa(prev => prev.includes(t) ? prev.filter(x => x !== t) : [...prev, t]);
+  };
+  
+  const toggleSegment = (s: string) => {
+    setSelectedSegments(prev => prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s]);
   };
 
 
@@ -91,7 +105,6 @@ export default function OnboardingWizardPage() {
         city: cidade,
         state: estado,
         profiles: perfis,
-        segments: segmentosArray.length > 0 ? segmentosArray : [segmento].filter(Boolean)
       });
 
       // Atualiza com os campos custom que o service base não mapeia nativamente
@@ -99,13 +112,19 @@ export default function OnboardingWizardPage() {
       await supabase.from('organizations').update({
         logo_url: logo,
         website: site,
-        whatsapp: whatsapp,
-        company_role: perfis.includes('Compradora e Vendedora') ? 'both' : (perfis.includes('Compradora') ? 'buyer' : 'seller'),
-        operation_radius: raio || 'national',
-        company_types: tipoEmpresa,
-        profile_completion: completion,
-        segments: segmentosArray.length > 0 ? segmentosArray : [segmento].filter(Boolean)
+        phone: whatsapp,
+        service_radius: raio || 'national'
       }).eq('id', org.id);
+
+      // Salva os segmentos na nova tabela de relacionamento N:N
+      // Como o orgService atualmente gera IDs mockados ('org_...'), protegemos a chamada ao Supabase
+      if (selectedSegments.length > 0 && org.id.includes('-')) {
+        const segmentsData = selectedSegments.map(segId => ({
+          organization_id: org.id,
+          segment_id: segId
+        }));
+        await supabase.from('company_segments').insert(segmentsData);
+      }
 
       // 2. Cria o Usuário
       const user = await userService.createUser({
@@ -261,6 +280,21 @@ export default function OnboardingWizardPage() {
                         className={`p-2.5 text-xs font-semibold rounded-xl border text-center transition-all ${tipoEmpresa.includes(p) ? 'border-indigo-600 bg-indigo-50/50 text-indigo-700' : 'border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50'}`}
                       >
                         {p}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-4 mt-6 border-t border-slate-100 pt-6">
+                  <label className="text-xs font-bold text-slate-700">Segmento de Atuação (Marque quantos quiser)</label>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                    {globalSegments.map(seg => (
+                      <button 
+                        key={seg.id} 
+                        onClick={() => toggleSegment(seg.id)}
+                        className={`p-2.5 text-xs font-semibold rounded-xl border text-center transition-all ${selectedSegments.includes(seg.id) ? 'border-indigo-600 bg-indigo-50/50 text-indigo-700' : 'border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50'}`}
+                      >
+                        {seg.nome}
                       </button>
                     ))}
                   </div>

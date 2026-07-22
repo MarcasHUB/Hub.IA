@@ -63,7 +63,7 @@ function SegmentModal({
             <Input
               value={nome}
               onChange={e => setNome(e.target.value)}
-              placeholder="Ex: EPI, Motores, Rolamentos..."
+              placeholder="Ex: Indústria, Mineração, Logística..."
               className="h-9 text-sm"
             />
           </div>
@@ -72,7 +72,7 @@ function SegmentModal({
             <textarea
               value={descricao}
               onChange={e => setDescricao(e.target.value)}
-              placeholder="Descreva o escopo deste segmento..."
+              placeholder="Descreva o segmento de atuação das empresas."
               rows={3}
               className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
             />
@@ -81,7 +81,7 @@ function SegmentModal({
           <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-3">
             <p className="text-[10px] font-bold text-indigo-700 flex items-center gap-1.5">
               <Layers className="h-3 w-3" />
-              Segmentos são a base para filtros de acesso, matching de fornecedores e alertas da Hub.IA.
+              Segmentos representam a área de atuação das empresas cadastradas na plataforma Hub.IA e são utilizados para classificação e direcionamento de negócios.
             </p>
           </div>
         </div>

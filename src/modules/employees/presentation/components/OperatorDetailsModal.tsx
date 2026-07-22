@@ -107,19 +107,18 @@ export function OperatorDetailsModal({ operator, onClose, onEdit, onInactivate, 
           </div>
 
           <div className="border-t border-slate-100 pt-5">
-            <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-3 flex items-center gap-1"><Layers className="w-3 h-3"/> Segmentos Autorizados</h4>
-            {operator.todos_segmentos ? (
-              <span className="text-xs font-bold text-indigo-700 bg-indigo-50 px-3 py-1.5 rounded-lg border border-indigo-100">
-                Todos os Segmentos
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1"><Layers className="h-3 w-3"/> Categorias Autorizadas</span>
+            {operator.todas_categorias ? (
+              <span className="inline-flex mt-1.5 items-center px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-100">
+                Acesso Irrestrito (Todas)
               </span>
-            ) : operator.segments && operator.segments.length > 0 ? (
-              <div className="flex flex-wrap gap-2">
-                {operator.segments.map(segId => {
-                  const segData = segmentsList.find(s => s.id === segId);
-                  const segName = segData ? segData.nome : segId;
+            ) : operator.categories && operator.categories.length > 0 ? (
+              <div className="flex flex-wrap gap-1.5 mt-1.5">
+                {operator.categories.map(catId => {
+                  const catData = segmentsList.find(s => s.id === catId);
                   return (
-                    <span key={segId} className="text-xs font-semibold text-slate-700 bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200">
-                      {segName}
+                    <span key={catId} className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700">
+                      {catData ? catData.name : 'Desconhecida'}
                     </span>
                   );
                 })}

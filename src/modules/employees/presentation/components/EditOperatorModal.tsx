@@ -4,7 +4,7 @@ import { Button } from '@/shared/components/ui/Button';
 import { Input } from '@/shared/components/ui/Input';
 import { Operator, OperatorPerfil, MacroProfile, MACRO_PROFILES } from '../../domain/entities/Operator';
 import { SupabaseOperatorRepository } from '../../infrastructure/repositories/SupabaseOperatorRepository';
-import { SupabaseSegmentRepository } from '../../infrastructure/repositories/SupabaseSegmentRepository';
+import { SupabaseCategoryRepository } from '@/modules/categories/infrastructure/repositories/SupabaseCategoryRepository';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
 
 interface EditOperatorModalProps {
@@ -31,15 +31,15 @@ export function EditOperatorModal({ operator, orgId, onClose }: EditOperatorModa
     cargo: operator.cargo || '',
     macroProfile: initialMacro(),
     perfil: operator.perfil as OperatorPerfil,
-    todos_segmentos: operator.todos_segmentos || false,
-    segment_ids: operator.segments || [],
+    todas_categorias: operator.todas_categorias || false,
+    category_ids: operator.categories || [],
   });
 
-  const { data: segmentsList = [] } = useQuery({
-    queryKey: ['segments', orgId],
+  const { data: categoriesList = [] } = useQuery({
+    queryKey: ['categories', orgId],
     queryFn: async () => {
-      const repo = new SupabaseSegmentRepository();
-      return repo.listSegments(orgId);
+      const repo = new SupabaseCategoryRepository();
+      return repo.findAll(orgId);
     }
   });
 
@@ -66,8 +66,8 @@ export function EditOperatorModal({ operator, orgId, onClose }: EditOperatorModa
         telefone: form.telefone || undefined,
         cargo: operator.status === 'pendente' ? MACRO_PROFILES[form.macroProfile].cargo : (form.cargo || undefined),
         perfil: operator.status === 'pendente' ? MACRO_PROFILES[form.macroProfile].perfil : form.perfil,
-        todos_segmentos: form.todos_segmentos,
-        segments: form.todos_segmentos ? [] : form.segment_ids,
+        todas_categorias: form.todas_categorias,
+        categories: form.todas_categorias ? [] : form.category_ids,
       };
 
       await repo.updateOperator(operator.id, payload as any);
@@ -84,8 +84,8 @@ export function EditOperatorModal({ operator, orgId, onClose }: EditOperatorModa
           telefone: form.telefone,
           cargo: form.cargo,
           perfil: form.perfil,
-          todos_segmentos: form.todos_segmentos,
-          segments: form.todos_segmentos ? [] : form.segment_ids,
+          todas_categorias: form.todas_categorias,
+          categories: form.todas_categorias ? [] : form.category_ids,
         } : item);
       });
       
@@ -247,38 +247,38 @@ export function EditOperatorModal({ operator, orgId, onClose }: EditOperatorModa
                 </div>
               )}
 
-              {/* Segmentos Autorizados */}
+              {/* Categorias Autorizadas */}
               <div className="space-y-3 pt-2 border-t border-slate-100">
                 <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                  Segmentos Autorizados
+                  Categorias Autorizadas
                 </label>
                 <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-2">
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input 
                       type="checkbox" 
                       className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-                      checked={form.todos_segmentos}
-                      onChange={(e) => setForm(f => ({ ...f, todos_segmentos: e.target.checked, segment_ids: e.target.checked ? [] : f.segment_ids }))}
+                      checked={form.todas_categorias}
+                      onChange={(e) => setForm(f => ({ ...f, todas_categorias: e.target.checked, category_ids: e.target.checked ? [] : f.category_ids }))}
                     />
-                    <span className="text-sm font-semibold text-slate-700">Todos os Segmentos</span>
+                    <span className="text-sm font-semibold text-slate-700">Todas as Categorias</span>
                   </label>
                   
-                  <div className={`pl-6 grid grid-cols-2 gap-2 transition-opacity ${form.todos_segmentos ? 'opacity-40 pointer-events-none' : 'opacity-100'}`}>
-                    {segmentsList.map(seg => (
-                      <label key={seg.id} className="flex items-center gap-2 cursor-pointer">
+                  <div className={`pl-6 grid grid-cols-2 gap-2 transition-opacity ${form.todas_categorias ? 'opacity-40 pointer-events-none' : 'opacity-100'}`}>
+                    {categoriesList.map(cat => (
+                      <label key={cat.id} className="flex items-center gap-2 cursor-pointer">
                         <input 
                           type="checkbox" 
                           className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-                          checked={form.segment_ids.includes(seg.id)}
+                          checked={form.category_ids.includes(cat.id)}
                           onChange={(e) => {
                             if (e.target.checked) {
-                              setForm(f => ({ ...f, segment_ids: [...f.segment_ids, seg.id] }));
+                              setForm(f => ({ ...f, category_ids: [...f.category_ids, cat.id] }));
                             } else {
-                              setForm(f => ({ ...f, segment_ids: f.segment_ids.filter((id: string) => id !== seg.id) }));
+                              setForm(f => ({ ...f, category_ids: f.category_ids.filter((id: string) => id !== cat.id) }));
                             }
                           }}
                         />
-                        <span className="text-xs font-medium text-slate-600 truncate" title={seg.nome}>{seg.nome}</span>
+                        <span className="text-xs font-medium text-slate-600 truncate" title={cat.name}>{cat.name}</span>
                       </label>
                     ))}
                   </div>

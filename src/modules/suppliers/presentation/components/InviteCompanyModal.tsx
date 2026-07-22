@@ -116,8 +116,7 @@ export function InviteCompanyModal({ isOpen, onClose, onSuccess }: InviteCompany
       token_hash: tokenHash,
       expires_at: expiresAt,
       city: newCompCity,
-      state: newCompState,
-      segments: segmentsArray
+      state: newCompState
     });
 
     if (inviteError) {

@@ -31,8 +31,8 @@ export interface Operator {
   deleted_at?: string;
 
   // Relacionamentos opcionais (carregados via join)
-  segments?: string[]; // IDs dos segmentos autorizados
-  todos_segmentos?: boolean;
+  categories?: string[]; // IDs das categorias autorizadas
+  todas_categorias?: boolean;
 }
 
 export function operatorFullName(op: Operator): string {

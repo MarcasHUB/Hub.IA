@@ -13,7 +13,7 @@ import { Card, CardContent } from '@/shared/components/ui/Card';
 import { EntityCard } from '@/shared/components/ui/EntityCard';
 import { Operator, OperatorPerfil, OperatorStatus, operatorFullName, MacroProfile, MACRO_PROFILES } from '@/modules/employees/domain/entities/Operator';
 import { SupabaseOperatorRepository } from '../../infrastructure/repositories/SupabaseOperatorRepository';
-import { SupabaseSegmentRepository } from '../../infrastructure/repositories/SupabaseSegmentRepository';
+import { SupabaseCategoryRepository } from '@/modules/categories/infrastructure/repositories/SupabaseCategoryRepository';
 import { SupabaseDelegationRepository } from '../../infrastructure/repositories/SupabaseDelegationRepository';
 import { EditOperatorModal } from '../components/EditOperatorModal';
 import { OperatorDetailsModal } from '../components/OperatorDetailsModal';
@@ -64,8 +64,11 @@ function InviteModal({ onClose, onInvite }: { onClose: () => void; onInvite: (op
     nome: '', sobrenome: '', email: '', telefone: '',
     macroProfile: 'Comprador' as MacroProfile,
   });
-  const [todosSegmentos, setTodosSegmentos] = useState(false);
-  const [segmentosSel, setSegmentosSel] = useState<string[]>([]);
+  const [inviteForm, setInviteForm] = useState({
+    todas_categorias: false,
+    category_ids: [] as string[]
+  });
+  const [categories, setCategories] = useState<any[]>([]);
   const [sending, setSending] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [successData, setSuccessData] = useState<{ op: Operator; token: string; expires_at: string; invite_url: string; } | null>(null);
@@ -73,17 +76,16 @@ function InviteModal({ onClose, onInvite }: { onClose: () => void; onInvite: (op
   const [copiedEmail, setCopiedEmail] = useState(false);
 
   const orgId = localStorage.getItem('supplyhub_organization_id') || '00000000-0000-0000-0000-000000000000';
-  const { data: segmentsList = [] } = useQuery({
-    queryKey: ['segments', orgId],
+  
+  useQuery({
+    queryKey: ['categories', orgId],
     queryFn: async () => {
-      const repo = new SupabaseSegmentRepository();
-      return repo.listSegments(orgId);
+      const repo = new SupabaseCategoryRepository();
+      const list = await repo.findAll(orgId);
+      setCategories(list);
+      return list;
     }
   });
-
-  const toggleSegmento = (s: string) => {
-    setSegmentosSel(prev => prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s]);
-  };
 
   const handleSubmit = async () => {
     if (!form.nome.trim() || !form.email.trim()) return;
@@ -103,14 +105,13 @@ function InviteModal({ onClose, onInvite }: { onClose: () => void; onInvite: (op
         telefone: form.telefone || undefined,
         cargo: mapInfo.cargo,
         perfil: mapInfo.perfil,
-        segment_ids: todosSegmentos ? [] : segmentosSel,
-        todos_segmentos: todosSegmentos,
+        category_ids: inviteForm.todas_categorias ? [] : inviteForm.category_ids,
+        todas_categorias: inviteForm.todas_categorias,
         invited_by_id: loggedOperator.id || undefined,
         organization_id: orgId,
       });
 
       if (res.success && res.token) {
-        // Enviar o e-mail transacional via Cloudflare Functions
         const emailRes = await EmailService.sendTransactionalEmail('operator_invite', res.token);
         
         if (!emailRes.success) {
@@ -134,8 +135,8 @@ function InviteModal({ onClose, onInvite }: { onClose: () => void; onInvite: (op
           invited_at: new Date().toISOString(),
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
-          todos_segmentos: todosSegmentos,
-          segments: todosSegmentos ? [] : segmentosSel,
+          todas_categorias: inviteForm.todas_categorias,
+          categories: inviteForm.todas_categorias ? [] : inviteForm.category_ids,
         };
         const tokenStr = res.token || 'TOKEN_NAO_RETORNADO';
         const expStr = res.expires_at || new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString();
@@ -157,7 +158,7 @@ function InviteModal({ onClose, onInvite }: { onClose: () => void; onInvite: (op
     }
   };
 
-  const valid = form.nome.trim() && form.email.trim() && (todosSegmentos || segmentosSel.length > 0);
+  const valid = form.nome.trim() && form.email.trim() && (inviteForm.todas_categorias || inviteForm.category_ids.length > 0);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
@@ -230,7 +231,6 @@ function InviteModal({ onClose, onInvite }: { onClose: () => void; onInvite: (op
           </div>
         ) : (
           <>
-            {/* Header */}
             <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-slate-100">
               <div>
                 <h3 className="text-base font-extrabold text-slate-900">Convidar Operador</h3>
@@ -249,7 +249,6 @@ function InviteModal({ onClose, onInvite }: { onClose: () => void; onInvite: (op
             )}
 
             <div className="px-6 py-5 space-y-4">
-              {/* Dados pessoais */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Nome *</label>
@@ -269,7 +268,6 @@ function InviteModal({ onClose, onInvite }: { onClose: () => void; onInvite: (op
                 <Input value={form.telefone} onChange={e => setForm(f => ({ ...f, telefone: e.target.value }))} placeholder="(11) 9xxxx-xxxx" className="h-9 text-sm" />
               </div>
 
-              {/* Perfil e Acessos */}
               <div className="space-y-3">
                 <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Perfil de Acesso *</label>
                 
@@ -290,7 +288,6 @@ function InviteModal({ onClose, onInvite }: { onClose: () => void; onInvite: (op
                   ))}
                 </div>
 
-                {/* Resumo Dinâmico do Perfil */}
                 <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 text-sm mt-2">
                   <div className="flex flex-col gap-3">
                     <div className="flex items-center gap-2">
@@ -332,43 +329,43 @@ function InviteModal({ onClose, onInvite }: { onClose: () => void; onInvite: (op
                 </div>
               </div>
 
-              {/* Segmentos */}
-              <div className="space-y-2">
-                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1">
-                  <Layers className="h-3 w-3" /> Segmentos Autorizados *
-                </label>
-
-                {/* Toggle Todos */}
-                <label className="flex items-center gap-2 cursor-pointer p-3 rounded-xl border border-slate-200 hover:border-indigo-300 transition-colors">
-                  <input
-                    type="checkbox"
-                    checked={todosSegmentos}
-                    onChange={e => { setTodosSegmentos(e.target.checked); if (e.target.checked) setSegmentosSel([]); }}
-                    className="h-4 w-4 rounded border-slate-300 accent-indigo-600"
-                  />
-                  <span className="text-sm font-bold text-slate-800">Todos os Segmentos</span>
-                  <span className="text-xs text-slate-400">(Acesso irrestrito)</span>
-                </label>
-
-                {/* Segmentos individuais */}
-                {!todosSegmentos && (
-                  <div className="flex flex-wrap gap-2 p-3 rounded-xl border border-slate-200 bg-slate-50">
-                    {segmentsList.map(seg => (
-                      <label key={seg.id} className="flex items-center gap-1.5 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={segmentosSel.includes(seg.id)}
-                          onChange={() => toggleSegmento(seg.id)}
-                          className="h-3.5 w-3.5 rounded border-slate-300 accent-indigo-600"
-                        />
-                        <span className="text-xs font-semibold text-slate-700">{seg.nome}</span>
-                      </label>
-                    ))}
-                  </div>
-                )}
+            <div className="space-y-3 pt-4 border-t border-slate-100">
+            <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+              Categorias Autorizadas
+            </label>
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-2">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input 
+                  type="checkbox" 
+                  className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                  checked={inviteForm.todas_categorias}
+                  onChange={(e) => setInviteForm(f => ({ ...f, todas_categorias: e.target.checked, category_ids: e.target.checked ? [] : f.category_ids }))}
+                />
+                <span className="text-sm font-semibold text-slate-700">Todas as Categorias</span>
+              </label>
+              
+              <div className={`pl-6 grid grid-cols-2 gap-2 transition-opacity ${inviteForm.todas_categorias ? 'opacity-40 pointer-events-none' : 'opacity-100'}`}>
+                {categories.map(cat => (
+                  <label key={cat.id} className="flex items-center gap-2 cursor-pointer">
+                    <input 
+                      type="checkbox" 
+                      className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                      checked={inviteForm.category_ids.includes(cat.id)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setInviteForm(f => ({ ...f, category_ids: [...f.category_ids, cat.id] }));
+                        } else {
+                          setInviteForm(f => ({ ...f, category_ids: f.category_ids.filter((id: string) => id !== cat.id) }));
+                        }
+                      }}
+                    />
+                    <span className="text-xs font-medium text-slate-600 truncate" title={cat.name}>{cat.name}</span>
+                  </label>
+                ))}
               </div>
+            </div>
+            </div>
 
-              {/* Aviso e-mail */}
               <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-3">
                 <p className="text-[10px] font-bold text-indigo-700 flex items-center gap-1.5">
                   <Mail className="h-3 w-3" />
@@ -377,7 +374,6 @@ function InviteModal({ onClose, onInvite }: { onClose: () => void; onInvite: (op
               </div>
             </div>
 
-            {/* Footer */}
             <div className="flex gap-3 justify-end px-6 pb-6">
               <Button variant="outline" onClick={onClose} className="h-9 text-xs rounded-lg">Cancelar</Button>
               <Button
@@ -409,11 +405,11 @@ export default function OperatorsPage() {
     }
   });
 
-  const { data: segmentsList = [] } = useQuery({
-    queryKey: ['segments', orgId],
+  const { data: categories = [] } = useQuery({
+    queryKey: ['categories', orgId],
     queryFn: async () => {
-      const repo = new SupabaseSegmentRepository();
-      return repo.listSegments(orgId);
+      const repo = new SupabaseCategoryRepository();
+      return repo.findAll(orgId);
     }
   });
 
@@ -526,10 +522,8 @@ export default function OperatorsPage() {
       return;
     }
     
-    // Guardar backup do cache anterior em caso de falha na requisição
     const previousOperators = queryClient.getQueryData<Operator[]>(['operators', orgId]);
     
-    // Atualização otimista imediata na grid
     queryClient.setQueryData(['operators', orgId], (old: Operator[] | undefined) => {
       if (!old) return [];
       return old.filter(item => item.id !== op.id);
@@ -542,12 +536,10 @@ export default function OperatorsPage() {
     } catch (err: any) {
       console.error(err);
       alert("Erro ao cancelar o convite.");
-      // Se deu erro, reverte o estado na tela
       if (previousOperators) {
         queryClient.setQueryData(['operators', orgId], previousOperators);
       }
     } finally {
-      // Garante sincronismo forçando invalidação
       await queryClient.invalidateQueries({ queryKey: ['operators'] });
     }
   };
@@ -573,7 +565,6 @@ export default function OperatorsPage() {
     try {
       const repo = new SupabaseOperatorRepository();
       await repo.updateOperatorStatus(op.id, newStatus);
-      // alert(`Operador ${actionName}do com sucesso.`);
     } catch (err: any) {
       console.error(err);
       alert(`Erro ao ${actionName} o operador.`);
@@ -613,7 +604,6 @@ export default function OperatorsPage() {
     }
   };
 
-  // Contadores (ignorando cancelados do "total" para bater com a regra de "Todos")
   const activeStatsList = operators.filter(o => o.status !== 'cancelado');
   
   const stats = {
@@ -635,7 +625,7 @@ export default function OperatorsPage() {
       {detailsOperator && (
         <OperatorDetailsModal
           operator={detailsOperator}
-          segmentsList={segmentsList}
+          segmentsList={categories}
           onClose={() => setDetailsOperator(null)}
           onEdit={() => {
             setDetailsOperator(null);
@@ -661,7 +651,6 @@ export default function OperatorsPage() {
         />
       )}
 
-      {/* KPIs */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {[
           { label: 'Total de Operadores', value: stats.total, color: 'text-slate-900', desc: 'Membros cadastrados' },
@@ -678,11 +667,9 @@ export default function OperatorsPage() {
         ))}
       </div>
 
-      {/* Filtros e Ações */}
       <Card className="rounded-2xl border-slate-200 shadow-sm bg-white">
         <CardContent className="p-0">
           
-          {/* Abas Superiores */}
           <div className="flex border-b border-slate-200 overflow-x-auto hide-scrollbar">
             {[
               { id: 'todos', label: 'Todos' },
@@ -726,7 +713,6 @@ export default function OperatorsPage() {
         </CardContent>
       </Card>
 
-      {/* CONVITES PENDENTES (Mostra apenas se tiver aba pendentes ou todos) */}
       {(activeTab === 'todos' || activeTab === 'pendentes') && filtered.filter(op => op.status === 'pendente').length > 0 && (
         <div className="space-y-4">
           <h3 className="text-sm font-bold text-slate-900 px-1">Convites Pendentes</h3>
@@ -748,7 +734,6 @@ export default function OperatorsPage() {
         </div>
       )}
 
-      {/* TABELA */}
       <div>
         <Card className="rounded-2xl border-slate-200 shadow-sm overflow-visible">
           <div className="w-full">
@@ -758,7 +743,7 @@ export default function OperatorsPage() {
                   <th className="px-6 py-3">Operador</th>
                   <th className="px-6 py-3">Tipo de Acesso</th>
                   <th className="px-6 py-3">Perfil</th>
-                  <th className="px-6 py-3">Segmentos</th>
+                  <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Categorias</th>
                   <th className="px-6 py-3">Status</th>
                   <th className="px-6 py-3">Último Acesso</th>
                   <th className="px-6 py-3 text-center">Ações</th>
@@ -805,16 +790,16 @@ export default function OperatorsPage() {
                       </td>
                       <td className="px-6 py-4"><PerfilBadge perfil={op.perfil} /></td>
                       <td className="px-6 py-4">
-                        {op.todos_segmentos ? (
+                        {op.todas_categorias ? (
                           <span className="text-[10px] font-bold text-slate-600">
-                            Todos os Segmentos
+                            Todas as Categorias
                           </span>
-                        ) : op.segments && op.segments.length > 0 ? (
+                        ) : op.categories && op.categories.length > 0 ? (
                           <span className="text-[10px] text-slate-600">
-                            {op.segments.length} segmento{op.segments.length !== 1 ? 's' : ''}
+                            {op.categories.length} categoria{op.categories.length !== 1 ? 's' : ''}
                           </span>
                         ) : (
-                          <span className="text-[10px] text-slate-400">Sem segmentos</span>
+                          <span className="text-[10px] text-slate-400">Nenhuma</span>
                         )}
                       </td>
                       <td className="px-6 py-4">

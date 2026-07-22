@@ -63,7 +63,7 @@ function CategoryModal({
             <Input
               value={name}
               onChange={e => setName(e.target.value)}
-              placeholder="Ex: EPI, Ferramentas, Tintas..."
+              placeholder="Ex: EPI, Rolamentos, Ferramenta Elétrica..."
               className="h-9 text-sm"
             />
           </div>
@@ -72,7 +72,7 @@ function CategoryModal({
             <textarea
               value={description}
               onChange={e => setDescription(e.target.value)}
-              placeholder="Descreva a categoria..."
+              placeholder="Descreva a finalidade desta categoria..."
               rows={3}
               className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
             />

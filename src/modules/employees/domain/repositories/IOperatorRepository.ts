@@ -9,7 +9,8 @@ export interface IOperatorRepository {
     telefone?: string;
     cargo?: string;
     perfil: string;
-    segment_ids: string[];
+    category_ids: string[];
+    todas_categorias?: boolean;
     invited_by_id?: string;
     organization_id: string;
   }): Promise<{ success: boolean; message: string; user?: any; token?: string; expires_at?: string }>;

@@ -14,8 +14,8 @@ export class SupabaseOperatorRepository implements IOperatorRepository {
     telefone?: string;
     cargo?: string;
     perfil: string;
-    segment_ids: string[];
-    todos_segmentos?: boolean;
+    category_ids: string[];
+    todas_categorias?: boolean;
     invited_by_id?: string;
     organization_id: string;
   }): Promise<{ success: boolean; message: string; user?: any; token?: string; expires_at?: string }> {
@@ -71,7 +71,7 @@ export class SupabaseOperatorRepository implements IOperatorRepository {
   async listOperators(organizationId: string): Promise<Operator[]> {
     const { data, error } = await supabase
       .from('operators')
-      .select('*, operator_segments(segment_id)')
+      .select('*, operator_categories(category_id)')
       .eq('organization_id', organizationId)
       .is('deleted_at', null)
       .order('nome', { ascending: true });
@@ -80,10 +80,10 @@ export class SupabaseOperatorRepository implements IOperatorRepository {
       throw error;
     }
 
-    // Map `operator_segments` para um array de strings `segments` para o frontend
+    // Map `operator_categories` para um array de strings `categories` para o frontend
     return (data as any[]).map(op => ({
       ...op,
-      segments: op.operator_segments ? op.operator_segments.map((os: any) => os.segment_id) : []
+      categories: op.operator_categories ? op.operator_categories.map((os: any) => os.category_id) : []
     })) as Operator[];
   }
 
@@ -139,7 +139,7 @@ export class SupabaseOperatorRepository implements IOperatorRepository {
     if (payload.cargo !== undefined) allowedPayload.cargo = payload.cargo;
     if (payload.perfil !== undefined) allowedPayload.perfil = payload.perfil;
     if (payload.status !== undefined) allowedPayload.status = payload.status;
-    if (payload.todos_segmentos !== undefined) allowedPayload.todos_segmentos = payload.todos_segmentos;
+    if (payload.todas_categorias !== undefined) allowedPayload.todas_categorias = payload.todas_categorias;
     
     allowedPayload.updated_at = new Date().toISOString();
     
@@ -156,8 +156,8 @@ export class SupabaseOperatorRepository implements IOperatorRepository {
       if (payload.nome !== undefined) allowedInvitePayload.nome = payload.nome;
       if (payload.cargo !== undefined) allowedInvitePayload.cargo = payload.cargo;
       if (payload.perfil !== undefined) allowedInvitePayload.perfil = payload.perfil;
-      if (payload.todos_segmentos !== undefined) allowedInvitePayload.todos_segmentos = payload.todos_segmentos;
-      if (payload.segments !== undefined) allowedInvitePayload.segment_ids = payload.segments;
+      if (payload.todas_categorias !== undefined) allowedInvitePayload.todas_categorias = payload.todas_categorias;
+      if (payload.categories !== undefined) allowedInvitePayload.category_ids = payload.categories;
       
       if (Object.keys(allowedInvitePayload).length > 0) {
         const { error: invError } = await supabase
@@ -170,25 +170,25 @@ export class SupabaseOperatorRepository implements IOperatorRepository {
       }
     }
 
-    // Atualizar tabela N:N se o array de segmentos foi passado
-    if (payload.segments !== undefined) {
+    // Atualizar tabela N:N se o array de categorias foi passado
+    if (payload.categories !== undefined) {
       // 1. Limpar vínculos anteriores
       const { error: delError } = await supabase
-        .from('operator_segments')
+        .from('operator_categories')
         .delete()
         .eq('operator_id', id);
         
       if (delError) throw delError;
 
-      // 2. Se não for "todos_segmentos", e tiver segmentos a inserir, criar novos vínculos
-      if (!payload.todos_segmentos && payload.segments && payload.segments.length > 0) {
-        const links = payload.segments.map(segId => ({
+      // 2. Se não for "todas_categorias", e tiver categorias a inserir, criar novos vínculos
+      if (!payload.todas_categorias && payload.categories && payload.categories.length > 0) {
+        const links = payload.categories.map(catId => ({
           operator_id: id,
-          segment_id: segId
+          category_id: catId
         }));
         
         const { error: insError } = await supabase
-          .from('operator_segments')
+          .from('operator_categories')
           .insert(links);
           
         if (insError) throw insError;

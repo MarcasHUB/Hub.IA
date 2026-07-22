@@ -92,7 +92,7 @@ serve(async (req: Request) => {
       .from('operators')
       .update({
         status: 'ativo',
-        todos_segmentos: invite.todos_segmentos || false,
+        todas_categorias: invite.todas_categorias || false,
         accepted_at: now,
         updated_at: now,
       })
@@ -102,19 +102,19 @@ serve(async (req: Request) => {
       throw operatorUpdateError;
     }
 
-    // 4.5. Inserir vínculos de segmentos, se aplicável (caso não seja 'todos')
-    if (invite.todos_segmentos !== true && invite.segment_ids && invite.segment_ids.length > 0) {
-      const links = invite.segment_ids.map((segId: string) => ({
+    // 4.5. Inserir vínculos de categorias, se aplicável (caso não seja 'todas')
+    if (invite.todas_categorias !== true && invite.category_ids && invite.category_ids.length > 0) {
+      const links = invite.category_ids.map((catId: string) => ({
         operator_id: userId,
-        segment_id: segId
+        category_id: catId
       }));
       
-      const { error: segmentsError } = await supabase
-        .from('operator_segments')
+      const { error: categoriesError } = await supabase
+        .from('operator_categories')
         .insert(links);
 
-      if (segmentsError) {
-        throw segmentsError;
+      if (categoriesError) {
+        throw categoriesError;
       }
     }
 

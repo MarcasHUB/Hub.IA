@@ -22,7 +22,7 @@ serve(async (req: Request) => {
     const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
 
     const body = await req.json();
-    const { email, nome, sobrenome, cargo, perfil, segment_ids, invited_by_id, organization_id } = body;
+    const { email, nome, sobrenome, cargo, perfil, category_ids, invited_by_id, organization_id, todas_categorias } = body;
 
     if (!email || !nome || !perfil || !organization_id) {
       return new Response(
@@ -59,7 +59,7 @@ serve(async (req: Request) => {
           perfil,
           status: 'pendente',
           telefone: body.telefone || null,
-          todos_segmentos: body.todos_segmentos || false,
+          todas_categorias: todas_categorias || false,
           deleted_at: null,
           invited_at: new Date().toISOString(),
           gestor_id: invited_by_id || null
@@ -110,7 +110,7 @@ serve(async (req: Request) => {
           cargo,
           perfil,
           status: 'pendente',
-          todos_segmentos: body.todos_segmentos || false,
+          todas_categorias: todas_categorias || false,
           gestor_id: invited_by_id || null,
           invited_at: new Date().toISOString(),
         });
@@ -120,19 +120,19 @@ serve(async (req: Request) => {
       }
     }
 
-    // 3. Resolver segment_ids (se o frontend enviar array de strings/nomes em vez de UUIDs)
-    let resolvedSegmentIds = segment_ids || [];
-    if (resolvedSegmentIds.length > 0 && !resolvedSegmentIds[0].match(/^[0-9a-f]{8}-/i)) {
-      const { data: foundSegments } = await supabase
-        .from('segments')
+    // 3. Resolver category_ids (se o frontend enviar array de strings/nomes em vez de UUIDs)
+    let resolvedCategoryIds = category_ids || [];
+    if (resolvedCategoryIds.length > 0 && !resolvedCategoryIds[0].match(/^[0-9a-f]{8}-/i)) {
+      const { data: foundCategories } = await supabase
+        .from('categories')
         .select('id')
-        .eq('organization_id', organization_id)
-        .in('nome', resolvedSegmentIds);
+        .eq('tenant_id', organization_id)
+        .in('name', resolvedCategoryIds);
       
-      if (foundSegments) {
-        resolvedSegmentIds = foundSegments.map((s: any) => s.id);
+      if (foundCategories) {
+        resolvedCategoryIds = foundCategories.map((s: any) => s.id);
       } else {
-        resolvedSegmentIds = [];
+        resolvedCategoryIds = [];
       }
     }
 
@@ -148,8 +148,8 @@ serve(async (req: Request) => {
         perfil,
         token, // Rastreável
         status: 'pendente',
-        todos_segmentos: body.todos_segmentos || false,
-        segment_ids: resolvedSegmentIds,
+        todas_categorias: todas_categorias || false,
+        category_ids: resolvedCategoryIds,
         sent_at: new Date().toISOString(),
         expires_at: new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString(), // 72 horas
       });
@@ -158,13 +158,13 @@ serve(async (req: Request) => {
       throw inviteRecordError;
     }
 
-    // 6. Vincular os segmentos na tabela de junção se fornecidos
-    if (resolvedSegmentIds && resolvedSegmentIds.length > 0) {
-      const segRecords = resolvedSegmentIds.map((segId: string) => ({
+    // 5. Vincular as categorias na tabela de junção se fornecidos
+    if (resolvedCategoryIds && resolvedCategoryIds.length > 0) {
+      const catRecords = resolvedCategoryIds.map((catId: string) => ({
         operator_id: userId,
-        segment_id: segId,
+        category_id: catId,
       }));
-      await supabase.from('operator_segments').insert(segRecords);
+      await supabase.from('operator_categories').insert(catRecords);
     }
 
     // 6. Registrar log operacional do envio de convite

@@ -7,7 +7,7 @@ export class SupabaseSegmentRepository implements ISegmentRepository {
     const { data, error } = await supabase
       .from('segments')
       .select('*')
-      .eq('organization_id', organizationId)
+      .or(`organization_id.eq.${organizationId},organization_id.is.null`)
       .order('nome', { ascending: true });
 
     if (error) throw error;

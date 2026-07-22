@@ -17,7 +17,7 @@ export class SupabaseCategoryRepository implements ICategoryRepository {
             .from('categories')
             .select('*')
             .eq('id', id)
-            .eq('tenant_id', actualTenant)
+            .or(`organization_id.eq.${actualTenant},organization_id.is.null`)
             .single();
 
         if (error || !data) return null;
@@ -29,7 +29,7 @@ export class SupabaseCategoryRepository implements ICategoryRepository {
         const { data, error } = await supabase
             .from('categories')
             .select('*')
-            .eq('tenant_id', actualTenant)
+            .or(`organization_id.eq.${actualTenant},organization_id.is.null`)
             .order('name', { ascending: true });
 
         if (error || !data) return [];
@@ -41,7 +41,7 @@ export class SupabaseCategoryRepository implements ICategoryRepository {
 
         const payload = {
             id: category.id,
-            tenant_id: actualTenant,
+            organization_id: actualTenant,
             name: category.name,
             description: category.description,
             status: category.status,
@@ -65,7 +65,7 @@ export class SupabaseCategoryRepository implements ICategoryRepository {
             .from('categories')
             .delete()
             .eq('id', id)
-            .eq('tenant_id', actualTenant);
+            .eq('organization_id', actualTenant);
 
         if (error) {
             console.error('Supabase delete category error:', error);
@@ -76,7 +76,7 @@ export class SupabaseCategoryRepository implements ICategoryRepository {
     private mapToDomain(row: any): Category {
         return new Category(
             row.id,
-            row.tenant_id,
+            row.organization_id || '00000000-0000-0000-0000-000000000000',
             row.name,
             row.description || '',
             row.parent_id,
