@@ -1,15 +1,37 @@
 -- 11_global_admin_security.sql
 
--- 0. GARANTIA DE ACESSO ADMINISTRATIVO
--- Promover o usuário fundador ANTES de ativar as restrições
+-- 0. COLUNAS DE IDENTIFICAÇÃO E RECUPERAÇÃO PERMANENTE (ROOT KEY)
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS cpf VARCHAR(14);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_profiles_cpf ON public.profiles(cpf);
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS is_founder boolean DEFAULT false;
+
+-- 1. PROMOÇÃO INICIAL DO FUNDADOR
+-- Atualiza o registro raiz para marcá-lo como fundador e conceder acesso operacional
 UPDATE public.profiles 
-SET is_super_admin = true 
+SET is_founder = true, is_super_admin = true 
 WHERE email = 'viniciuscordebello@gmail.com';
 
--- 1. Cria a função auxiliar e super-segura para verificar se é superadmin
+-- 2. FUNÇÃO DE FUNDADOR (Camada Máxima Permanente)
+CREATE OR REPLACE FUNCTION public.is_founder()
+RETURNS boolean AS $$
+BEGIN
+  RETURN EXISTS (
+    SELECT 1 FROM public.profiles 
+    WHERE id = auth.uid() 
+    AND is_founder = true
+  );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
+-- 3. FUNÇÃO DE SUPER ADMIN (Gestão Operacional com Fallback)
 CREATE OR REPLACE FUNCTION public.is_super_admin()
 RETURNS boolean AS $$
 BEGIN
+  -- Se for o founder, possui privilégio máximo independente da flag operacional
+  IF public.is_founder() THEN
+    RETURN true;
+  END IF;
+
   RETURN EXISTS (
     SELECT 1 FROM public.profiles 
     WHERE id = auth.uid() 
@@ -18,13 +40,19 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
--- 2. Trigger para bloquear elevação de privilégio na tabela users
+-- 4. TRIGGER DE PROTEÇÃO ABSOLUTA (Impedir alteração do Root Key)
 CREATE OR REPLACE FUNCTION public.block_is_superadmin_update()
 RETURNS TRIGGER AS $$
 BEGIN
+    -- Bloqueio absoluto da flag is_founder
+    IF NEW.is_founder IS DISTINCT FROM OLD.is_founder THEN
+        RAISE EXCEPTION 'Operação não permitida: A flag is_founder (Root Key) é imutável via aplicação.';
+    END IF;
+
+    -- Proteção da flag is_super_admin
     IF NEW.is_super_admin IS DISTINCT FROM OLD.is_super_admin THEN
         IF NOT public.is_super_admin() THEN
-            RAISE EXCEPTION 'Operação não permitida: Apenas SuperAdmins podem alterar privilégios de SuperAdmin.';
+            RAISE EXCEPTION 'Operação não permitida: Apenas Administradores Globais podem alterar privilégios de SuperAdmin.';
         END IF;
         IF NEW.id = auth.uid() AND NEW.is_super_admin = false THEN
             RAISE EXCEPTION 'Prevenção de bloqueio: Você não pode remover seu próprio privilégio de SuperAdmin.';
