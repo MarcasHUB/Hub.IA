@@ -37,7 +37,10 @@ export class SupabaseCategoryRepository implements ICategoryRepository {
     }
 
     async save(category: Category): Promise<void> {
-        const actualTenant = await this.resolveTenantId(category.tenantId);
+        let actualTenant: string | null = null;
+        if (category.tenantId !== 'GLOBAL') {
+            actualTenant = await this.resolveTenantId(category.tenantId);
+        }
 
         const payload = {
             id: category.id,
@@ -76,7 +79,7 @@ export class SupabaseCategoryRepository implements ICategoryRepository {
     private mapToDomain(row: any): Category {
         return new Category(
             row.id,
-            row.organization_id || '00000000-0000-0000-0000-000000000000',
+            row.organization_id || 'GLOBAL',
             row.name,
             row.description || '',
             row.parent_id,

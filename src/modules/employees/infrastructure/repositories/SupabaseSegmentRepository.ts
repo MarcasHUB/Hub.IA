@@ -18,7 +18,7 @@ export class SupabaseSegmentRepository implements ISegmentRepository {
     const { data, error } = await supabase
       .from('segments')
       .insert({
-        organization_id: segment.organization_id,
+        organization_id: segment.organization_id === 'GLOBAL' ? null : segment.organization_id,
         nome: segment.nome,
         descricao: segment.descricao || null,
         status: segment.status,
