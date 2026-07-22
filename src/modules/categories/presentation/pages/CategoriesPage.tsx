@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Layers, Plus, Search, CheckCircle2, XCircle, Edit2, ToggleLeft, ToggleRight } from 'lucide-react';
+import { Layers, Plus, Search, CheckCircle2, XCircle, Edit2, ToggleLeft, ToggleRight, Package } from 'lucide-react';
 import { Button } from '@/shared/components/ui/Button';
 import { Input } from '@/shared/components/ui/Input';
 import { ClearableInput } from '@/shared/components/ui/ClearableInput';
@@ -239,8 +239,10 @@ export function CategoriesPage() {
                   <p className="text-xs text-slate-500 mb-3 leading-relaxed line-clamp-2">{cat.description}</p>
                 )}
                 
-                {/* Categorias não possuem contagem de operadores por enquanto */}
-                <div className="h-4 mb-4"></div>
+                <div className="flex items-center gap-2 text-[10px] text-slate-400 mb-4">
+                  <Package className="h-3 w-3" />
+                  <span>0 material(is)</span>
+                </div>
 
                 <div className="flex items-center gap-2 pt-3 border-t border-slate-100">
                   <button

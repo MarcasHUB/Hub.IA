@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Layers, Plus, Search, CheckCircle2, XCircle,
-  Users, Edit2, ToggleLeft, ToggleRight
+  Building2, Edit2, ToggleLeft, ToggleRight
 } from 'lucide-react';
 import { Button } from '@/shared/components/ui/Button';
 import { Input } from '@/shared/components/ui/Input';
@@ -241,8 +241,8 @@ export default function SegmentsPage() {
                 )}
 
                 <div className="flex items-center gap-2 text-[10px] text-slate-400 mb-4">
-                  <Users className="h-3 w-3" />
-                  <span>{seg.operadores_count || 0} operador{(seg.operadores_count || 0) !== 1 ? 'es' : ''}</span>
+                  <Building2 className="h-3 w-3" />
+                  <span>0 empresa(s)</span>
                 </div>
 
                 <div className="flex items-center gap-2 pt-3 border-t border-slate-100">

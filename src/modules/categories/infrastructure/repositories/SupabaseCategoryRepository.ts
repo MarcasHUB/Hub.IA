@@ -47,7 +47,7 @@ export class SupabaseCategoryRepository implements ICategoryRepository {
             organization_id: actualTenant,
             name: category.name,
             description: category.description,
-            status: category.status,
+            is_active: category.status === CategoryStatus.ACTIVE,
             parent_id: category.parentId || null,
             updated_at: new Date().toISOString()
         };
@@ -83,7 +83,7 @@ export class SupabaseCategoryRepository implements ICategoryRepository {
             row.name,
             row.description || '',
             row.parent_id,
-            row.status === 'Active' ? CategoryStatus.ACTIVE : CategoryStatus.INACTIVE,
+            row.is_active !== false ? CategoryStatus.ACTIVE : CategoryStatus.INACTIVE,
             new Date(row.created_at),
             new Date(row.updated_at)
         );
