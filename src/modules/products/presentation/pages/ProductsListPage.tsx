@@ -26,6 +26,9 @@ interface Product {
   description?: string;
   imageUrl?: string;
   availableForPurchase: boolean;
+  isComplete: boolean;
+  manufacturerCode: string;
+  supplierId: string;
 }
 
 export default function ProductsListPage() {
@@ -64,7 +67,10 @@ export default function ProductsListPage() {
         updatedAt: p.updatedAt.toISOString().split('T')[0],
         description: p.description,
         imageUrl: p.imageUrl,
-        availableForPurchase: p.availableForPurchase ?? true
+        availableForPurchase: p.availableForPurchase ?? true,
+        isComplete: p.isComplete,
+        manufacturerCode: p.manufacturerCode || '',
+        supplierId: p.supplierId || ''
       })));
     } catch (err) {
       console.error('Failed to load products', err);
