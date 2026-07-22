@@ -11,6 +11,7 @@ import { Card, CardContent } from '@/shared/components/ui/Card';
 import DelegationsPage from '../../../employees/presentation/pages/DelegationsPage';
 import AccessLogsPage from '../../../employees/presentation/pages/AccessLogsPage';
 import OperatorsPage from '../../../employees/presentation/pages/OperatorsPage';
+import { supabase } from '@/infrastructure/supabase/client';
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 type Tab = 'dados' | 'comercial' | 'colaboradores' | 'solicitantes' | 'permissoes' | 'aprovacoes' | 'delegacoes' | 'logs';
@@ -63,38 +64,35 @@ function DadosEmpresaTab() {
   const [completion, setCompletion] = useState(0);
   const [orgId, setOrgId] = useState('');
 
-  import('@/infrastructure/supabase/client').then(({ supabase }) => {
-    useState(() => {
-      const load = async () => {
-        const id = localStorage.getItem('supplyhub_organization_id');
-        if (!id) return;
-        setOrgId(id);
-        const { data } = await supabase.from('organizations').select('*').eq('id', id).single();
-        if (data) {
-          setForm({
-            razao_social: data.name || '',
-            nome_fantasia: data.trade_name || '',
-            cnpj: data.document || '',
-            email_corporativo: data.commercial_email || '',
-            telefone: data.phone || '',
-            whatsapp: data.whatsapp || '',
-            site: data.website || '',
-            logo_url: data.logo_url || '',
-            gestor_principal: localStorage.getItem('supplyhub_gestor_principal') || '',
-          });
-          setCompletion(data.profile_completion || 50);
-        }
-      };
-      load();
-    });
-  });
+  useEffect(() => {
+    const load = async () => {
+      const id = localStorage.getItem('supplyhub_organization_id');
+      if (!id) return;
+      setOrgId(id);
+      const { data } = await supabase.from('organizations').select('*').eq('id', id).single();
+      if (data) {
+        setForm({
+          razao_social: data.name || '',
+          nome_fantasia: data.trade_name || '',
+          cnpj: data.document || '',
+          email_corporativo: data.commercial_email || '',
+          telefone: data.phone || '',
+          whatsapp: data.whatsapp || '',
+          site: data.website || '',
+          logo_url: data.logo_url || '',
+          gestor_principal: localStorage.getItem('supplyhub_gestor_principal') || '',
+        });
+        setCompletion(data.profile_completion || 50);
+      }
+    };
+    load();
+  }, []);
 
   const handleChange = (field: string, value: string) => {
     setForm(f => ({ ...f, [field]: value }));
   };
 
   const handleSave = async () => {
-    const { supabase } = await import('@/infrastructure/supabase/client');
     let comp = 50;
     if (form.logo_url) comp += 20;
     if (form.site) comp += 10;
@@ -261,8 +259,6 @@ function DadosEmpresaTab() {
 
 
 // ─── MinhaEmpresaPage ─────────────────────────────────────────────────────────
-import { supabase } from '@/infrastructure/supabase/client';
-
 export default function MinhaEmpresaPage() {
   const location = useLocation();
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
@@ -271,9 +267,9 @@ export default function MinhaEmpresaPage() {
     const checkAdmin = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        const { data } = await supabase.from('users').select('is_superadmin').eq('id', user.id).single();
+        const { data } = await supabase.from('profiles').select('is_super_admin').eq('user_id', user.id).single();
         // Confiamos exclusivamente no banco de dados para segurança
-        setIsSuperAdmin(data?.is_superadmin === true);
+        setIsSuperAdmin(data?.is_super_admin === true);
       }
     };
     checkAdmin();
