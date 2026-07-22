@@ -89,6 +89,10 @@ export function AppLayout() {
           .eq('id', user.id)
           .single();
 
+        console.log('USER AUTH', user);
+        console.log('GLOBAL USER', globalUser);
+        console.log('IS SUPER ADMIN', globalUser?.is_super_admin);
+
         if (isMounted) {
           let currentProfile = 'Operador';
           if (globalUser?.is_super_admin) {
