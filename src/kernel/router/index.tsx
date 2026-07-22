@@ -165,6 +165,30 @@ export const router = createBrowserRouter([
         element: <SuspenseWrapper><GlobalAdminPage /></SuspenseWrapper>,
       },
       {
+        path: '/admin/empresas',
+        element: <SuspenseWrapper><GlobalAdminPage /></SuspenseWrapper>,
+      },
+      {
+        path: '/admin/materiais',
+        element: <SuspenseWrapper><GlobalAdminPage /></SuspenseWrapper>,
+      },
+      {
+        path: '/admin/categorias',
+        element: <SuspenseWrapper><GlobalAdminPage /></SuspenseWrapper>,
+      },
+      {
+        path: '/admin/segmentos',
+        element: <SuspenseWrapper><GlobalAdminPage /></SuspenseWrapper>,
+      },
+      {
+        path: '/admin/campo',
+        element: <SuspenseWrapper><GlobalAdminPage /></SuspenseWrapper>,
+      },
+      {
+        path: '/admin/app-campo',
+        element: <SuspenseWrapper><GlobalAdminPage /></SuspenseWrapper>,
+      },
+      {
         path: '/empresa',
         element: <SuspenseWrapper><MinhaEmpresaPage /></SuspenseWrapper>,
       },
@@ -193,10 +217,6 @@ export const router = createBrowserRouter([
         element: <SuspenseWrapper><MinhaEmpresaPage /></SuspenseWrapper>,
       },
       {
-        path: '/empresa/segmentos',
-        element: <SuspenseWrapper><MinhaEmpresaPage /></SuspenseWrapper>,
-      },
-      {
         path: '/empresa/delegacoes',
         element: <SuspenseWrapper><MinhaEmpresaPage /></SuspenseWrapper>,
       },
@@ -207,11 +227,7 @@ export const router = createBrowserRouter([
       {
         path: '/empresa/empresas',
         element: <SuspenseWrapper><OrganizationsListPage /></SuspenseWrapper>,
-      },
-      {
-        path: '/empresa/categorias',
-        element: <SuspenseWrapper><MinhaEmpresaPage /></SuspenseWrapper>,
-      },
+      }
     ]
   }
 ]);
