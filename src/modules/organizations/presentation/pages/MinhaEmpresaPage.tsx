@@ -3,7 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import {
   Building2, Users, Layers, ArrowLeftRight, ScrollText,
   Globe, Phone, Mail, Hash, Shield, UserCheck,
-  Save, CheckCircle2, Sparkles, ChevronDown, Tag
+  Save, CheckCircle2, Sparkles, ChevronDown, Tag, XCircle
 } from 'lucide-react';
 import { Button } from '@/shared/components/ui/Button';
 import { Input } from '@/shared/components/ui/Input';
@@ -68,6 +68,34 @@ const Field = ({
 );
 
 
+// ─── UTILS ──────────────────────────────────────────────────────────────────────
+const applyMask = (field: string, value: string) => {
+  let v = value.replace(/\D/g, '');
+  if (field === 'cnpj') {
+    v = v.slice(0, 14);
+    return v
+      .replace(/(\d{2})(\d)/, '$1.$2')
+      .replace(/(\d{3})(\d)/, '$1.$2')
+      .replace(/(\d{3})(\d)/, '$1/$2')
+      .replace(/(\d{4})(\d)/, '$1-$2');
+  }
+  if (field === 'telefone' || field === 'whatsapp') {
+    v = v.slice(0, 11);
+    if (v.length === 0) return '';
+    if (v.length <= 2) return `(${v}`;
+    if (v.length <= 6) return `(${v.slice(0,2)}) ${v.slice(2)}`;
+    if (v.length <= 10) return `(${v.slice(0,2)}) ${v.slice(2,6)}-${v.slice(6)}`;
+    return `(${v.slice(0,2)}) ${v.slice(2,7)}-${v.slice(7)}`;
+  }
+  if (field === 'cep') {
+    v = v.slice(0, 8);
+    if (v.length <= 5) return v;
+    return `${v.slice(0,5)}-${v.slice(5)}`;
+  }
+  return value;
+};
+
+// ─── DadosEmpresaTab ─────────────────────────────────────────────────────────
 function DadosEmpresaTab() {
   const [form, setForm] = useState({
     razao_social: '',
@@ -91,6 +119,7 @@ function DadosEmpresaTab() {
   const [completion, setCompletion] = useState(0);
   const [orgId, setOrgId] = useState('');
   const [isUploading, setIsUploading] = useState(false);
+  const [saveError, setSaveError] = useState('');
 
   useEffect(() => {
     const load = async () => {
@@ -102,14 +131,14 @@ function DadosEmpresaTab() {
         setForm({
           razao_social: data.name || data.razao_social || '',
           nome_fantasia: data.trade_name || data.nome_fantasia || '',
-          cnpj: data.document || data.cnpj || '',
+          cnpj: applyMask('cnpj', data.document || data.cnpj || ''),
           email_corporativo: data.commercial_email || data.email_corporativo || '',
-          telefone: data.phone || data.telefone || '',
-          whatsapp: data.whatsapp || '',
+          telefone: applyMask('telefone', data.phone || data.telefone || ''),
+          whatsapp: applyMask('whatsapp', data.whatsapp || ''),
           site: data.website || '',
           logo_url: data.logo_url || '',
           gestor_principal: localStorage.getItem('supplyhub_gestor_principal') || '',
-          cep: data.address_zip_code || '',
+          cep: applyMask('cep', data.address_zip_code || ''),
           endereco: data.address_street || '',
           numero: data.address_number || '',
           complemento: data.address_complement || '',
@@ -118,6 +147,11 @@ function DadosEmpresaTab() {
           uf: data.address_state || data.state || '',
         });
         setCompletion(data.profile_completion || 50);
+        
+        if (data.logo_url) {
+          localStorage.setItem('supplyhub_company_logo', data.logo_url);
+          window.dispatchEvent(new Event('storage'));
+        }
       }
     };
     load();
@@ -156,12 +190,13 @@ function DadosEmpresaTab() {
   };
 
   const handleChange = (field: string, value: string) => {
-    setForm(f => ({ ...f, [field]: value }));
+    const maskedValue = applyMask(field, value);
+    setForm(f => ({ ...f, [field]: maskedValue }));
     if (field === 'cnpj') {
-      fetchCNPJ(value);
+      fetchCNPJ(maskedValue);
     }
     if (field === 'nome_fantasia') {
-      localStorage.setItem('supplyhub_company_name', value);
+      localStorage.setItem('supplyhub_company_name', maskedValue);
       window.dispatchEvent(new Event('storage'));
     }
   };
@@ -191,6 +226,9 @@ function DadosEmpresaTab() {
       // Update immediately in db
       await supabase.from('organizations').update({ logo_url: publicUrl }).eq('id', orgId);
 
+      localStorage.setItem('supplyhub_company_logo', publicUrl);
+      window.dispatchEvent(new Event('storage'));
+
     } catch (error) {
       console.error("Erro no upload do logotipo:", error);
     } finally {
@@ -199,13 +237,14 @@ function DadosEmpresaTab() {
   };
 
   const handleSave = async () => {
+    setSaveError('');
     let comp = 50;
     if (form.logo_url) comp += 20;
     if (form.site) comp += 10;
     if (form.whatsapp) comp += 10;
     if (form.endereco) comp += 10;
     
-    await supabase.from('organizations').update({
+    const { error } = await supabase.from('organizations').update({
       name: form.razao_social,
       razao_social: form.razao_social,
       trade_name: form.nome_fantasia,
@@ -230,6 +269,12 @@ function DadosEmpresaTab() {
       state: form.uf,
       profile_completion: comp
     }).eq('id', orgId);
+
+    if (error) {
+      console.error("Erro ao salvar:", error);
+      setSaveError(error.message || 'Erro ao salvar os dados.');
+      return;
+    }
 
     setCompletion(comp);
     setSaved(true);
@@ -360,7 +405,12 @@ function DadosEmpresaTab() {
             </div>
           </div>
 
-          <div className="flex justify-end pt-2">
+          <div className="flex justify-end pt-2 items-center">
+            {saveError && (
+              <span className="flex items-center gap-1.5 text-xs font-bold text-red-600 mr-4">
+                {saveError}
+              </span>
+            )}
             {saved && (
               <span className="flex items-center gap-1.5 text-xs font-bold text-green-600 mr-4">
                 <CheckCircle2 className="h-4 w-4" /> Salvo com sucesso!
@@ -400,10 +450,13 @@ function DadosEmpresaTab() {
 function PerfilComercialTab() {
   const [form, setForm] = useState({
     business_model: '',
-    segment: '',
   });
+  const [selectedSegments, setSelectedSegments] = useState<string[]>([]);
   const [saved, setSaved] = useState(false);
   const [orgId, setOrgId] = useState('');
+  
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [newSegment, setNewSegment] = useState({ nome: '', descricao: '' });
 
   useEffect(() => {
     const load = async () => {
@@ -414,8 +467,10 @@ function PerfilComercialTab() {
       if (data) {
         setForm({
           business_model: data.business_model || '',
-          segment: data.segment || '',
         });
+        if (data.segment) {
+          setSelectedSegments(data.segment.split(',').map((s: string) => s.trim()).filter(Boolean));
+        }
       }
     };
     load();
@@ -428,10 +483,14 @@ function PerfilComercialTab() {
   const handleSave = async () => {
     await supabase.from('organizations').update({
       business_model: form.business_model,
-      segment: form.segment,
+      segment: selectedSegments.join(', '),
     }).eq('id', orgId);
     setSaved(true);
     setTimeout(() => setSaved(false), 3000);
+  };
+
+  const handleRemoveSegment = (segToRemove: string) => {
+    setSelectedSegments(prev => prev.filter(s => s !== segToRemove));
   };
 
   return (
@@ -476,15 +535,16 @@ function PerfilComercialTab() {
               <Tag className="h-3 w-3" /> Segmentos de Atuação
             </label>
             <div className="flex flex-wrap gap-2">
-              <span className="px-3 py-1.5 bg-indigo-50 text-indigo-700 text-xs font-bold rounded-lg border border-indigo-100 flex items-center gap-1">
-                Construção Civil
-                <button className="hover:text-indigo-900">&times;</button>
-              </span>
-              <span className="px-3 py-1.5 bg-indigo-50 text-indigo-700 text-xs font-bold rounded-lg border border-indigo-100 flex items-center gap-1">
-                Máquinas e Equipamentos
-                <button className="hover:text-indigo-900">&times;</button>
-              </span>
-              <button className="px-3 py-1.5 border border-dashed border-slate-300 text-slate-500 text-xs font-bold rounded-lg hover:border-indigo-500 hover:text-indigo-600 transition-colors">
+              {selectedSegments.map(seg => (
+                <span key={seg} className="px-3 py-1.5 bg-indigo-50 text-indigo-700 text-xs font-bold rounded-lg border border-indigo-100 flex items-center gap-1">
+                  {seg}
+                  <button onClick={() => handleRemoveSegment(seg)} className="hover:text-indigo-900">&times;</button>
+                </span>
+              ))}
+              <button 
+                onClick={() => setIsModalOpen(true)}
+                className="px-3 py-1.5 border border-dashed border-slate-300 text-slate-500 text-xs font-bold rounded-lg hover:border-indigo-500 hover:text-indigo-600 transition-colors"
+              >
                 + Adicionar Segmento
               </button>
             </div>
@@ -537,7 +597,13 @@ function PerfilComercialTab() {
           </div>
 
           <div className="flex items-center gap-3">
-            <Button className="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold px-6">
+            <Button 
+              onClick={() => {
+                const sugg = ['Indústria Elétrica', 'Materiais Elétricos', 'Automação Industrial'];
+                setSelectedSegments(prev => Array.from(new Set([...prev, ...sugg])));
+              }}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold px-6"
+            >
               Adicionar Sugestões ao Perfil
             </Button>
             <Button variant="ghost" className="text-slate-500 hover:text-slate-700 text-sm font-bold">
@@ -546,6 +612,64 @@ function PerfilComercialTab() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Modal Novo Segmento */}
+      {isModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full animate-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-slate-100">
+              <h3 className="text-base font-extrabold text-slate-900">Novo Segmento</h3>
+              <button onClick={() => setIsModalOpen(false)} className="p-1.5 hover:bg-slate-100 rounded-full">
+                <XCircle className="h-4 w-4 text-slate-400" />
+              </button>
+            </div>
+
+            <div className="px-6 py-5 space-y-4">
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Nome *</label>
+                <Input
+                  value={newSegment.nome}
+                  onChange={e => setNewSegment({ ...newSegment, nome: e.target.value })}
+                  placeholder="Ex: Agroindústria, Mineração, Logística..."
+                  className="h-9 text-sm"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Descrição</label>
+                <textarea
+                  value={newSegment.descricao}
+                  onChange={e => setNewSegment({ ...newSegment, descricao: e.target.value })}
+                  placeholder="Descreva o segmento de atuação."
+                  rows={3}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-3 justify-end px-6 pb-6">
+              <Button variant="outline" onClick={() => setIsModalOpen(false)} className="h-9 text-xs">Cancelar</Button>
+              <Button
+                onClick={async () => {
+                  if (!newSegment.nome.trim()) return;
+                  await supabase.from('segments').insert({
+                    organization_id: 'GLOBAL',
+                    nome: newSegment.nome.trim(),
+                    descricao: newSegment.descricao.trim(),
+                    status: 'ativo'
+                  });
+                  setSelectedSegments(prev => Array.from(new Set([...prev, newSegment.nome.trim()])));
+                  setIsModalOpen(false);
+                  setNewSegment({ nome: '', descricao: '' });
+                }}
+                disabled={!newSegment.nome.trim()}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white h-9 text-xs font-bold flex items-center gap-2"
+              >
+                <CheckCircle2 className="h-3.5 w-3.5" /> Salvar
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -581,6 +705,19 @@ export default function MinhaEmpresaPage() {
   })();
 
   const companyName = localStorage.getItem('supplyhub_company_name') || 'SupplyHub B2B';
+  const orgId = localStorage.getItem('supplyhub_organization_id');
+  const [logoUrl, setLogoUrl] = useState('');
+
+  useEffect(() => {
+    const fetchLogo = async () => {
+      if (!orgId) return;
+      const { data } = await supabase.from('organizations').select('logo_url').eq('id', orgId).single();
+      if (data?.logo_url) {
+        setLogoUrl(data.logo_url);
+      }
+    };
+    fetchLogo();
+  }, [orgId]);
 
   return (
     <div className="flex-1 bg-slate-50 min-h-full flex flex-col font-sans">
@@ -591,7 +728,11 @@ export default function MinhaEmpresaPage() {
           <div className="flex items-start justify-between gap-4">
             <div>
               <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white flex items-center gap-3">
-                <Globe className="h-7 w-7 text-indigo-400" />
+                {logoUrl ? (
+                  <img src={logoUrl} alt="Logo" className="h-8 w-8 object-cover rounded-md bg-white p-0.5" />
+                ) : (
+                  <Globe className="h-7 w-7 text-indigo-400" />
+                )}
                 Minha Empresa
               </h1>
               <p className="text-slate-400 mt-1 text-sm max-w-2xl">
