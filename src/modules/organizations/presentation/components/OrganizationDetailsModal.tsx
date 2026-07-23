@@ -67,7 +67,7 @@ export function OrganizationDetailsModal({ isOpen, onClose, organization, onSave
     
     const payload = {
       ...formData,
-      segment: selectedSegments.length > 0 ? selectedSegments : null
+      segment: selectedSegments.length > 0 ? selectedSegments.join(', ') : null
     };
 
     const { error } = await supabase.from('organizations').update(payload).eq('id', organization.id);
