@@ -452,12 +452,15 @@ function PerfilComercialTab() {
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newSegment, setNewSegment] = useState({ nome: '', descricao: '' });
+  const [availableSegments, setAvailableSegments] = useState<{id: string, nome: string}[]>([]);
 
   useEffect(() => {
     const load = async () => {
       const id = localStorage.getItem('supplyhub_organization_id');
       if (!id) return;
       setOrgId(id);
+      
+      // Load company profile
       const { data } = await supabase.from('organizations').select('business_model, segment').eq('id', id).single();
       if (data) {
         setForm({
@@ -470,6 +473,12 @@ function PerfilComercialTab() {
             setSelectedSegments(data.segment.split(',').map((s: string) => s.trim()).filter(Boolean));
           }
         }
+      }
+
+      // Load all available segments
+      const { data: segs } = await supabase.from('segments').select('id, nome').order('nome');
+      if (segs) {
+        setAvailableSegments(segs);
       }
     };
     load();
@@ -528,24 +537,47 @@ function PerfilComercialTab() {
 
           <hr className="border-slate-100" />
 
-          {/* Segmentação Manual (mock simplificado) */}
           <div className="space-y-3">
             <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1">
               <Tag className="h-3 w-3" /> Segmentos de Atuação
             </label>
-            <div className="flex flex-wrap gap-2">
-              {selectedSegments.map(seg => (
-                <span key={seg} className="px-3 py-1.5 bg-indigo-50 text-indigo-700 text-xs font-bold rounded-lg border border-indigo-100 flex items-center gap-1">
-                  {seg}
-                  <button onClick={() => handleRemoveSegment(seg)} className="hover:text-indigo-900">&times;</button>
-                </span>
-              ))}
-              <button 
-                onClick={() => setIsModalOpen(true)}
-                className="px-3 py-1.5 border border-dashed border-slate-300 text-slate-500 text-xs font-bold rounded-lg hover:border-indigo-500 hover:text-indigo-600 transition-colors"
-              >
-                + Adicionar Segmento
-              </button>
+            <div className="flex flex-col gap-3">
+              {/* Chips selected */}
+              <div className="flex flex-wrap gap-2">
+                {selectedSegments.map(seg => (
+                  <span key={seg} className="px-3 py-1.5 bg-indigo-50 text-indigo-700 text-xs font-bold rounded-lg border border-indigo-100 flex items-center gap-1">
+                    {seg}
+                    <button onClick={() => handleRemoveSegment(seg)} className="hover:text-indigo-900">&times;</button>
+                  </span>
+                ))}
+              </div>
+              
+              {/* Controls */}
+              <div className="flex items-center gap-2">
+                <select
+                  className="h-9 px-3 pr-8 text-sm border border-slate-200 rounded-lg appearance-none bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 min-w-[200px]"
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val) {
+                      if (!selectedSegments.includes(val)) {
+                        setSelectedSegments(prev => [...prev, val]);
+                      }
+                      e.target.value = '';
+                    }
+                  }}
+                >
+                  <option value="">Selecione para adicionar...</option>
+                  {availableSegments.map(s => (
+                    <option key={s.id} value={s.nome}>{s.nome}</option>
+                  ))}
+                </select>
+                <button 
+                  onClick={() => setIsModalOpen(true)}
+                  className="px-3 h-9 border border-dashed border-slate-300 text-slate-500 text-xs font-bold rounded-lg hover:border-indigo-500 hover:text-slate-700 transition-colors"
+                >
+                  + Criar Novo
+                </button>
+              </div>
             </div>
           </div>
 
