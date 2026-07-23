@@ -9,6 +9,7 @@ export interface IOperatorRepository {
     telefone?: string;
     cargo?: string;
     perfil: string;
+    gestor_id?: string;
     category_ids: string[];
     todas_categorias?: boolean;
     invited_by_id?: string;

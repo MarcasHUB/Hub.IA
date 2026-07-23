@@ -3,7 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import {
   Building2, Users, Layers, ArrowLeftRight, ScrollText,
   Globe, Phone, Mail, Hash, Shield, UserCheck,
-  Save, CheckCircle2
+  Save, CheckCircle2, Sparkles, ChevronDown, Tag
 } from 'lucide-react';
 import { Button } from '@/shared/components/ui/Button';
 import { Input } from '@/shared/components/ui/Input';
@@ -47,6 +47,26 @@ const EMPRESA_SECTIONS = [
   }
 ];
 
+const Field = ({
+  label, icon: Icon, value, onChange, type = 'text', placeholder, hint,
+}: {
+  label: string; icon: any; value: string; onChange: (v: string) => void; type?: string; placeholder?: string; hint?: string;
+}) => (
+  <div className="space-y-1.5">
+    <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1">
+      <Icon className="h-3 w-3" /> {label}
+    </label>
+    <Input
+      type={type}
+      value={value}
+      onChange={e => onChange(e.target.value)}
+      placeholder={placeholder}
+      className="h-10 text-sm"
+    />
+    {hint && <p className="text-[10px] text-slate-400">{hint}</p>}
+  </div>
+);
+
 
 function DadosEmpresaTab() {
   const [form, setForm] = useState({
@@ -59,10 +79,18 @@ function DadosEmpresaTab() {
     site: '',
     logo_url: '',
     gestor_principal: '',
+    cep: '',
+    endereco: '',
+    numero: '',
+    complemento: '',
+    bairro: '',
+    cidade: '',
+    uf: '',
   });
   const [saved, setSaved] = useState(false);
   const [completion, setCompletion] = useState(0);
   const [orgId, setOrgId] = useState('');
+  const [isUploading, setIsUploading] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -72,15 +100,22 @@ function DadosEmpresaTab() {
       const { data } = await supabase.from('organizations').select('*').eq('id', id).single();
       if (data) {
         setForm({
-          razao_social: data.name || '',
-          nome_fantasia: data.trade_name || '',
-          cnpj: data.document || '',
-          email_corporativo: data.commercial_email || '',
-          telefone: data.phone || '',
+          razao_social: data.name || data.razao_social || '',
+          nome_fantasia: data.trade_name || data.nome_fantasia || '',
+          cnpj: data.document || data.cnpj || '',
+          email_corporativo: data.commercial_email || data.email_corporativo || '',
+          telefone: data.phone || data.telefone || '',
           whatsapp: data.whatsapp || '',
           site: data.website || '',
           logo_url: data.logo_url || '',
           gestor_principal: localStorage.getItem('supplyhub_gestor_principal') || '',
+          cep: data.address_zip_code || '',
+          endereco: data.address_street || '',
+          numero: data.address_number || '',
+          complemento: data.address_complement || '',
+          bairro: data.address_neighborhood || '',
+          cidade: data.address_city || data.city || '',
+          uf: data.address_state || data.state || '',
         });
         setCompletion(data.profile_completion || 50);
       }
@@ -88,8 +123,79 @@ function DadosEmpresaTab() {
     load();
   }, []);
 
+  const fetchCNPJ = async (cnpjVal: string) => {
+    const cleanCNPJ = cnpjVal.replace(/\D/g, '');
+    if (cleanCNPJ.length === 14) {
+      try {
+        const response = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${cleanCNPJ}`);
+        if (response.ok) {
+          const data = await response.json();
+          setForm(f => ({
+            ...f,
+            razao_social: data.razao_social || f.razao_social,
+            nome_fantasia: data.nome_fantasia || data.razao_social || f.nome_fantasia,
+            telefone: data.ddd_telefone_1 || f.telefone,
+            email_corporativo: data.email || f.email_corporativo,
+            cep: data.cep || f.cep,
+            endereco: data.logradouro || f.endereco,
+            numero: data.numero || f.numero,
+            complemento: data.complemento || f.complemento,
+            bairro: data.bairro || f.bairro,
+            cidade: data.municipio || f.cidade,
+            uf: data.uf || f.uf,
+          }));
+          if (data.nome_fantasia || data.razao_social) {
+             localStorage.setItem('supplyhub_company_name', data.nome_fantasia || data.razao_social);
+             window.dispatchEvent(new Event('storage'));
+          }
+        }
+      } catch (error) {
+        console.error("Erro ao buscar CNPJ", error);
+      }
+    }
+  };
+
   const handleChange = (field: string, value: string) => {
     setForm(f => ({ ...f, [field]: value }));
+    if (field === 'cnpj') {
+      fetchCNPJ(value);
+    }
+    if (field === 'nome_fantasia') {
+      localStorage.setItem('supplyhub_company_name', value);
+      window.dispatchEvent(new Event('storage'));
+    }
+  };
+
+  const handleUploadLogo = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !orgId) return;
+
+    setIsUploading(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${orgId}-${Math.random()}.${fileExt}`;
+      const filePath = `company-logos/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('company-logos')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('company-logos')
+        .getPublicUrl(filePath);
+
+      setForm(f => ({ ...f, logo_url: publicUrl }));
+      
+      // Update immediately in db
+      await supabase.from('organizations').update({ logo_url: publicUrl }).eq('id', orgId);
+
+    } catch (error) {
+      console.error("Erro no upload do logotipo:", error);
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   const handleSave = async () => {
@@ -97,16 +203,31 @@ function DadosEmpresaTab() {
     if (form.logo_url) comp += 20;
     if (form.site) comp += 10;
     if (form.whatsapp) comp += 10;
+    if (form.endereco) comp += 10;
     
     await supabase.from('organizations').update({
       name: form.razao_social,
+      razao_social: form.razao_social,
       trade_name: form.nome_fantasia,
+      nome_fantasia: form.nome_fantasia,
       document: form.cnpj,
+      cnpj: form.cnpj,
       commercial_email: form.email_corporativo,
+      email_corporativo: form.email_corporativo,
       phone: form.telefone,
+      telefone: form.telefone,
       whatsapp: form.whatsapp,
       website: form.site,
       logo_url: form.logo_url,
+      address_zip_code: form.cep,
+      address_street: form.endereco,
+      address_number: form.numero,
+      address_complement: form.complemento,
+      address_neighborhood: form.bairro,
+      address_city: form.cidade,
+      city: form.cidade,
+      address_state: form.uf,
+      state: form.uf,
       profile_completion: comp
     }).eq('id', orgId);
 
@@ -114,26 +235,6 @@ function DadosEmpresaTab() {
     setSaved(true);
     setTimeout(() => setSaved(false), 3000);
   };
-
-  const Field = ({
-    label, icon: Icon, field, type = 'text', placeholder, hint,
-  }: {
-    label: string; icon: any; field: string; type?: string; placeholder?: string; hint?: string;
-  }) => (
-    <div className="space-y-1.5">
-      <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1">
-        <Icon className="h-3 w-3" /> {label}
-      </label>
-      <Input
-        type={type}
-        value={(form as any)[field]}
-        onChange={e => handleChange(field, e.target.value)}
-        placeholder={placeholder}
-        className="h-10 text-sm"
-      />
-      {hint && <p className="text-[10px] text-slate-400">{hint}</p>}
-    </div>
-  );
 
   return (
     <div className="space-y-6 max-w-2xl">
@@ -165,62 +266,99 @@ function DadosEmpresaTab() {
       </div>
 
       <Card className="rounded-2xl border-slate-200 shadow-sm">
-        <CardContent className="p-6 space-y-5">
+        <CardContent className="p-6 space-y-6">
+          {/* Logo e Info Principal */}
+          <div className="flex flex-col sm:flex-row gap-6">
+            <div className="shrink-0 flex flex-col items-center">
+              <div className="h-32 w-32 rounded-2xl border-2 border-dashed border-slate-200 overflow-hidden flex items-center justify-center bg-slate-50 relative group">
+                {form.logo_url ? (
+                  <img src={form.logo_url} alt="Logotipo" className="h-full w-full object-cover" />
+                ) : (
+                  <div className="flex flex-col items-center text-slate-400">
+                    <Building2 className="h-8 w-8 mb-2" />
+                    <span className="text-[10px] uppercase font-bold tracking-wider">Logo</span>
+                  </div>
+                )}
+                
+                <label className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
+                  <span className="text-white text-xs font-bold">{isUploading ? 'Enviando...' : 'Alterar'}</span>
+                  <input type="file" className="hidden" accept="image/*" onChange={handleUploadLogo} disabled={isUploading} />
+                </label>
+              </div>
+            </div>
+            
+            <div className="flex-1 space-y-4">
+              <Field
+                label="Razão Social"
+                icon={Building2}
+                value={form.razao_social}
+                onChange={v => handleChange('razao_social', v)}
+                placeholder="Nome jurídico oficial"
+              />
+              <Field
+                label="Nome Fantasia"
+                icon={Building2}
+                value={form.nome_fantasia}
+                onChange={v => handleChange('nome_fantasia', v)}
+                placeholder="Ex: Hub.IA"
+              />
+            </div>
+          </div>
+
+          <hr className="border-slate-100" />
+
+          {/* Dados de Contato e Identificação */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Field
-              label="Razão Social"
-              icon={Hash}
-              field="razao_social"
-              placeholder="Ex: Empresa Tecnologia Ltda"
-            />
-            <Field
-              label="Nome Fantasia"
-              icon={Building2}
-              field="nome_fantasia"
-              placeholder="Ex: SupplyHub"
-              hint="Exibido no menu superior"
-            />
             <Field
               label="CNPJ"
               icon={Hash}
-              field="cnpj"
+              value={form.cnpj}
+              onChange={v => handleChange('cnpj', v)}
               placeholder="00.000.000/0001-00"
-            />
-            <Field
-              label="Telefone"
-              icon={Phone}
-              field="telefone"
-              placeholder="(11) 3000-0000"
-            />
-            <Field
-              label="WhatsApp"
-              icon={Phone}
-              field="whatsapp"
-              placeholder="(11) 90000-0000"
+              hint="Preencha o CNPJ para buscar os dados na Receita"
             />
             <Field
               label="Site"
               icon={Globe}
-              field="site"
+              value={form.site}
+              onChange={v => handleChange('site', v)}
               placeholder="www.suaempresa.com.br"
+            />
+            <Field
+              label="Telefone"
+              icon={Phone}
+              value={form.telefone}
+              onChange={v => handleChange('telefone', v)}
+              placeholder="(11) 3000-0000"
+            />
+            <Field
+              label="E-mail Corporativo"
+              icon={Mail}
+              value={form.email_corporativo}
+              onChange={v => handleChange('email_corporativo', v)}
+              placeholder="contato@empresa.com.br"
             />
           </div>
 
-          <Field
-            label="E-mail Corporativo"
-            icon={Mail}
-            field="email_corporativo"
-            type="email"
-            placeholder="contato@empresa.com.br"
-            hint="Usado para convites institucionais e notificações da Hub.IA"
-          />
+          <hr className="border-slate-100" />
 
-          <Field
-            label="Gestor Principal"
-            icon={UserCheck}
-            field="gestor_principal"
-            placeholder="Nome do responsável máximo"
-          />
+          {/* Endereço */}
+          <div>
+            <h3 className="text-sm font-bold text-slate-800 mb-4">Endereço</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <Field label="CEP" icon={Hash} value={form.cep} onChange={v => handleChange('cep', v)} />
+              <div className="sm:col-span-2">
+                <Field label="Logradouro" icon={Hash} value={form.endereco} onChange={v => handleChange('endereco', v)} />
+              </div>
+              <Field label="Número" icon={Hash} value={form.numero} onChange={v => handleChange('numero', v)} />
+              <div className="sm:col-span-2">
+                <Field label="Complemento" icon={Hash} value={form.complemento} onChange={v => handleChange('complemento', v)} />
+              </div>
+              <Field label="Bairro" icon={Hash} value={form.bairro} onChange={v => handleChange('bairro', v)} />
+              <Field label="Cidade" icon={Hash} value={form.cidade} onChange={v => handleChange('cidade', v)} />
+              <Field label="UF" icon={Hash} value={form.uf} onChange={v => handleChange('uf', v)} />
+            </div>
+          </div>
 
           <div className="flex justify-end pt-2">
             {saved && (
@@ -257,6 +395,160 @@ function DadosEmpresaTab() {
   );
 }
 
+
+// ─── PerfilComercialTab ──────────────────────────────────────────────────────────
+function PerfilComercialTab() {
+  const [form, setForm] = useState({
+    business_model: '',
+    segment: '',
+  });
+  const [saved, setSaved] = useState(false);
+  const [orgId, setOrgId] = useState('');
+
+  useEffect(() => {
+    const load = async () => {
+      const id = localStorage.getItem('supplyhub_organization_id');
+      if (!id) return;
+      setOrgId(id);
+      const { data } = await supabase.from('organizations').select('business_model, segment').eq('id', id).single();
+      if (data) {
+        setForm({
+          business_model: data.business_model || '',
+          segment: data.segment || '',
+        });
+      }
+    };
+    load();
+  }, []);
+
+  const handleChange = (field: string, value: string) => {
+    setForm(f => ({ ...f, [field]: value }));
+  };
+
+  const handleSave = async () => {
+    await supabase.from('organizations').update({
+      business_model: form.business_model,
+      segment: form.segment,
+    }).eq('id', orgId);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 3000);
+  };
+
+  return (
+    <div className="space-y-6 max-w-2xl">
+      <div>
+        <h2 className="text-lg font-bold text-slate-900">Perfil Comercial</h2>
+        <p className="text-sm text-slate-500 mt-0.5">
+          Defina o modelo de atuação da sua empresa e como o mercado B2B deve enxergá-la.
+        </p>
+      </div>
+
+      <Card className="rounded-2xl border-slate-200 shadow-sm">
+        <CardContent className="p-6 space-y-6">
+          
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1">
+              <Building2 className="h-3 w-3" /> Perfil Comercial
+            </label>
+            <div className="relative">
+              <select
+                value={form.business_model}
+                onChange={e => handleChange('business_model', e.target.value)}
+                className="w-full h-10 px-3 pr-10 text-sm border border-slate-200 rounded-lg appearance-none bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              >
+                <option value="">Selecione um perfil...</option>
+                <option value="Indústria / Fabricante">Indústria / Fabricante</option>
+                <option value="Distribuidor / Revenda">Distribuidor / Revenda</option>
+                <option value="Consumidor Final">Consumidor Final</option>
+                <option value="Prestador de Serviços">Prestador de Serviços</option>
+                <option value="Fabricante e Revenda">Fabricante e Revenda</option>
+              </select>
+              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+            </div>
+            <p className="text-[10px] text-slate-400">Determina como a plataforma classifica suas operações.</p>
+          </div>
+
+          <hr className="border-slate-100" />
+
+          {/* Segmentação Manual (mock simplificado) */}
+          <div className="space-y-3">
+            <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1">
+              <Tag className="h-3 w-3" /> Segmentos de Atuação
+            </label>
+            <div className="flex flex-wrap gap-2">
+              <span className="px-3 py-1.5 bg-indigo-50 text-indigo-700 text-xs font-bold rounded-lg border border-indigo-100 flex items-center gap-1">
+                Construção Civil
+                <button className="hover:text-indigo-900">&times;</button>
+              </span>
+              <span className="px-3 py-1.5 bg-indigo-50 text-indigo-700 text-xs font-bold rounded-lg border border-indigo-100 flex items-center gap-1">
+                Máquinas e Equipamentos
+                <button className="hover:text-indigo-900">&times;</button>
+              </span>
+              <button className="px-3 py-1.5 border border-dashed border-slate-300 text-slate-500 text-xs font-bold rounded-lg hover:border-indigo-500 hover:text-indigo-600 transition-colors">
+                + Adicionar Segmento
+              </button>
+            </div>
+          </div>
+
+          <div className="flex justify-end pt-2">
+            {saved && (
+              <span className="flex items-center gap-1.5 text-xs font-bold text-green-600 mr-4">
+                <CheckCircle2 className="h-4 w-4" /> Salvo com sucesso!
+              </span>
+            )}
+            <Button
+              onClick={handleSave}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white h-10 px-6 text-sm font-bold flex items-center gap-2"
+            >
+              <Save className="h-4 w-4" /> Salvar Alterações
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Card Hub.IA Sugestões de Segmentos */}
+      <Card className="rounded-2xl border-indigo-100 bg-gradient-to-br from-indigo-50 to-white shadow-sm overflow-hidden relative">
+        <div className="absolute top-4 right-4 flex h-3 w-3">
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+          <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+        </div>
+        <CardContent className="p-6">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="h-10 w-10 rounded-xl bg-indigo-100 flex items-center justify-center shrink-0">
+              <Sparkles className="h-5 w-5 text-indigo-600" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-indigo-900">Sugestões Hub.IA</h3>
+              <p className="text-[11px] text-indigo-600 uppercase tracking-wider font-bold">Inteligência de Mercado</p>
+            </div>
+          </div>
+          
+          <p className="text-sm text-slate-600 mb-5 leading-relaxed">
+            Com base no seu CNAE (<strong>Fabricação de aparelhos elétricos</strong>), a Hub.IA identificou <strong className="text-indigo-700">3 segmentos adicionais</strong> que podem aumentar sua visibilidade em 47% na plataforma.
+          </p>
+
+          <div className="space-y-2 mb-6">
+            {['Indústria Elétrica', 'Materiais Elétricos', 'Automação Industrial'].map(seg => (
+              <div key={seg} className="flex items-center justify-between p-3 bg-white border border-indigo-50 rounded-xl shadow-sm">
+                <span className="text-sm font-bold text-slate-700">{seg}</span>
+                <span className="text-xs text-indigo-500 font-bold bg-indigo-50 px-2 py-1 rounded-md">98% Relevância</span>
+              </div>
+            ))}
+          </div>
+
+          <div className="flex items-center gap-3">
+            <Button className="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold px-6">
+              Adicionar Sugestões ao Perfil
+            </Button>
+            <Button variant="ghost" className="text-slate-500 hover:text-slate-700 text-sm font-bold">
+              Ignorar
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
 
 // ─── MinhaEmpresaPage ─────────────────────────────────────────────────────────
 export default function MinhaEmpresaPage() {
@@ -345,12 +637,7 @@ export default function MinhaEmpresaPage() {
           {/* Área de conteúdo */}
           <main className="flex-1 min-w-0">
             {activeTab === 'dados' && <DadosEmpresaTab />}
-            {activeTab === 'comercial' && (
-              <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-200">
-                <h2 className="text-xl font-bold text-slate-800 mb-4">Perfil Comercial</h2>
-                <p className="text-slate-600">Configurações do perfil comercial (Em breve).</p>
-              </div>
-            )}
+            {activeTab === 'comercial' && <PerfilComercialTab />}
             {activeTab === 'colaboradores' && <OperatorsPage />}
             {activeTab === 'solicitantes' && (
               <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-200">

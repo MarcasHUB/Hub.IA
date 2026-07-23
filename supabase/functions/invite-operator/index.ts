@@ -200,7 +200,10 @@ serve(async (req: Request) => {
   } catch (error) {
     console.error('[invite-operator] Erro:', error);
     return new Response(
-      JSON.stringify({ error: String(error) }),
+      JSON.stringify({ 
+        error: error instanceof Error ? error.message : (error.message || String(error)), 
+        details: error 
+      }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

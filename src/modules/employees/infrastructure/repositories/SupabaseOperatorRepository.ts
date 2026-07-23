@@ -14,6 +14,7 @@ export class SupabaseOperatorRepository implements IOperatorRepository {
     telefone?: string;
     cargo?: string;
     perfil: string;
+    gestor_id?: string;
     category_ids: string[];
     todas_categorias?: boolean;
     invited_by_id?: string;
@@ -24,7 +25,22 @@ export class SupabaseOperatorRepository implements IOperatorRepository {
     });
 
     if (error) {
-      throw new Error(error.message || 'Erro ao enviar convite via Edge Function.');
+      console.error('[SupabaseOperatorRepository] Erro retornado pela Edge Function:', error);
+      let errorMessage = error.message || 'Erro ao enviar convite via Edge Function.';
+      let details = '';
+      if (error.context && typeof error.context.json === 'function') {
+        try {
+          const errorBody = await error.context.json();
+          console.error('[SupabaseOperatorRepository] Corpo do erro:', errorBody);
+          errorMessage = errorBody.error || errorBody.message || errorMessage;
+          details = errorBody.details ? JSON.stringify(errorBody.details) : '';
+        } catch (e) {
+          // Ignore json parse error
+        }
+      }
+      
+      const fullError = `${errorMessage}${details ? ` | Detalhes: ${details}` : ''}`;
+      throw new Error(fullError);
     }
 
     return data;
@@ -206,9 +222,11 @@ export class SupabaseOperatorRepository implements IOperatorRepository {
   }
 
   async resendInvite(email: string): Promise<void> {
+    const newToken = crypto.randomUUID();
     const { error } = await supabase
       .from('operator_invitations')
       .update({
+        token: newToken,
         sent_at: new Date().toISOString(),
         expires_at: new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString()
       })

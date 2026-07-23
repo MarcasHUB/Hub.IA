@@ -10,10 +10,11 @@ import { useQueryClient, useQuery } from '@tanstack/react-query';
 interface EditOperatorModalProps {
   operator: Operator;
   orgId: string;
+  operators: Operator[];
   onClose: () => void;
 }
 
-export function EditOperatorModal({ operator, orgId, onClose }: EditOperatorModalProps) {
+export function EditOperatorModal({ operator, orgId, operators, onClose }: EditOperatorModalProps) {
   const queryClient = useQueryClient();
   
   const initialMacro = (): MacroProfile => {
@@ -31,6 +32,7 @@ export function EditOperatorModal({ operator, orgId, onClose }: EditOperatorModa
     cargo: operator.cargo || '',
     macroProfile: initialMacro(),
     perfil: operator.perfil as OperatorPerfil,
+    gestor_id: operator.gestor_id || '',
     todas_categorias: operator.todas_categorias || false,
     category_ids: operator.categories || [],
   });
@@ -66,6 +68,7 @@ export function EditOperatorModal({ operator, orgId, onClose }: EditOperatorModa
         telefone: form.telefone || undefined,
         cargo: operator.status === 'pendente' ? MACRO_PROFILES[form.macroProfile].cargo : (form.cargo || undefined),
         perfil: operator.status === 'pendente' ? MACRO_PROFILES[form.macroProfile].perfil : form.perfil,
+        gestor_id: form.gestor_id || undefined,
         todas_categorias: form.todas_categorias,
         categories: form.todas_categorias ? [] : form.category_ids,
       };
@@ -84,6 +87,7 @@ export function EditOperatorModal({ operator, orgId, onClose }: EditOperatorModa
           telefone: form.telefone,
           cargo: form.cargo,
           perfil: form.perfil,
+          gestor_id: form.gestor_id || undefined,
           todas_categorias: form.todas_categorias,
           categories: form.todas_categorias ? [] : form.category_ids,
         } : item);
@@ -160,13 +164,30 @@ export function EditOperatorModal({ operator, orgId, onClose }: EditOperatorModa
                   <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Telefone</label>
                   <Input value={form.telefone} onChange={e => setForm(f => ({ ...f, telefone: e.target.value }))} placeholder="(11) 9xxxx-xxxx" className="h-9 text-sm" />
                 </div>
-                {operator.status !== 'pendente' && (
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Cargo</label>
-                    <Input value={form.cargo} onChange={e => setForm(f => ({ ...f, cargo: e.target.value }))} placeholder="Ex: Comprador Sênior" className="h-9 text-sm" />
-                  </div>
-                )}
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Gestor Direto (Opcional)</label>
+                  <select
+                    value={form.gestor_id}
+                    onChange={e => setForm(f => ({ ...f, gestor_id: e.target.value }))}
+                    className="w-full h-9 px-3 rounded-lg border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  >
+                    <option value="">Sem gestor</option>
+                    {operators
+                      .filter(op => op.status !== 'cancelado' && op.id !== operator.id && (op.perfil === 'gestor' || op.perfil === 'administrador'))
+                      .map(op => (
+                        <option key={op.id} value={op.id}>{op.nome} {op.sobrenome}</option>
+                      ))
+                    }
+                  </select>
+                </div>
               </div>
+
+              {operator.status !== 'pendente' && (
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Cargo</label>
+                  <Input value={form.cargo} onChange={e => setForm(f => ({ ...f, cargo: e.target.value }))} placeholder="Ex: Comprador Sênior" className="h-9 text-sm" />
+                </div>
+              )}
 
               {/* Perfil e Acessos */}
               {operator.status === 'pendente' ? (
@@ -239,7 +260,8 @@ export function EditOperatorModal({ operator, orgId, onClose }: EditOperatorModa
                     onChange={e => setForm(f => ({ ...f, perfil: e.target.value as OperatorPerfil }))}
                     className="w-full h-9 px-3 rounded-lg border border-slate-300 text-sm font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   >
-                    <option value="consulta">Auditor/Consulta — Acesso restrito</option>
+                    <option value="auditor">Auditor/Consulta — Acesso restrito de leitura</option>
+                    <option value="solicitante">Solicitante — Apenas requisições (Mobile)</option>
                     <option value="comprador">Comprador — Opera categorias autorizadas</option>
                     <option value="gestor">Gestor — Aprova e delega funções</option>
                     <option value="administrador">Administrador — Acesso total</option>
@@ -263,25 +285,38 @@ export function EditOperatorModal({ operator, orgId, onClose }: EditOperatorModa
                     <span className="text-sm font-semibold text-slate-700">Todas as Categorias</span>
                   </label>
                   
-                  <div className={`pl-6 grid grid-cols-2 gap-2 transition-opacity ${form.todas_categorias ? 'opacity-40 pointer-events-none' : 'opacity-100'}`}>
-                    {categoriesList.map(cat => (
-                      <label key={cat.id} className="flex items-center gap-2 cursor-pointer">
-                        <input 
-                          type="checkbox" 
-                          className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-                          checked={form.category_ids.includes(cat.id)}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setForm(f => ({ ...f, category_ids: [...f.category_ids, cat.id] }));
-                            } else {
-                              setForm(f => ({ ...f, category_ids: f.category_ids.filter((id: string) => id !== cat.id) }));
-                            }
-                          }}
-                        />
-                        <span className="text-xs font-medium text-slate-600 truncate" title={cat.name}>{cat.name}</span>
-                      </label>
-                    ))}
-                  </div>
+                  {form.todas_categorias ? (
+                    <div className="pl-6 pt-1">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-2 block">Inclui:</span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {categoriesList.map(cat => (
+                          <span key={cat.id} className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-100">
+                            {cat.name}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="pl-6 grid grid-cols-2 gap-2">
+                      {categoriesList.map(cat => (
+                        <label key={cat.id} className="flex items-center gap-2 cursor-pointer">
+                          <input 
+                            type="checkbox" 
+                            className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                            checked={form.category_ids.includes(cat.id)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setForm(f => ({ ...f, category_ids: [...f.category_ids, cat.id] }));
+                              } else {
+                                setForm(f => ({ ...f, category_ids: f.category_ids.filter((id: string) => id !== cat.id) }));
+                              }
+                            }}
+                          />
+                          <span className="text-xs font-medium text-slate-600 truncate" title={cat.name}>{cat.name}</span>
+                        </label>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

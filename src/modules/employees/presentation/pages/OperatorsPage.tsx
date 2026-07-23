@@ -33,7 +33,8 @@ const PERFIL_CONFIG: Record<OperatorPerfil, { label: string; badge: string; icon
   administrador: { label: 'Administrador', badge: 'bg-indigo-100 text-indigo-800 border-indigo-200', icon: Shield },
   gestor:        { label: 'Gestor',        badge: 'bg-violet-100 text-violet-800 border-violet-200', icon: UserCheck },
   comprador:     { label: 'Comprador',     badge: 'bg-slate-100 text-slate-700 border-slate-200', icon: Users },
-  consulta:      { label: 'Auditor/Consulta', badge: 'bg-slate-50 text-slate-500 border-slate-200', icon: Users },
+  solicitante:   { label: 'Solicitante',   badge: 'bg-emerald-100 text-emerald-800 border-emerald-200', icon: Smartphone },
+  auditor:       { label: 'Auditor/Consulta', badge: 'bg-slate-50 text-slate-500 border-slate-200', icon: Users },
 };
 
 
@@ -59,16 +60,16 @@ function PerfilBadge({ perfil }: { perfil: OperatorPerfil }) {
 
 // ─── Modal de Convite ─────────────────────────────────────────────────────────
 
-function InviteModal({ onClose, onInvite }: { onClose: () => void; onInvite: (op: Operator) => void }) {
+function InviteModal({ onClose, onInvite, operators }: { onClose: () => void; onInvite: (op: Operator) => void, operators: Operator[] }) {
   const [form, setForm] = useState({
     nome: '', sobrenome: '', email: '', telefone: '',
     macroProfile: 'Comprador' as MacroProfile,
+    gestor_id: '',
   });
   const [inviteForm, setInviteForm] = useState({
     todas_categorias: false,
     category_ids: [] as string[]
   });
-  const [categories, setCategories] = useState<any[]>([]);
   const [sending, setSending] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [successData, setSuccessData] = useState<{ op: Operator; token: string; expires_at: string; invite_url: string; } | null>(null);
@@ -77,13 +78,11 @@ function InviteModal({ onClose, onInvite }: { onClose: () => void; onInvite: (op
 
   const orgId = localStorage.getItem('supplyhub_organization_id') || '00000000-0000-0000-0000-000000000000';
   
-  useQuery({
+  const { data: categories = [] } = useQuery({
     queryKey: ['categories', orgId],
     queryFn: async () => {
       const repo = new SupabaseCategoryRepository();
-      const list = await repo.findAll(orgId);
-      setCategories(list);
-      return list;
+      return await repo.findAll(orgId);
     }
   });
 
@@ -105,6 +104,7 @@ function InviteModal({ onClose, onInvite }: { onClose: () => void; onInvite: (op
         telefone: form.telefone || undefined,
         cargo: mapInfo.cargo,
         perfil: mapInfo.perfil,
+        gestor_id: form.gestor_id || undefined,
         category_ids: inviteForm.todas_categorias ? [] : inviteForm.category_ids,
         todas_categorias: inviteForm.todas_categorias,
         invited_by_id: loggedOperator.id || undefined,
@@ -131,6 +131,7 @@ function InviteModal({ onClose, onInvite }: { onClose: () => void; onInvite: (op
           telefone: form.telefone || undefined,
           cargo: mapInfo.cargo,
           perfil: mapInfo.perfil,
+          gestor_id: form.gestor_id || undefined,
           status: 'pendente',
           invited_at: new Date().toISOString(),
           created_at: new Date().toISOString(),
@@ -263,9 +264,27 @@ function InviteModal({ onClose, onInvite }: { onClose: () => void; onInvite: (op
                 <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">E-mail Corporativo *</label>
                 <Input type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} placeholder="maria@empresa.com.br" className="h-9 text-sm" />
               </div>
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Telefone</label>
-                <Input value={form.telefone} onChange={e => setForm(f => ({ ...f, telefone: e.target.value }))} placeholder="(11) 9xxxx-xxxx" className="h-9 text-sm" />
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Telefone</label>
+                  <Input value={form.telefone} onChange={e => setForm(f => ({ ...f, telefone: e.target.value }))} placeholder="(11) 9xxxx-xxxx" className="h-9 text-sm" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Gestor Direto (Opcional)</label>
+                  <select
+                    value={form.gestor_id}
+                    onChange={e => setForm(f => ({ ...f, gestor_id: e.target.value }))}
+                    className="w-full h-9 px-3 rounded-lg border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  >
+                    <option value="">Sem gestor</option>
+                    {operators
+                      .filter(op => op.status !== 'cancelado' && (op.perfil === 'gestor' || op.perfil === 'administrador'))
+                      .map(op => (
+                        <option key={op.id} value={op.id}>{operatorFullName(op)}</option>
+                      ))
+                    }
+                  </select>
+                </div>
               </div>
 
               <div className="space-y-3">
@@ -344,25 +363,38 @@ function InviteModal({ onClose, onInvite }: { onClose: () => void; onInvite: (op
                 <span className="text-sm font-semibold text-slate-700">Todas as Categorias</span>
               </label>
               
-              <div className={`pl-6 grid grid-cols-2 gap-2 transition-opacity ${inviteForm.todas_categorias ? 'opacity-40 pointer-events-none' : 'opacity-100'}`}>
-                {categories.map(cat => (
-                  <label key={cat.id} className="flex items-center gap-2 cursor-pointer">
-                    <input 
-                      type="checkbox" 
-                      className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-                      checked={inviteForm.category_ids.includes(cat.id)}
-                      onChange={(e) => {
-                        if (e.target.checked) {
-                          setInviteForm(f => ({ ...f, category_ids: [...f.category_ids, cat.id] }));
-                        } else {
-                          setInviteForm(f => ({ ...f, category_ids: f.category_ids.filter((id: string) => id !== cat.id) }));
-                        }
-                      }}
-                    />
-                    <span className="text-xs font-medium text-slate-600 truncate" title={cat.name}>{cat.name}</span>
-                  </label>
-                ))}
-              </div>
+              {inviteForm.todas_categorias ? (
+                <div className="pl-6 pt-1">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-2 block">Inclui:</span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {categories.map(cat => (
+                      <span key={cat.id} className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-100">
+                        {cat.name}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="pl-6 grid grid-cols-2 gap-2">
+                  {categories.map(cat => (
+                    <label key={cat.id} className="flex items-center gap-2 cursor-pointer">
+                      <input 
+                        type="checkbox" 
+                        className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                        checked={inviteForm.category_ids.includes(cat.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setInviteForm(f => ({ ...f, category_ids: [...f.category_ids, cat.id] }));
+                          } else {
+                            setInviteForm(f => ({ ...f, category_ids: f.category_ids.filter((id: string) => id !== cat.id) }));
+                          }
+                        }}
+                      />
+                      <span className="text-xs font-medium text-slate-600 truncate" title={cat.name}>{cat.name}</span>
+                    </label>
+                  ))}
+                </div>
+              )}
             </div>
             </div>
 
@@ -608,17 +640,18 @@ export default function OperatorsPage() {
   
   const stats = {
     total: activeStatsList.length,
-    ativos: activeStatsList.filter(o => o.status === 'ativo').length,
+    ativos: activeStatsList.filter(o => o.status === 'ativo' || o.status === 'ferias').length,
     pendentes: activeStatsList.filter(o => o.status === 'pendente').length,
   };
 
   return (
     <div className="space-y-6 font-sans">
-      {showInvite && <InviteModal onClose={() => setShowInvite(false)} onInvite={handleInvite} />}
+      {showInvite && <InviteModal onClose={() => setShowInvite(false)} onInvite={handleInvite} operators={operators} />}
       {editingOperator && (
         <EditOperatorModal 
           operator={editingOperator} 
           orgId={orgId} 
+          operators={operators}
           onClose={() => setEditingOperator(null)} 
         />
       )}

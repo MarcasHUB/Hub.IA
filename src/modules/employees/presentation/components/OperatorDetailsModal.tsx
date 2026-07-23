@@ -26,7 +26,8 @@ const PERFIL_CONFIG: Record<OperatorPerfil, { label: string; badge: string; icon
   administrador: { label: 'Admin', badge: 'bg-indigo-50 text-indigo-700 border-indigo-200', icon: ShieldCheck },
   gestor: { label: 'Gestor', badge: 'bg-violet-50 text-violet-700 border-violet-200', icon: Briefcase },
   comprador: { label: 'Comprador', badge: 'bg-blue-50 text-blue-700 border-blue-200', icon: User },
-  consulta: { label: 'Consulta', badge: 'bg-slate-100 text-slate-600 border-slate-200', icon: MapPin },
+  solicitante: { label: 'Solicitante', badge: 'bg-emerald-50 text-emerald-700 border-emerald-200', icon: MapPin },
+  auditor: { label: 'Auditor', badge: 'bg-slate-100 text-slate-600 border-slate-200', icon: MapPin },
 };
 
 function StatusBadge({ status }: { status: OperatorStatus }) {

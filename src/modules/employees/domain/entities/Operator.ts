@@ -1,6 +1,6 @@
 // ─── Operator Domain Entity ────────────────────────────────────────────────────
 
-export type OperatorPerfil = 'administrador' | 'gestor' | 'comprador' | 'consulta';
+export type OperatorPerfil = 'administrador' | 'gestor' | 'comprador' | 'solicitante' | 'auditor';
 
 export type OperatorStatus =
   | 'pendente'
@@ -57,7 +57,8 @@ export function operatorPerfilLabel(perfil: OperatorPerfil): string {
     administrador: 'Administrador',
     gestor: 'Gestor',
     comprador: 'Comprador',
-    consulta: 'Consulta',
+    solicitante: 'Solicitante',
+    auditor: 'Auditor',
   };
   return map[perfil];
 }
@@ -66,7 +67,7 @@ export type MacroProfile = 'Solicitante' | 'Comprador' | 'Gestor' | 'Administrad
 
 export const MACRO_PROFILES: Record<MacroProfile, { perfil: OperatorPerfil; cargo: string; mobile: boolean; desktop: boolean; perms: string[]; rests: string[] }> = {
   Solicitante: {
-    perfil: 'consulta',
+    perfil: 'solicitante',
     cargo: '[APP] Solicitante',
     mobile: true,
     desktop: false,
@@ -98,7 +99,7 @@ export const MACRO_PROFILES: Record<MacroProfile, { perfil: OperatorPerfil; carg
     rests: []
   },
   Auditor: {
-    perfil: 'consulta',
+    perfil: 'auditor',
     cargo: '[DESKTOP] Auditor',
     mobile: false,
     desktop: true,

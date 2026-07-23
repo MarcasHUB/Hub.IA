@@ -18,8 +18,8 @@ export default function AccessLogsPage() {
   const [filterType, setFilterType] = useState('');
   const [filterEntity, setFilterEntity] = useState('');
 
-  // Detalhes JSON do log operacional
-  const [selectedJson, setSelectedJson] = useState<any>(null);
+  // Detalhes do Log (unificado)
+  const [selectedLog, setSelectedLog] = useState<any>(null);
 
   const logRepo = new SupabaseLogRepository();
   const orgId = localStorage.getItem('supplyhub_organization_id') || '00000000-0000-0000-0000-000000000000';
@@ -198,6 +198,7 @@ export default function AccessLogsPage() {
                   <th className="px-6 py-3.5">IP</th>
                   <th className="px-6 py-3.5">Navegador (User-Agent)</th>
                   <th className="px-6 py-3.5">Resultado</th>
+                  <th className="px-6 py-3.5 text-center">Detalhes</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -224,6 +225,14 @@ export default function AccessLogsPage() {
                       <span className={`font-bold uppercase text-[9px] ${log.resultado === 'sucesso' ? 'text-green-600' : 'text-red-650'}`}>
                         {log.resultado}
                       </span>
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                      <button
+                        onClick={() => setSelectedLog(log)}
+                        className="p-1 hover:bg-indigo-50 rounded-lg text-indigo-600 transition-colors inline-flex items-center gap-1 font-bold text-[10px]"
+                      >
+                        <Eye className="h-3.5 w-3.5" /> Detalhes
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -254,14 +263,12 @@ export default function AccessLogsPage() {
                     </td>
                     <td className="px-6 py-4 font-medium text-slate-700">{log.acao}</td>
                     <td className="px-6 py-4 text-center">
-                      {(log.payload_antes || log.payload_depois) && (
-                        <button
-                          onClick={() => setSelectedJson({ antes: log.payload_antes, depois: log.payload_depois })}
-                          className="p-1 hover:bg-indigo-50 rounded-lg text-indigo-600 transition-colors inline-flex items-center gap-1 font-bold text-[10px]"
-                        >
-                          <Eye className="h-3.5 w-3.5" /> Detalhes
-                        </button>
-                      )}
+                      <button
+                        onClick={() => setSelectedLog(log)}
+                        className="p-1 hover:bg-indigo-50 rounded-lg text-indigo-600 transition-colors inline-flex items-center gap-1 font-bold text-[10px]"
+                      >
+                        <Eye className="h-3.5 w-3.5" /> Detalhes
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -271,36 +278,70 @@ export default function AccessLogsPage() {
         )}
       </Card>
 
-      {/* Modal JSON Viewer para Logs Operacionais */}
-      {selectedJson && (
+      {/* LogDetailsModal Unificado */}
+      {selectedLog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
-          <div className="bg-slate-900 rounded-2xl shadow-2xl max-w-2xl w-full p-6 text-slate-300 font-mono text-xs space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <span className="font-bold flex items-center gap-1.5 text-white">
-                <Info className="h-4 w-4 text-indigo-400" /> Metadados da Operação
+          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-6 text-slate-700 space-y-6">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+              <span className="font-bold flex items-center gap-2 text-slate-900 text-lg">
+                <Info className="h-5 w-5 text-indigo-600" /> Detalhes do Registro
               </span>
               <button
-                onClick={() => setSelectedJson(null)}
-                className="text-slate-500 hover:text-white"
+                onClick={() => setSelectedLog(null)}
+                className="text-slate-400 hover:text-slate-600"
               >
-                [ Fechar ]
+                &times; Fechar
               </button>
             </div>
             
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <p className="text-[10px] font-bold text-slate-500 uppercase">Estado Anterior (Antes)</p>
-                <pre className="p-3 bg-slate-950 rounded-xl overflow-auto max-h-60 border border-slate-800">
-                  {JSON.stringify(selectedJson.antes || {}, null, 2)}
-                </pre>
+              <div className="space-y-1">
+                <p className="text-[10px] font-bold text-slate-400 uppercase">Operador</p>
+                <p className="text-sm font-semibold text-slate-900">{selectedLog.operator_nome || '—'}</p>
               </div>
-              <div className="space-y-1.5">
-                <p className="text-[10px] font-bold text-slate-500 uppercase">Estado Posterior (Depois)</p>
-                <pre className="p-3 bg-slate-950 rounded-xl overflow-auto max-h-60 border border-slate-800">
-                  {JSON.stringify(selectedJson.depois || {}, null, 2)}
-                </pre>
+              <div className="space-y-1">
+                <p className="text-[10px] font-bold text-slate-400 uppercase">Data/Hora</p>
+                <p className="text-sm font-semibold text-slate-900">{new Date(selectedLog.created_at).toLocaleString('pt-BR')}</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-[10px] font-bold text-slate-400 uppercase">Ação / Evento</p>
+                <p className="text-sm font-semibold text-slate-900 uppercase">{(selectedLog.acao || selectedLog.tipo || '').replace('_', ' ')}</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-[10px] font-bold text-slate-400 uppercase">Origem / Entidade</p>
+                <p className="text-sm font-semibold text-slate-900 capitalize">{selectedLog.entidade || 'Acesso ao Sistema'}</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-[10px] font-bold text-slate-400 uppercase">IP</p>
+                <p className="text-sm font-semibold text-slate-900">{selectedLog.ip || '—'}</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-[10px] font-bold text-slate-400 uppercase">Navegador (User-Agent)</p>
+                <p className="text-sm font-semibold text-slate-900 line-clamp-2" title={selectedLog.user_agent}>{selectedLog.user_agent || '—'}</p>
               </div>
             </div>
+
+            <details className="mt-4 border border-slate-200 rounded-xl overflow-hidden group">
+              <summary className="bg-slate-50 p-3 text-xs font-bold text-slate-600 cursor-pointer flex items-center gap-2 group-open:border-b border-slate-200">
+                <span>Detalhes Técnicos (JSON)</span>
+              </summary>
+              <div className="p-4 bg-slate-900 font-mono text-[10px] text-slate-300 max-h-60 overflow-auto">
+                {selectedLog.payload_antes || selectedLog.payload_depois ? (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-slate-500 mb-2 font-bold uppercase">Antes</p>
+                      <pre>{JSON.stringify(selectedLog.payload_antes || {}, null, 2)}</pre>
+                    </div>
+                    <div>
+                      <p className="text-slate-500 mb-2 font-bold uppercase">Depois</p>
+                      <pre>{JSON.stringify(selectedLog.payload_depois || {}, null, 2)}</pre>
+                    </div>
+                  </div>
+                ) : (
+                  <pre>{JSON.stringify(selectedLog, null, 2)}</pre>
+                )}
+              </div>
+            </details>
           </div>
         </div>
       )}
@@ -308,6 +349,6 @@ export default function AccessLogsPage() {
   );
 
   function setErrorFilter() {
-    setSelectedJson(null);
+    setSelectedLog(null);
   }
 }
