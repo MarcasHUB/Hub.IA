@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/shared/components/ui/Button';
 import { ClearableInput } from '@/shared/components/ui/ClearableInput';
 import { Badge } from '@/shared/components/ui/Badge';
-import { Search, Plus, Upload, Filter, ShoppingCart, PackageOpen, MoreVertical, ImageOff, X } from 'lucide-react';
+import { Card, CardContent } from '@/shared/components/ui/Card';
+import { Search, Plus, Upload, Filter, ShoppingCart, PackageOpen, MoreVertical, ImageOff, X, Edit2, ToggleLeft, ToggleRight, Layers, Package } from 'lucide-react';
 import { QuotationTypeModal } from '@/modules/quotations/presentation/components/QuotationTypeModal';
 import { useQuotationCart } from '@/modules/quotations/presentation/context/QuotationCartContext';
 import { SupabaseProductRepository } from '../../infrastructure/repositories/SupabaseProductRepository';
@@ -21,7 +22,7 @@ interface Product {
   category: string;
   manufacturer: string;
   price: number;
-  status: 'Active' | 'Draft';
+  status: 'Active' | 'Draft' | 'Inactive';
   updatedAt: string;
   description?: string;
   imageUrl?: string;
@@ -52,9 +53,8 @@ export default function ProductsListPage() {
       }
 
       const data = await repo.findAll(tenantId);
-      const activeData = data.filter(p => p.status !== 'Inactive');
       // Map domain to UI format
-      setProducts(activeData.map(p => ({
+      setProducts(data.map(p => ({
         id: p.id,
         name: p.name,
         sku: p.sku,
@@ -64,7 +64,7 @@ export default function ProductsListPage() {
         category: p.categoryName || 'Sem categoria',
         manufacturer: p.manufacturer || 'Desconhecido',
         price: p.price,
-        status: p.status === 'Draft' ? 'Draft' : 'Active',
+        status: p.status, // Preserve Draft, Active, Inactive
         updatedAt: p.updatedAt.toISOString().split('T')[0],
         description: p.description,
         imageUrl: p.imageUrl,
@@ -83,21 +83,47 @@ export default function ProductsListPage() {
   }, []);
   
   const [search, setSearch] = useState('');
+  const [filterStatus, setFilterStatus] = useState<'ALL' | 'ACTIVE' | 'INACTIVE'>('ALL');
   const { items, addItem, removeItem, clearCart } = useQuotationCart();
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
   const [isQuoteModalOpen, setIsQuoteModalOpen] = useState(false);
 
   const selectedProductIds = useMemo(() => items.map(item => item.productId), [items]);
 
+  const ativos = products.filter(p => p.status === 'Active').length;
+  const inativos = products.filter(p => p.status === 'Inactive').length;
+
   const filteredProducts = useMemo(() => {
-    if (!search) return products;
-    const s = search.toLowerCase();
-    return products.filter(p => 
-      p.name.toLowerCase().includes(s) || 
-      p.sku.toLowerCase().includes(s) ||
-      p.manufacturer.toLowerCase().includes(s)
-    );
-  }, [products, search]);
+    let result = products;
+    if (filterStatus === 'ACTIVE') result = result.filter(p => p.status === 'Active');
+    if (filterStatus === 'INACTIVE') result = result.filter(p => p.status === 'Inactive');
+    
+    if (search) {
+      const s = search.toLowerCase();
+      result = result.filter(p => 
+        p.name.toLowerCase().includes(s) || 
+        p.sku.toLowerCase().includes(s) ||
+        p.manufacturer.toLowerCase().includes(s)
+      );
+    }
+    return result;
+  }, [products, search, filterStatus]);
+
+  const toggleProductStatus = async (product: any) => {
+    try {
+      const fullProduct = await repo.findById(product.id, tenantId);
+      if (fullProduct) {
+        // We'll use 'Inactive' and 'Active' depending on what's defined in the domain
+        const newStatus = fullProduct.status === 'Active' ? 'Inactive' : 'Active';
+        fullProduct.status = newStatus as any; // Cast in case it requires enum
+        await repo.save(fullProduct);
+        loadProducts();
+      }
+    } catch(e) {
+      console.error(e);
+      alert('Erro ao alterar status do material.');
+    }
+  };
 
   const handleToggleSelect = (product: Product) => {
     const isSelected = selectedProductIds.includes(product.id);
@@ -218,7 +244,29 @@ export default function ProductsListPage() {
 
       {/* MAIN CONTENT */}
       <div className="flex-1 overflow-auto p-6">
-        <div className="max-w-[1600px] mx-auto">
+        <div className="max-w-[1600px] mx-auto space-y-6">
+          
+          {/* KPIs */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {[
+              { label: 'Total de Materiais', value: products.length, color: 'text-slate-900', desc: 'Materiais cadastrados', filter: 'ALL' },
+              { label: 'Ativos', value: ativos, color: 'text-green-600', desc: 'Materiais em uso', filter: 'ACTIVE' },
+              { label: 'Inativos', value: inativos, color: 'text-slate-400', desc: 'Materiais desativados', filter: 'INACTIVE' },
+            ].map(item => (
+              <Card 
+                key={item.label} 
+                onClick={() => setFilterStatus(item.filter as any)}
+                className={`rounded-2xl border-slate-200 shadow-sm cursor-pointer transition-all ${filterStatus === item.filter ? 'ring-2 ring-indigo-500 bg-indigo-50/30' : 'bg-white hover:bg-slate-50'}`}
+              >
+                <CardContent className="p-5">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{item.label}</p>
+                  <p className={`text-2xl font-extrabold mt-1 ${item.color}`}>{item.value}</p>
+                  <p className="text-[10px] text-slate-400 mt-1">{item.desc}</p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
           {filteredProducts.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 text-center">
               <div className="h-16 w-16 bg-slate-100 rounded-3xl flex items-center justify-center mb-4 border border-slate-200">
@@ -248,107 +296,23 @@ export default function ProductsListPage() {
                     className={`group relative bg-white border rounded-2xl flex flex-col transition-all duration-150 ease-out hover:-translate-y-[2px] hover:shadow-lg hover:border-slate-300 ${isSelected ? 'border-indigo-500 shadow-md shadow-indigo-100 ring-1 ring-indigo-500' : 'border-slate-200 hover:shadow-sm'}`}
                   >
                     {/* Imagem Cover / Placeholder */}
-                    <div className="aspect-[4/3] w-full bg-slate-50 border-b border-slate-100 flex flex-col items-center justify-center relative rounded-t-2xl group-hover:bg-slate-100/50 transition-colors">
-                      {/* Categoria Badge - Top Left */}
-                      <div className="absolute top-3 left-3 z-10 flex flex-col gap-2">
-                        <Badge variant="outline" className="bg-white text-indigo-600 border-slate-200 font-medium px-2 py-0.5 rounded-lg shadow-sm text-[10px]">
-                          {product.category}
-                        </Badge>
-                        {product.isComplete ? (
-                          <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 font-medium px-2 py-0.5 rounded-lg shadow-sm text-[10px] w-fit">
-                            Completo
-                          </Badge>
-                        ) : (
-                          <div className="flex items-center gap-1.5 group/tooltip relative">
-                            <div className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse border-2 border-white shadow-sm shadow-red-500/50"></div>
-                            <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200 font-medium px-2 py-0.5 rounded-lg shadow-sm text-[10px] w-fit cursor-help">
-                              Incompleto
-                            </Badge>
-                            
-                            {/* Tooltip */}
-                            <div className="absolute left-0 top-full mt-1 w-48 bg-slate-900 text-white text-[10px] p-2 rounded-lg opacity-0 invisible group-hover/tooltip:opacity-100 group-hover/tooltip:visible transition-all z-50 pointer-events-none shadow-xl border border-slate-800">
-                              Cadastro incompleto. Faltam informações obrigatórias.
-                            </div>
-                          </div>
-                        )}
-                      </div>
-
+                    <div className="h-40 w-full bg-slate-50 border-b border-slate-100 flex flex-col items-center justify-center relative rounded-t-2xl group-hover:bg-slate-100/50 transition-colors shrink-0">
                       {product.imageUrl ? (
                         <img src={product.imageUrl} alt={product.name} className="w-full h-full object-cover rounded-t-2xl" />
                       ) : (
                         <>
                           <div className="absolute inset-0 opacity-[0.03] bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-slate-900 via-slate-900 to-transparent"></div>
-                          <ImageOff className="h-12 w-12 text-slate-300 mb-2 drop-shadow-sm" />
+                          <ImageOff className="h-10 w-10 text-slate-300 mb-2 drop-shadow-sm" />
                           <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Sem Imagem</span>
                         </>
                       )}
-                      
-                      <div className="absolute top-3 right-3 flex gap-2">
-                        <div className="relative z-20">
-                          <button 
-                            onClick={(e) => { e.stopPropagation(); setActiveMenu(activeMenu === product.id ? null : product.id); }}
-                            className="h-8 w-8 rounded-full bg-white/90 backdrop-blur-sm border border-slate-200 shadow-sm flex items-center justify-center text-slate-500 hover:text-indigo-600 transition-colors"
-                          >
-                            <MoreVertical className="h-4 w-4" />
-                          </button>
-                          
-                          {/* Dropdown Menu */}
-                          {activeMenu === product.id && (
-                            <>
-                              <div className="fixed inset-0 z-10" onClick={(e) => { e.stopPropagation(); setActiveMenu(null); }}></div>
-                              <div className="absolute right-0 top-10 w-40 bg-white border border-slate-200 rounded-xl shadow-xl z-30 py-1 overflow-hidden" onClick={e => e.stopPropagation()}>
-                                <button 
-                                  onClick={() => {
-                                    setActiveMenu(null);
-                                    setEditingProductId(product.id);
-                                  }}
-                                  className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 hover:text-indigo-600 font-medium"
-                                >
-                                  Editar Material
-                                </button>
-                                <button 
-                                  onClick={async () => {
-                                    setActiveMenu(null);
-                                    if (window.confirm('Tem certeza que deseja inativar/excluir este material?')) {
-                                      try {
-                                        await repo.delete(product.id, tenantId);
-                                        alert('O material foi inativado/excluído com sucesso.');
-                                        loadProducts();
-                                      } catch (e: any) {
-                                        console.error(e);
-                                        alert(e.message || 'Erro ao excluir material.');
-                                      }
-                                    }
-                                  }}
-                                  className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 font-medium"
-                                >
-                                  Excluir
-                                </button>
-                              </div>
-                            </>
-                          )}
-                        </div>
-                      </div>
                     </div>
 
                     <div className="p-4 flex flex-col flex-1">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider group/sku relative cursor-help">
-                          Cód. Fab: {product.manufacturerCode || 'ND'}
-                          {product.sku && (
-                             <span className="absolute bottom-full left-0 mb-1 w-max opacity-0 invisible group-hover/sku:opacity-100 group-hover/sku:visible bg-slate-800 text-white text-[10px] py-1 px-2 rounded transition-all z-10 pointer-events-none">
-                               SKU Revenda: {product.sku}
-                             </span>
-                          )}
-                        </span>
-                        <Badge variant="outline" className="text-[10px] font-bold bg-slate-50 text-slate-600 border-slate-200">
-                          {product.unit}
-                        </Badge>
-                      </div>
-
-                      <div className="mb-2.5">
+                      {/* Nome do Material */}
+                      <div className="mb-2">
                         <h3 
-                          className="font-bold text-slate-900 leading-snug line-clamp-2 hover:text-indigo-600 cursor-pointer transition-colors" 
+                          className="font-bold text-slate-900 text-sm leading-snug line-clamp-2 hover:text-indigo-600 cursor-pointer transition-colors" 
                           title={product.name}
                           onClick={() => setEditingProductId(product.id)}
                         >
@@ -356,23 +320,70 @@ export default function ProductsListPage() {
                         </h3>
                       </div>
                       
-                      <div className="flex flex-wrap gap-1.5 mb-2.5">
-                        <span className="inline-flex items-center px-1.5 py-0.5 rounded border border-slate-200 bg-white text-[9px] font-medium text-slate-500">Fab: {product.manufacturer || 'ND'}</span>
-                        <span className="inline-flex items-center px-1.5 py-0.5 rounded border border-slate-200 bg-white text-[9px] font-medium text-slate-500">PN: {product.manufacturerCode || 'ND'}</span>
-                        <span className="inline-flex items-center px-1.5 py-0.5 rounded border border-slate-200 bg-white text-[9px] font-medium text-slate-500">Fornec: {product.supplierId || 'ND'}</span>
+                      {/* Descrição Breve */}
+                      <div className="mb-3">
+                        {product.description ? (
+                          <p className="text-xs text-slate-500 line-clamp-2 min-h-[32px]">{product.description}</p>
+                        ) : (
+                          <div className="h-[32px]"></div> /* Placeholder */
+                        )}
                       </div>
 
-                      {product.description ? (
-                        <p className="text-xs text-slate-500 mb-3 line-clamp-1">{product.description}</p>
-                      ) : (
-                        <div className="mb-3 h-4"></div> /* Placeholder to keep consistent spacing if no description */
-                      )}
+                      {/* Códigos Técnicos */}
+                      <div className="grid grid-cols-2 gap-2 mb-3">
+                        <div className="bg-slate-50 rounded-lg p-2 border border-slate-100 text-center">
+                          <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400 mb-0.5">Cód. Fabr.</p>
+                          <p className="text-xs font-bold text-slate-700 truncate">{product.manufacturerCode || 'ND'}</p>
+                        </div>
+                        <div className="bg-slate-50 rounded-lg p-2 border border-slate-100 text-center">
+                          <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400 mb-0.5">SKU Forn.</p>
+                          <p className="text-xs font-bold text-slate-700 truncate">{product.sku || 'ND'}</p>
+                        </div>
+                      </div>
 
-                      <div className="mt-auto pt-2">
+                      {/* Status e Categoria */}
+                      <div className="flex items-center justify-between mb-4">
+                        <span className="text-[10px] font-bold text-indigo-700 px-2.5 py-1 rounded-full bg-indigo-50 border border-indigo-100 truncate max-w-[120px]">
+                          {product.category}
+                        </span>
+                        <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full border ${
+                          product.isComplete 
+                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
+                            : 'bg-red-50 text-red-700 border-red-200'
+                        }`}>
+                          {product.isComplete ? 'Completo' : 'Incompleto'}
+                        </span>
+                      </div>
+
+                      {/* Ações: Editar e Ativar/Inativar */}
+                      <div className="flex items-center gap-2 pt-3 border-t border-slate-100 mb-3">
+                        <button
+                          onClick={() => setEditingProductId(product.id)}
+                          className="flex-1 flex items-center justify-center gap-1.5 text-[10px] font-bold text-slate-600 hover:text-indigo-700 hover:bg-indigo-50 py-1.5 rounded-lg transition-colors"
+                        >
+                          <Edit2 className="h-3 w-3" /> Editar
+                        </button>
+                        <button
+                          onClick={() => toggleProductStatus(product)}
+                          className={`flex-1 flex items-center justify-center gap-1.5 text-[10px] font-bold py-1.5 rounded-lg transition-colors ${
+                            product.status === 'Active'
+                              ? 'text-slate-500 hover:text-red-600 hover:bg-red-50'
+                              : 'text-slate-500 hover:text-green-600 hover:bg-green-50'
+                          }`}
+                        >
+                          {product.status === 'Active'
+                            ? <><ToggleLeft className="h-3 w-3" /> Inativar</>
+                            : <><ToggleRight className="h-3 w-3" /> Ativar</>
+                          }
+                        </button>
+                      </div>
+
+                      {/* Botão Adicionar ao Carrinho */}
+                      <div className="mt-auto">
                         <Button 
                           onClick={() => handleToggleSelect(product)}
-                          disabled={!product.availableForPurchase}
-                          className={`w-full font-bold h-9 transition-all border-none ${isSelected ? 'bg-indigo-700 text-white shadow-sm' : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white'}`}
+                          disabled={!product.availableForPurchase || product.status === 'Inactive'}
+                          className={`w-full font-bold h-9 transition-all border-none ${isSelected ? 'bg-indigo-700 text-white shadow-sm' : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white disabled:opacity-50'}`}
                           variant="outline"
                         >
                           <ShoppingCart className="h-4 w-4 mr-2" />
