@@ -704,19 +704,6 @@ export default function MinhaEmpresaPage() {
   })();
 
   const companyName = localStorage.getItem('supplyhub_company_name') || 'SupplyHub B2B';
-  const orgId = localStorage.getItem('supplyhub_organization_id');
-  const [logoUrl, setLogoUrl] = useState('');
-
-  useEffect(() => {
-    const fetchLogo = async () => {
-      if (!orgId) return;
-      const { data } = await supabase.from('organizations').select('logo_url').eq('id', orgId).single();
-      if (data?.logo_url) {
-        setLogoUrl(data.logo_url);
-      }
-    };
-    fetchLogo();
-  }, [orgId]);
 
   return (
     <div className="flex-1 bg-slate-50 min-h-full flex flex-col font-sans">
@@ -727,11 +714,7 @@ export default function MinhaEmpresaPage() {
           <div className="flex items-start justify-between gap-4">
             <div>
               <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white flex items-center gap-3">
-                {logoUrl ? (
-                  <img src={logoUrl} alt="Logo" className="h-8 w-8 object-cover rounded-md bg-white p-0.5" />
-                ) : (
-                  <Globe className="h-7 w-7 text-indigo-400" />
-                )}
+                <Globe className="h-7 w-7 text-indigo-400" />
                 Minha Empresa
               </h1>
               <p className="text-slate-400 mt-1 text-sm max-w-2xl">

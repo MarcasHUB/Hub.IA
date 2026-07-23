@@ -307,14 +307,11 @@ export function AppLayout() {
         <div className="w-full max-w-[1440px] px-6 flex items-center justify-between">
           
           {/* BLOCO DA ESQUERDA: Logo */}
-          <Link to="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity shrink-0">
-            {companyLogo && <CompanyLogo logo={companyLogo} />}
-            <div className="flex items-baseline">
-              <span className="text-[22px] font-extrabold text-indigo-700 tracking-tight leading-none">Hub.IA</span>
-              <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest leading-none ml-2">
-                Suprimentos
-              </span>
-            </div>
+          <Link to="/" className="flex items-center hover:opacity-80 transition-opacity shrink-0">
+            <span className="text-[22px] font-extrabold text-indigo-700 tracking-tight leading-none">Hub.IA</span>
+            <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest leading-none ml-2 mt-1">
+              Suprimentos
+            </span>
           </Link>
 
           {/* BLOCO CENTRAL: Navegação e Rede */}
