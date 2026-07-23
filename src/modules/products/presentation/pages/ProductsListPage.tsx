@@ -362,22 +362,23 @@ export default function ProductsListPage() {
                         <span className="inline-flex items-center px-1.5 py-0.5 rounded border border-slate-200 bg-white text-[9px] font-medium text-slate-500">Fornec: {product.supplierId || 'ND'}</span>
                       </div>
 
-                      {product.description && (
+                      {product.description ? (
                         <p className="text-xs text-slate-500 mb-3 line-clamp-1">{product.description}</p>
+                      ) : (
+                        <div className="mb-3 h-4"></div> /* Placeholder to keep consistent spacing if no description */
                       )}
 
-                      {product.availableForPurchase && (
-                        <div className="mt-auto pt-2">
-                          <Button 
-                            onClick={() => handleToggleSelect(product)}
-                            className={`w-full font-bold h-9 transition-all border-none ${isSelected ? 'bg-indigo-700 text-white shadow-sm' : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white'}`}
-                            variant="outline"
-                          >
-                            <ShoppingCart className="h-4 w-4 mr-2" />
-                            {isSelected ? 'No Carrinho' : 'Adicionar ao Carrinho'}
-                          </Button>
-                        </div>
-                      )}
+                      <div className="mt-auto pt-2">
+                        <Button 
+                          onClick={() => handleToggleSelect(product)}
+                          disabled={!product.availableForPurchase}
+                          className={`w-full font-bold h-9 transition-all border-none ${isSelected ? 'bg-indigo-700 text-white shadow-sm' : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white'}`}
+                          variant="outline"
+                        >
+                          <ShoppingCart className="h-4 w-4 mr-2" />
+                          {isSelected ? 'No Carrinho' : 'Adicionar ao Carrinho'}
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 );
