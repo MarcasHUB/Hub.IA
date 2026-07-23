@@ -382,8 +382,8 @@ export default function ProductsListPage() {
                       <div className="mt-auto">
                         <Button 
                           onClick={() => handleToggleSelect(product)}
-                          disabled={!product.availableForPurchase || product.status === 'Inactive'}
-                          className={`w-full font-bold h-9 transition-all border-none ${isSelected ? 'bg-indigo-700 text-white shadow-sm' : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white disabled:opacity-50'}`}
+                          disabled={product.status === 'Inactive'}
+                          className={`w-full font-bold h-9 transition-all border-none ${isSelected ? 'bg-indigo-700 text-white shadow-sm' : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed'}`}
                           variant="outline"
                         >
                           <ShoppingCart className="h-4 w-4 mr-2" />
