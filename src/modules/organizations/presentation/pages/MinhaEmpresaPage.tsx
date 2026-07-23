@@ -247,11 +247,8 @@ function DadosEmpresaTab() {
     const { error } = await supabase.from('organizations').update({
       name: form.razao_social,
       razao_social: form.razao_social,
-      trade_name: form.nome_fantasia,
       nome_fantasia: form.nome_fantasia,
-      document: form.cnpj,
       cnpj: form.cnpj,
-      commercial_email: form.email_corporativo,
       email_corporativo: form.email_corporativo,
       phone: form.telefone,
       telefone: form.telefone,
@@ -263,9 +260,7 @@ function DadosEmpresaTab() {
       address_number: form.numero,
       address_complement: form.complemento,
       address_neighborhood: form.bairro,
-      address_city: form.cidade,
       city: form.cidade,
-      address_state: form.uf,
       state: form.uf,
       profile_completion: comp
     }).eq('id', orgId);
@@ -469,7 +464,11 @@ function PerfilComercialTab() {
           business_model: data.business_model || '',
         });
         if (data.segment) {
-          setSelectedSegments(data.segment.split(',').map((s: string) => s.trim()).filter(Boolean));
+          if (Array.isArray(data.segment)) {
+            setSelectedSegments(data.segment);
+          } else if (typeof data.segment === 'string') {
+            setSelectedSegments(data.segment.split(',').map((s: string) => s.trim()).filter(Boolean));
+          }
         }
       }
     };
@@ -483,7 +482,7 @@ function PerfilComercialTab() {
   const handleSave = async () => {
     await supabase.from('organizations').update({
       business_model: form.business_model,
-      segment: selectedSegments.join(', '),
+      segment: selectedSegments.length > 0 ? selectedSegments : null,
     }).eq('id', orgId);
     setSaved(true);
     setTimeout(() => setSaved(false), 3000);
