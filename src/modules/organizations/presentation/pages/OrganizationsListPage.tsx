@@ -164,7 +164,7 @@ export default function OrganizationsListPage() {
               <h3 className="text-base font-bold text-slate-900">Nenhuma empresa encontrada.</h3>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-6 pb-24">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-6 pb-24">
               {filteredOrgs.map(org => {
                 let segments: string[] = [];
                 if (Array.isArray(org.segment)) {
@@ -176,7 +176,7 @@ export default function OrganizationsListPage() {
                 return (
                   <div 
                     key={org.id}
-                    className="bg-white border border-slate-200 rounded-2xl p-5 flex flex-col transition-all hover:shadow-lg hover:border-slate-300 h-full"
+                    className="bg-white border border-slate-200 rounded-2xl p-6 flex flex-col transition-all hover:shadow-lg hover:border-slate-300 h-full"
                   >
                     <div className="flex items-start gap-4 mb-5 h-[64px]">
                       {org.logo_url ? (
@@ -200,7 +200,7 @@ export default function OrganizationsListPage() {
                     </div>
                     
                     {/* Área Fixa para Segmentos */}
-                    <div className="flex flex-wrap gap-1.5 mb-4 min-h-[24px] items-start">
+                    <div className="flex flex-wrap gap-1.5 mb-5 min-h-[24px] items-start">
                       {segments.length > 0 ? (
                         <>
                           {segments.slice(0, 2).map((seg, idx) => (
@@ -222,7 +222,7 @@ export default function OrganizationsListPage() {
                     </div>
                     
                     {/* Área Fixa para Operadores */}
-                    <div className="flex items-center gap-3 mb-4">
+                    <div className="flex items-center gap-3 mb-5">
                       <div className="flex items-center gap-1.5 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-100 w-full">
                         <Users className="h-3.5 w-3.5 text-slate-400" />
                         <span className="text-xs font-bold text-slate-700">{org.operatorCount} Operadores</span>
@@ -230,7 +230,7 @@ export default function OrganizationsListPage() {
                     </div>
 
                     {/* Área Fixa para Cadastro */}
-                    <div className="mb-4">
+                    <div className="mb-5">
                       <div className="flex items-center gap-2 bg-slate-50 border border-slate-100 rounded-lg px-3 py-2">
                         <div className="flex-1 h-1.5 bg-slate-200 rounded-full overflow-hidden">
                           <div 
@@ -244,18 +244,19 @@ export default function OrganizationsListPage() {
                       </div>
                     </div>
 
-                    <div className="mt-auto pt-4 border-t border-slate-100 flex items-center justify-between gap-2">
+                    {/* Botões do Rodapé */}
+                    <div className="mt-auto pt-5 border-t border-slate-100 flex items-center justify-between gap-3">
                       <Button 
                         variant="outline" 
                         onClick={() => setSelectedOrg(org)}
-                        className="flex-1 h-9 text-xs font-bold bg-white"
+                        className="flex-1 h-10 text-xs font-bold bg-white"
                       >
                         Editar Empresa
                       </Button>
                       <Button 
                         variant="outline"
                         onClick={() => toggleStatus(org.id, org.status)}
-                        className={`h-9 px-4 text-xs font-bold border-slate-200 ${
+                        className={`h-10 px-5 text-xs font-bold border-slate-200 ${
                           org.status === 'ativo' 
                             ? 'text-red-600 hover:text-red-700 hover:bg-red-50 hover:border-red-200' 
                             : 'text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 hover:border-emerald-200'
