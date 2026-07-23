@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/infrastructure/supabase/client';
-import { Building2, Search, PackageOpen, Shield, Users, CheckCircle, XCircle } from 'lucide-react';
+import { Building2, Search, PackageOpen, Shield, Users, CheckCircle, XCircle, Edit2, ToggleLeft, ToggleRight } from 'lucide-react';
 import { Button } from '@/shared/components/ui/Button';
 import { ClearableInput } from '@/shared/components/ui/ClearableInput';
 import { InviteCompanyModal } from '../../../suppliers/presentation/components/InviteCompanyModal';
@@ -176,94 +176,104 @@ export default function OrganizationsListPage() {
                 return (
                   <div 
                     key={org.id}
-                    className="bg-white border border-slate-200 rounded-2xl p-6 flex flex-col transition-all hover:shadow-lg hover:border-slate-300 h-full"
+                    className="group relative bg-white border border-slate-200 rounded-2xl flex flex-col transition-all duration-150 ease-out hover:-translate-y-[2px] hover:shadow-lg hover:border-slate-300 h-full"
                   >
-                    <div className="flex items-start gap-4 mb-5 h-[64px]">
-                      {org.logo_url ? (
-                        <img src={org.logo_url} alt="Logo" className="h-16 w-16 rounded-xl object-contain bg-slate-50 border border-slate-100 shrink-0" />
-                      ) : (
-                        <div className="h-16 w-16 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600 font-bold text-xl shrink-0">
-                          {org.trade_name.substring(0, 2).toUpperCase()}
+                    <div className="p-4 flex flex-col flex-1">
+                      <div className="flex items-start gap-3 mb-4 h-[48px]">
+                        {org.logo_url ? (
+                          <img src={org.logo_url} alt="Logo" className="h-12 w-12 rounded-xl object-contain bg-slate-50 border border-slate-100 shrink-0" />
+                        ) : (
+                          <div className="h-12 w-12 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600 font-bold text-lg shrink-0">
+                            {org.trade_name.substring(0, 2).toUpperCase()}
+                          </div>
+                        )}
+                        
+                        <div className="flex-1 min-w-0">
+                          <button 
+                            onClick={() => setSelectedOrg(org)}
+                            className="font-bold text-slate-900 text-sm leading-snug line-clamp-2 hover:text-indigo-600 cursor-pointer text-left block" 
+                            title={org.name}
+                          >
+                            {org.trade_name}
+                          </button>
+                          <p className="text-[10px] font-mono text-slate-500 mt-0.5 truncate">{org.cnpj || 'Sem CNPJ'}</p>
                         </div>
-                      )}
+                      </div>
                       
-                      <div className="flex-1 min-w-0">
-                        <button 
-                          onClick={() => setSelectedOrg(org)}
-                          className="font-bold text-slate-900 text-sm leading-tight line-clamp-2 hover:text-indigo-600 hover:underline block text-left" 
-                          title={org.name}
-                        >
-                          {org.trade_name}
-                        </button>
-                        <p className="text-xs font-mono text-slate-500 mt-1 truncate">{org.cnpj || 'Sem CNPJ'}</p>
+                      {/* Área Fixa para Segmentos */}
+                      <div className="flex flex-wrap gap-1.5 mb-3 min-h-[24px] items-start">
+                        {segments.length > 0 ? (
+                          <>
+                            {segments.slice(0, 2).map((seg, idx) => (
+                              <span key={idx} className="px-2 py-0.5 bg-slate-100 text-slate-600 text-[9px] font-bold uppercase tracking-wider rounded flex items-center whitespace-nowrap">
+                                {seg}
+                              </span>
+                            ))}
+                            {segments.length > 2 && (
+                              <span className="px-2 py-0.5 bg-slate-50 text-slate-500 text-[9px] font-bold uppercase tracking-wider rounded flex items-center">
+                                +{segments.length - 2}
+                              </span>
+                            )}
+                          </>
+                        ) : (
+                          <span className="px-2 py-0.5 bg-slate-50 text-slate-400 text-[9px] font-bold uppercase tracking-wider rounded flex items-center italic">
+                            Nenhum Segmento
+                          </span>
+                        )}
                       </div>
-                    </div>
-                    
-                    {/* Área Fixa para Segmentos */}
-                    <div className="flex flex-wrap gap-1.5 mb-5 min-h-[24px] items-start">
-                      {segments.length > 0 ? (
-                        <>
-                          {segments.slice(0, 2).map((seg, idx) => (
-                            <span key={idx} className="px-2 py-0.5 bg-slate-100 text-slate-600 text-[10px] font-bold rounded flex items-center whitespace-nowrap">
-                              [ {seg} ]
-                            </span>
-                          ))}
-                          {segments.length > 2 && (
-                            <span className="px-2 py-0.5 bg-slate-50 text-slate-500 text-[10px] font-bold rounded flex items-center">
-                              +{segments.length - 2}
-                            </span>
-                          )}
-                        </>
-                      ) : (
-                        <span className="px-2 py-0.5 bg-slate-50 text-slate-400 text-[10px] font-bold rounded flex items-center italic">
-                          Nenhum Segmento
-                        </span>
-                      )}
-                    </div>
-                    
-                    {/* Área Fixa para Operadores */}
-                    <div className="flex items-center gap-3 mb-5">
-                      <div className="flex items-center gap-1.5 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-100 w-full">
-                        <Users className="h-3.5 w-3.5 text-slate-400" />
-                        <span className="text-xs font-bold text-slate-700">{org.operatorCount} Operadores</span>
+                      
+                      {/* Área Fixa para Operadores */}
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="flex items-center justify-center gap-1.5 bg-slate-50 px-2.5 py-1.5 rounded-lg border border-slate-100 w-full">
+                          <Users className="h-3 w-3 text-slate-400" />
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-700">{org.operatorCount} Operadores</span>
+                        </div>
                       </div>
-                    </div>
 
-                    {/* Área Fixa para Cadastro */}
-                    <div className="mb-5">
-                      <div className="flex items-center gap-2 bg-slate-50 border border-slate-100 rounded-lg px-3 py-2">
-                        <div className="flex-1 h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                      {/* Status e Cadastro */}
+                      <div className="flex flex-col gap-2 mb-4 mt-auto">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">
+                            Progresso
+                          </span>
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                            org.profile_completion === 100 
+                              ? 'bg-emerald-50 text-emerald-700' 
+                              : 'bg-indigo-50 text-indigo-700'
+                          }`}>
+                            {org.profile_completion === 100 ? 'Completo' : `${org.profile_completion}%`}
+                          </span>
+                        </div>
+                        <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden w-full">
                           <div 
-                            className={`h-full ${org.profile_completion === 100 ? 'bg-emerald-500' : 'bg-indigo-500'}`} 
+                            className={`h-full transition-all duration-300 ${org.profile_completion === 100 ? 'bg-emerald-500' : 'bg-indigo-500'}`} 
                             style={{ width: `${org.profile_completion}%` }}
                           />
                         </div>
-                        <span className={`text-[10px] font-extrabold whitespace-nowrap ${org.profile_completion === 100 ? 'text-emerald-600' : 'text-slate-500'}`}>
-                          {org.profile_completion === 100 ? 'Completo' : `${org.profile_completion}%`}
-                        </span>
                       </div>
-                    </div>
 
-                    {/* Botões do Rodapé */}
-                    <div className="mt-auto pt-5 border-t border-slate-100 flex items-center justify-between gap-3">
-                      <Button 
-                        variant="outline" 
-                        onClick={() => setSelectedOrg(org)}
-                        className="flex-1 h-10 text-xs font-bold bg-white"
-                      >
-                        Editar Empresa
-                      </Button>
-                      <Button 
-                        variant="outline"
-                        onClick={() => toggleStatus(org.id, org.status)}
-                        className={`h-10 px-5 text-xs font-bold border-slate-200 ${
-                          org.status === 'ativo' 
-                            ? 'text-red-600 hover:text-red-700 hover:bg-red-50 hover:border-red-200' 
-                            : 'text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 hover:border-emerald-200'
-                        }`}
-                      >
-                        {org.status === 'ativo' ? 'Inativar' : 'Ativar'}
-                      </Button>
+                      {/* Ações: Editar e Ativar/Inativar */}
+                      <div className="flex items-center gap-2 pt-3 border-t border-slate-100">
+                        <button
+                          onClick={() => setSelectedOrg(org)}
+                          className="flex-1 flex items-center justify-center gap-1.5 text-[10px] font-bold text-slate-600 hover:text-indigo-700 hover:bg-indigo-50 py-1.5 rounded-lg transition-colors"
+                        >
+                          <Edit2 className="h-3 w-3" /> Editar
+                        </button>
+                        <button
+                          onClick={() => toggleStatus(org.id, org.status)}
+                          className={`flex-1 flex items-center justify-center gap-1.5 text-[10px] font-bold py-1.5 rounded-lg transition-colors ${
+                            org.status === 'ativo'
+                              ? 'text-slate-500 hover:text-red-600 hover:bg-red-50'
+                              : 'text-slate-500 hover:text-emerald-600 hover:bg-emerald-50'
+                          }`}
+                        >
+                          {org.status === 'ativo'
+                            ? <><ToggleLeft className="h-3 w-3" /> Inativar</>
+                            : <><ToggleRight className="h-3 w-3" /> Ativar</>
+                          }
+                        </button>
+                      </div>
                     </div>
                   </div>
                 );
