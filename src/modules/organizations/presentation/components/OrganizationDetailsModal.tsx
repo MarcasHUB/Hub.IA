@@ -67,8 +67,6 @@ export function OrganizationDetailsModal({ isOpen, onClose, organization, onSave
     
     const payload = {
       ...formData,
-      name: formData.razao_social, // legacy fallback
-      trade_name: formData.nome_fantasia, // legacy fallback
       segment: selectedSegments.length > 0 ? selectedSegments : null
     };
 

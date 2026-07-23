@@ -287,7 +287,7 @@ export default function ProductsListPage() {
               )}
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6 pb-24">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 pb-24">
               {filteredProducts.map(product => {
                 const isSelected = selectedProductIds.includes(product.id);
                 return (
@@ -308,7 +308,7 @@ export default function ProductsListPage() {
                       )}
                     </div>
 
-                    <div className="p-4 flex flex-col flex-1">
+                    <div className="p-6 flex flex-col flex-1">
                       {/* Nome do Material */}
                       <div className="mb-2">
                         <h3 

@@ -164,7 +164,7 @@ export default function OrganizationsListPage() {
               <h3 className="text-base font-bold text-slate-900">Nenhuma empresa encontrada.</h3>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-6 pb-24">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 pb-24">
               {filteredOrgs.map(org => {
                 let segments: string[] = [];
                 if (Array.isArray(org.segment)) {
@@ -178,7 +178,7 @@ export default function OrganizationsListPage() {
                     key={org.id}
                     className="group relative bg-white border border-slate-200 rounded-2xl flex flex-col transition-all duration-150 ease-out hover:-translate-y-[2px] hover:shadow-lg hover:border-slate-300 h-full"
                   >
-                    <div className="p-4 flex flex-col flex-1">
+                    <div className="p-6 flex flex-col flex-1">
                       <div className="flex items-start gap-3 mb-4 h-[48px]">
                         {org.logo_url ? (
                           <img src={org.logo_url} alt="Logo" className="h-12 w-12 rounded-xl object-contain bg-slate-50 border border-slate-100 shrink-0" />
