@@ -11,6 +11,14 @@ interface OrganizationDetailsModalProps {
   organization: any;
   onSaved: () => void;
 }
+  
+const formatPhone = (value: string) => {
+  const v = value.replace(/\D/g, '');
+  if (v.length <= 10) {
+    return v.replace(/(\d{2})(\d{4})(\d{0,4})/, '($1) $2-$3').replace(/-$/, '');
+  }
+  return v.replace(/(\d{2})(\d{5})(\d{0,4})/, '($1) $2-$3').replace(/-$/, '');
+};
 
 export function OrganizationDetailsModal({ isOpen, onClose, organization, onSaved }: OrganizationDetailsModalProps) {
   const [loading, setLoading] = useState(false);
@@ -31,10 +39,9 @@ export function OrganizationDetailsModal({ isOpen, onClose, organization, onSave
         razao_social: organization.razao_social || organization.name || '',
         nome_fantasia: organization.nome_fantasia || organization.trade_name || '',
         cnpj: organization.cnpj || '',
-        profile_type: organization.profile_type || '',
+        business_model: organization.business_model || organization.profile_type || '',
         status: organization.status || 'ativo',
         telefone: organization.telefone || organization.phone || '',
-        whatsapp: organization.whatsapp || '',
         email_corporativo: organization.email_corporativo || organization.business_email || '',
         website: organization.website || '',
         city: organization.city || '',
@@ -134,8 +141,8 @@ export function OrganizationDetailsModal({ isOpen, onClose, organization, onSave
                   <div className="space-y-1">
                     <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Perfil Comercial</label>
                     <select 
-                      value={formData.profile_type} 
-                      onChange={e => setFormData({...formData, profile_type: e.target.value})}
+                      value={formData.business_model} 
+                      onChange={e => setFormData({...formData, business_model: e.target.value})}
                       className="w-full h-9 px-3 text-sm border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     >
                       <option value="">Selecione...</option>
@@ -212,19 +219,15 @@ export function OrganizationDetailsModal({ isOpen, onClose, organization, onSave
             </div>
 
             <div className="space-y-8">
-              {/* CONTATO */}
+              {/* CONTATO & OPERAÇÃO */}
               <section className="space-y-4">
                 <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2 pb-2 border-b border-slate-100">
-                  <Phone className="h-4 w-4" /> Contato
+                  <Phone className="h-4 w-4" /> Contato e Operação
                 </h3>
                 <div className="space-y-3">
                   <div className="space-y-1">
                     <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Telefone</label>
-                    <Input value={formData.telefone} onChange={e => setFormData({...formData, telefone: e.target.value})} className="h-9" />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">WhatsApp</label>
-                    <Input value={formData.whatsapp} onChange={e => setFormData({...formData, whatsapp: e.target.value})} className="h-9" />
+                    <Input value={formData.telefone} onChange={e => setFormData({...formData, telefone: formatPhone(e.target.value)})} maxLength={15} className="h-9" />
                   </div>
                   <div className="space-y-1">
                     <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">E-mail Corporativo</label>
@@ -234,22 +237,15 @@ export function OrganizationDetailsModal({ isOpen, onClose, organization, onSave
                     <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Site</label>
                     <Input value={formData.website} onChange={e => setFormData({...formData, website: e.target.value})} className="h-9" />
                   </div>
-                </div>
-              </section>
-
-              {/* OPERAÇÃO */}
-              <section className="space-y-4">
-                <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2 pb-2 border-b border-slate-100">
-                  <MapPin className="h-4 w-4" /> Operação
-                </h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Cidade</label>
-                    <Input value={formData.city} onChange={e => setFormData({...formData, city: e.target.value})} className="h-9" />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Estado</label>
-                    <Input value={formData.state} onChange={e => setFormData({...formData, state: e.target.value})} className="h-9" />
+                  <div className="grid grid-cols-2 gap-4 pt-1">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Cidade</label>
+                      <Input value={formData.city} onChange={e => setFormData({...formData, city: e.target.value})} className="h-9" />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Estado (UF)</label>
+                      <Input value={formData.state} onChange={e => setFormData({...formData, state: e.target.value.toUpperCase()})} maxLength={2} className="h-9 uppercase" />
+                    </div>
                   </div>
                 </div>
                 

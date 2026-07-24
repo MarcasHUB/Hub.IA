@@ -195,7 +195,7 @@ export default function OrganizationsListPage() {
               <h3 className="text-base font-bold text-slate-900">Nenhuma empresa encontrada.</h3>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 pb-24">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 pb-24">
               {filteredOrgs.map(org => {
                 let segments: string[] = [];
                 if (Array.isArray(org.segment)) {

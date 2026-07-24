@@ -265,7 +265,7 @@ export function CategoriesPage() {
 
       {/* GRID DE CATEGORIAS */}
       <div className="max-w-[1600px] mx-auto w-full px-6">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {filtered.map(cat => (
             <Card
               key={cat.id}
