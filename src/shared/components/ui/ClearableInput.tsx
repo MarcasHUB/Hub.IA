@@ -19,12 +19,12 @@ export const ClearableInput = React.forwardRef<HTMLInputElement, ClearableInputP
     };
 
     return (
-      <div className={cn("relative w-full", className)}>
+      <div className="relative w-full">
         <Input
           ref={ref}
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className={cn(value ? "pr-14" : "")} // Add padding to avoid overlapping the clear button
+          className={cn(value ? "pr-14" : "", className)}
           {...props}
         />
         {value && (

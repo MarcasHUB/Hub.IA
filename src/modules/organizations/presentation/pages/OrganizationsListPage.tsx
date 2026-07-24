@@ -53,6 +53,8 @@ export default function OrganizationsListPage() {
             status: org.status || 'ativo',
             logo_url: org.logo_url,
             segment: org.segment,
+            city: org.city || '',
+            state: org.state || '',
             operatorCount: ops.length,
             activeOperatorCount: ops.filter((o: any) => o.status === 'ativo').length,
             inactiveOperatorCount: ops.filter((o: any) => o.status === 'inativo' || o.status === 'cancelado').length,
@@ -78,11 +80,22 @@ export default function OrganizationsListPage() {
     }
   };
 
-  const filteredOrgs = organizations.filter(org => 
-    org.name.toLowerCase().includes(search.toLowerCase()) || 
-    org.trade_name.toLowerCase().includes(search.toLowerCase()) || 
-    org.cnpj.includes(search)
-  );
+  const filteredOrgs = organizations.filter(org => {
+    const s = search.toLowerCase();
+    if (!s) return true;
+
+    const segmentsStr = Array.isArray(org.segment) 
+      ? org.segment.join(' ').toLowerCase() 
+      : (org.segment || '').toLowerCase();
+
+    return org.name.toLowerCase().includes(s) || 
+           org.trade_name.toLowerCase().includes(s) || 
+           org.cnpj.toLowerCase().includes(s) ||
+           org.profile_type.toLowerCase().includes(s) ||
+           (org.city && org.city.toLowerCase().includes(s)) ||
+           (org.state && org.state.toLowerCase().includes(s)) ||
+           segmentsStr.includes(s);
+  });
 
   const activeCount = organizations.filter(o => o.status === 'ativo').length;
   const inactiveCount = organizations.filter(o => o.status !== 'ativo').length;
@@ -143,7 +156,7 @@ export default function OrganizationsListPage() {
                 value={search}
                 onChange={setSearch}
                 onClear={() => setSearch('')}
-                className="pl-11 bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500 h-11 rounded-xl focus:border-indigo-500"
+                className="pl-11 bg-white border-slate-200 text-slate-900 placeholder:text-slate-500 h-11 rounded-xl focus:border-indigo-500 shadow-sm"
               />
             </div>
           </div>
