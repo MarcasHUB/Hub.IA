@@ -11,7 +11,6 @@ import { InviteCompanyModal } from '../components/InviteCompanyModal';
 import { SupabaseSupplierRepository } from '../../infrastructure/repositories/SupabaseSupplierRepository';
 
 const supplierRepo = new SupabaseSupplierRepository();
-const tenantId = '00000000-0000-0000-0000-000000000000';
 
 type Tab = 'parceiros' | 'convites_recebidos' | 'convites_enviados' | 'historico';
 type StatusFilter = 'Todos' | 'Ativos' | 'Inativos';
@@ -20,12 +19,19 @@ export default function SuppliersListPage() {
   const [activeTab, setActiveTab]       = useState<Tab>('parceiros');
   const [partners, setPartners]         = useState<Partner[]>([]);
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
-  
+  const [tenantId, setTenantId] = useState<string>('');
+
   useEffect(() => {
     async function load() {
        try {
-         const suppliers = await supplierRepo.findAll(tenantId);
-         const mapped = suppliers.map(s => ({
+         const orgId = localStorage.getItem('supplyhub_organization_id') || '00000000-0000-0000-0000-000000000000';
+         setTenantId(orgId);
+         
+         const { supabase } = await import('@/infrastructure/supabase/client');
+         
+         // 1. Fornecedores aceitos (Simulado pelo supplierRepo por enquanto ou real dependendo do repo)
+         const suppliers = await supplierRepo.findAll(orgId);
+         const mappedSuppliers = suppliers.map(s => ({
             id: s.id,
             name: s.name,
             document: s.document,
@@ -38,10 +44,38 @@ export default function SuppliersListPage() {
             rating: 0,
             responseTime: '-',
             quotationsCount: 0,
-            products: []
+            products: [],
+            email: ''
          }));
-         setPartners(mapped);
-       } catch(e) {}
+
+         // 2. Convites pendentes/enviados
+         const { data: invs } = await supabase
+            .from('invitations')
+            .select('*')
+            .eq('organization_id', orgId)
+            .in('status', ['pendente', 'aceito', 'recusado', 'cancelado']);
+            
+         const mappedInvites = (invs || []).map(inv => ({
+            id: inv.id,
+            name: inv.company || inv.name,
+            document: inv.document,
+            segment: 'Não definido',
+            city: inv.city || '-',
+            state: inv.state || '-',
+            status: inv.status === 'pendente' ? 'pending_sent' as const : inv.status as any,
+            connectionId: '',
+            employeesRange: '-',
+            rating: 0,
+            responseTime: '-',
+            quotationsCount: 0,
+            products: [],
+            email: inv.email
+         }));
+
+         setPartners([...mappedSuppliers, ...mappedInvites]);
+       } catch(e) {
+         console.error('Erro ao carregar parceiros:', e);
+       }
     }
     load();
   }, []);
@@ -296,7 +330,9 @@ export default function SuppliersListPage() {
       <InviteCompanyModal
         isOpen={isInviteModalOpen}
         onClose={() => setIsInviteModalOpen(false)}
-        onSuccess={() => setIsInviteModalOpen(false)}
+        onSuccess={(companyData) => {
+          setPartners(prev => [companyData, ...prev]);
+        }}
       />
     </div>
   );

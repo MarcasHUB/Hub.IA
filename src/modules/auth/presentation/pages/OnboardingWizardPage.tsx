@@ -27,7 +27,6 @@ export default function OnboardingWizardPage() {
   const [estado, setEstado] = useState('');
   const [logo, setLogo] = useState('');
   const [site, setSite] = useState('');
-  const [whatsapp, setWhatsapp] = useState('');
 
   // Formulário: Perfil
   const [perfis, setPerfis] = useState<string[]>([]); // Comprador, Vendedor
@@ -94,7 +93,6 @@ export default function OnboardingWizardPage() {
       let completion = 50;
       if (logo) completion += 20;
       if (site) completion += 10;
-      if (whatsapp) completion += 10;
       if (tipoEmpresa.length > 0) completion += 10;
 
       // 1. Cria a Organização com os novos campos
@@ -112,7 +110,6 @@ export default function OnboardingWizardPage() {
       await supabase.from('organizations').update({
         logo_url: logo,
         website: site,
-        phone: whatsapp,
         service_radius: raio || 'national'
       }).eq('id', org.id);
 
@@ -316,11 +313,7 @@ export default function OnboardingWizardPage() {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6 border-t border-slate-100 pt-6">
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-slate-700">WhatsApp (Opcional)</label>
-                    <Input value={whatsapp} onChange={e => setWhatsapp(e.target.value)} placeholder="(00) 00000-0000" />
-                  </div>
-                  <div className="space-y-1.5">
+                  <div className="space-y-2 col-span-2 sm:col-span-1">
                     <label className="text-xs font-bold text-slate-700">Site (Opcional)</label>
                     <Input value={site} onChange={e => setSite(e.target.value)} placeholder="www.suaempresa.com.br" />
                   </div>

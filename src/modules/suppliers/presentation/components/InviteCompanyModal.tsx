@@ -103,11 +103,12 @@ export function InviteCompanyModal({ isOpen, onClose, onSuccess }: InviteCompany
     setIsSubmitting(true);
 
     try {
-      // Validação de Duplicidade
+      // Validação de Duplicidade (Documento ou E-mail)
       const { data: existing } = await supabase
         .from('invitations')
-        .select('id, status')
-        .eq('document', newCompDoc)
+        .select('id, status, document, email')
+        .eq('organization_id', tenantId)
+        .or(`document.eq.${newCompDoc},email.eq.${newCompEmail}`)
         .in('status', ['pendente', 'aceito'])
         .maybeSingle();
 
