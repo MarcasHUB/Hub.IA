@@ -330,7 +330,7 @@ export default function ProductsListPage() {
                       )}
                     </div>
 
-                    <div className="p-6 flex flex-col flex-1">
+                    <div className="p-5 flex flex-col flex-1">
                       {/* Nome do Material */}
                       <div className="mb-2 min-h-[40px]">
                         <h3 
