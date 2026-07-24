@@ -86,7 +86,7 @@ export function PartnerCard({
           {menuOpen && (
             <div className="absolute right-0 mt-1 w-40 bg-white border border-slate-200 rounded-xl shadow-lg py-1 z-20">
               <button 
-                onClick={() => { openChat(partner.id, partner.name); setMenuOpen(false); }}
+                onClick={() => { openChat(partner.id); setMenuOpen(false); }}
                 className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
               >
                 Enviar Mensagem
