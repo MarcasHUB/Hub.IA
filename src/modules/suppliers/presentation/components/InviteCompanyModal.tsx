@@ -15,11 +15,8 @@ export function InviteCompanyModal({ isOpen, onClose, onSuccess }: InviteCompany
 
   React.useEffect(() => {
     try {
-      const stored = localStorage.getItem('supplyhub_logged_operator');
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        setTenantId(parsed.organizationId || '');
-      }
+      const orgId = localStorage.getItem('supplyhub_organization_id') || '00000000-0000-0000-0000-000000000000';
+      setTenantId(orgId);
     } catch (e) {}
   }, []);
   
@@ -151,8 +148,17 @@ export function InviteCompanyModal({ isOpen, onClose, onSuccess }: InviteCompany
         return;
       }
 
-      // 3. (Simulação) Chamada ao EmailService passaria aqui
-      console.log(`Email simulado para: ${newCompEmail}, Contato: ${newCompContact}`);
+      // 3. Dispara envio de E-mail pela Edge Function reaproveitando a arquitetura
+      try {
+        const { EmailService } = await import('@/shared/utils/EmailService');
+        const emailRes = await EmailService.sendTransactionalEmail('supplier_invite', tokenHash);
+        
+        if (!emailRes.success) {
+          console.warn('Convite salvo, mas falha no envio do e-mail:', emailRes.message);
+        }
+      } catch (err) {
+        console.error('Erro ao chamar EmailService:', err);
+      }
 
       setSuccessData({
         name: newCompName,
