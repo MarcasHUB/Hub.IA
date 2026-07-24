@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/shared/components/ui/Button';
-import { Input } from '@/shared/components/ui/Input';
+import { ClearableInput } from '@/shared/components/ui/ClearableInput';
 import { PartnerCard, Partner } from '../components/PartnerCard';
 import { SupabaseSupplierRepository } from '../../infrastructure/repositories/SupabaseSupplierRepository';
 
@@ -13,7 +13,7 @@ const supplierRepo = new SupabaseSupplierRepository();
 const tenantId = '00000000-0000-0000-0000-000000000000';
 
 type Tab = 'parceiros' | 'convites_recebidos' | 'convites_enviados' | 'historico';
-type SearchMode = 'name' | 'product' | 'segment';
+type StatusFilter = 'Todos' | 'Ativos' | 'Inativos';
 
 export default function SuppliersListPage() {
   const [activeTab, setActiveTab]       = useState<Tab>('parceiros');
@@ -45,31 +45,30 @@ export default function SuppliersListPage() {
   }, []);
 
   const [search, setSearch]             = useState('');
-  const [searchMode, setSearchMode]     = useState<SearchMode>('name');
-  const [segmentFilter, setSegmentFilter] = useState('Todos');
-
-  const allSegments = useMemo(() => {
-    return ['Todos', ...Array.from(new Set(partners.map(p => p.segment)))];
-  }, [partners]);
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('Todos');
 
   // ── Filtragem inteligente ──────────────────────────────────────────────────
   const filtered = useMemo(() => {
     return partners.filter(p => {
-      const matchSegment = segmentFilter === 'Todos' || p.segment === segmentFilter;
+      // Filtro de status
+      const matchStatus = statusFilter === 'Todos' || 
+                         (statusFilter === 'Ativos' && p.status === 'accepted') ||
+                         (statusFilter === 'Inativos' && p.status !== 'accepted');
+                         
       const q = search.toLowerCase().trim();
       let matchSearch = true;
       if (q) {
-        if (searchMode === 'name') {
-          matchSearch = p.name.toLowerCase().includes(q);
-        } else if (searchMode === 'product') {
-          matchSearch = p.products.some(prod => prod.toLowerCase().includes(q));
-        } else if (searchMode === 'segment') {
-          matchSearch = p.segment.toLowerCase().includes(q);
-        }
+        matchSearch = 
+          p.name.toLowerCase().includes(q) ||
+          p.segment.toLowerCase().includes(q) ||
+          p.city.toLowerCase().includes(q) ||
+          p.state.toLowerCase().includes(q) ||
+          (p.email && p.email.toLowerCase().includes(q)) ||
+          p.products.some(prod => prod.toLowerCase().includes(q));
       }
-      return matchSegment && matchSearch;
+      return matchStatus && matchSearch;
     });
-  }, [partners, search, searchMode, segmentFilter]);
+  }, [partners, search, statusFilter]);
 
   const accepted       = filtered.filter(p => p.status === 'accepted');
   const invitesSent     = filtered.filter(p => p.status === 'pending_sent');
@@ -104,11 +103,7 @@ export default function SuppliersListPage() {
     }
   ];
 
-  const SEARCH_MODES: { key: SearchMode; label: string }[] = [
-    { key: 'name',    label: 'Nome da Empresa' },
-    { key: 'product', label: 'Produto / Serviço' },
-    { key: 'segment', label: 'Segmento' },
-  ];
+
 
   return (
     <div className="flex-1 bg-slate-50 min-h-full flex flex-col font-sans">
@@ -173,54 +168,55 @@ export default function SuppliersListPage() {
           <main className="flex-1 min-w-0">
             {/* Filtros da listagem */}
             {activeTab !== 'historico' && (
-              <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 mb-6 space-y-4">
-                <div className="flex gap-4">
-                  <div className="relative flex-1">
-                    <Search className="absolute left-3.5 top-2.5 h-4 w-4 text-slate-400" />
-                    <Input 
-                      placeholder={
-                        searchMode === 'name'    ? 'Buscar empresa...' :
-                        searchMode === 'product' ? 'Buscar produto/serviço...' :
-                                                   'Buscar segmento...'
-                      }
-                      value={search}
-                      onChange={e => setSearch(e.target.value)}
-                      className="pl-10 h-10 border-slate-200 bg-slate-50 focus:bg-white transition-colors"
-                    />
+              <div className="mb-6 space-y-4">
+                {/* Indicadores */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Total Parceiros</p>
+                    <p className="text-2xl font-black text-slate-900">{partners.length}</p>
                   </div>
-                  <div className="flex items-center gap-2 border-l border-slate-200 pl-4">
-                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Buscar por:</span>
-                    {SEARCH_MODES.map(mode => (
-                      <button
-                        key={mode.key}
-                        onClick={() => { setSearchMode(mode.key); setSearch(''); }}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-                          searchMode === mode.key
-                            ? 'bg-slate-900 text-white'
-                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                        }`}
-                      >
-                        {mode.label}
-                      </button>
-                    ))}
+                  <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Parceiros Ativos</p>
+                    <p className="text-2xl font-black text-emerald-600">{accepted.length}</p>
+                  </div>
+                  <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Convites Pendentes</p>
+                    <p className="text-2xl font-black text-amber-500">{invitesSent.length + invitesReceived.length}</p>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 flex-wrap pt-2 border-t border-slate-100">
-                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Segmento:</span>
-                  {allSegments.map(seg => (
-                    <button
-                      key={seg}
-                      onClick={() => setSegmentFilter(seg)}
-                      className={`px-2.5 py-1 rounded-full text-[11px] font-semibold border transition-colors whitespace-nowrap ${
-                        segmentFilter === seg
-                          ? 'bg-indigo-50 text-indigo-600 border-indigo-200'
-                          : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100'
-                      }`}
-                    >
-                      {seg}
-                    </button>
-                  ))}
+                {/* Filtro Rápido e Busca */}
+                <div className="flex flex-col sm:flex-row gap-4 items-center justify-between bg-white p-2 rounded-xl shadow-sm border border-slate-200">
+                  
+                  <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-lg shrink-0 w-full sm:w-auto">
+                    {['Todos', 'Ativos', 'Inativos'].map(status => (
+                      <button
+                        key={status}
+                        onClick={() => setStatusFilter(status as StatusFilter)}
+                        className={`flex-1 sm:flex-none px-4 py-1.5 rounded-md text-xs font-bold transition-all ${
+                          statusFilter === status
+                            ? 'bg-white text-slate-900 shadow-sm'
+                            : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'
+                        }`}
+                      >
+                        {status}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="flex items-center gap-3 w-full sm:w-auto flex-1 max-w-lg">
+                    <ClearableInput
+                      icon={<Search className="h-4 w-4 text-slate-400" />}
+                      placeholder="Pesquisar empresas, produtos, segmentos..."
+                      value={search}
+                      onChange={setSearch}
+                      onClear={() => setSearch('')}
+                      className="h-10 bg-slate-50 border-transparent focus:border-indigo-500 focus:bg-white transition-all text-sm w-full rounded-lg"
+                    />
+                    <Button onClick={() => window.location.href = '/suppliers/network'} className="bg-indigo-600 hover:bg-indigo-700 text-white h-10 px-4 font-bold shrink-0">
+                      + Convidar Parceiro
+                    </Button>
+                  </div>
                 </div>
               </div>
             )}
