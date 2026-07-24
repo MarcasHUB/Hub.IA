@@ -219,10 +219,16 @@ export async function onRequestPost(context: any) {
       }
 
       toEmail = invite.email;
-      toName = invite.name || invite.company;
+      toName = invite.contact_name || invite.name || invite.company;
       subject = 'Sua empresa foi convidada para fazer parte da Rede Hub.IA de Suprimentos';
       
       const link = joinUrl(publicUrl, `onboarding?token=${invite.token_hash}`);
+
+      const messageBlock = invite.message ? `
+          <div style="background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 16px; margin: 24px 0;">
+            <p style="margin: 0; color: #166534; font-style: italic;">"${invite.message}"</p>
+          </div>
+      ` : '';
 
       htmlContent = `
         <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; color: #333; line-height: 1.5;">
@@ -231,10 +237,14 @@ export async function onRequestPost(context: any) {
           <p>Sua empresa foi convidada para participar da <strong>Rede Hub.IA de Suprimentos</strong>.</p>
           <p>A Hub.IA conecta empresas compradoras e fornecedoras em um ambiente único para geração de negócios, cotações, parcerias estratégicas e oportunidades comerciais.</p>
           
+          ${messageBlock}
+
           <div style="background-color: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; margin: 24px 0;">
-            <h3 style="margin-top: 0; color: #111827; font-size: 16px;">Dados já identificados</h3>
+            <h3 style="margin-top: 0; color: #111827; font-size: 16px;">Dados da Empresa</h3>
             <p style="margin: 8px 0 0 0;"><strong>Razão Social:</strong> ${invite.company}</p>
             <p style="margin: 4px 0 0 0;"><strong>CNPJ:</strong> ${invite.document}</p>
+            ${invite.city && invite.state ? `<p style="margin: 4px 0 0 0;"><strong>Localização:</strong> ${invite.city}/${invite.state}</p>` : ''}
+            ${invite.website ? `<p style="margin: 4px 0 0 0;"><strong>Site:</strong> ${invite.website}</p>` : ''}
           </div>
 
           <p style="font-weight: bold; margin-bottom: 8px;">Próximo passo</p>
@@ -244,11 +254,12 @@ export async function onRequestPost(context: any) {
           <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; font-size: 12px; color: #666;">
             <p>Se o botão não funcionar, copie e cole o link abaixo no seu navegador:</p>
             <p style="word-break: break-all;"><a href="${link}" style="color: #4F46E5;">${link}</a></p>
+            <p style="margin-top: 16px;">Este convite expira em 7 dias.</p>
           </div>
         </div>
       `;
       
-      textContent = `Olá ${toName},\n\nBem-vindo à Rede Hub.IA\n\nSua empresa foi convidada para participar da Rede Hub.IA de Suprimentos.\nA Hub.IA conecta empresas compradoras e fornecedoras em um ambiente único para geração de negócios, cotações, parcerias estratégicas e oportunidades comerciais.\n\nDados já identificados:\nRazão Social: ${invite.company}\nCNPJ: ${invite.document}\n\nPróximo passo:\nClique no link abaixo para acessar a plataforma e concluir seu cadastro:\n${link}`;
+      textContent = `Olá ${toName},\n\nBem-vindo à Rede Hub.IA\n\nSua empresa foi convidada para participar da Rede Hub.IA de Suprimentos.\nA Hub.IA conecta empresas compradoras e fornecedoras em um ambiente único para geração de negócios, cotações, parcerias estratégicas e oportunidades comerciais.\n\nDados da Empresa:\nRazão Social: ${invite.company}\nCNPJ: ${invite.document}\n\nPróximo passo:\nClique no link abaixo para acessar a plataforma e concluir seu cadastro:\n${link}\n\nEste convite expira em 7 dias.`;
     }
 
     // Disparar Mailtrap

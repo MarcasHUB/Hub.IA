@@ -64,4 +64,33 @@ export class SupabaseOrganizationConnectionRepository implements IOrganizationCo
             );
         });
     }
+
+    async acceptInvite(id: string): Promise<void> {
+        const { error } = await supabase
+            .from('invitations')
+            .update({ status: 'aceito', updated_at: new Date().toISOString() })
+            .eq('id', id);
+        if (error) throw error;
+    }
+
+    async rejectInvite(id: string): Promise<void> {
+        const { error } = await supabase
+            .from('invitations')
+            .update({ status: 'recusado', updated_at: new Date().toISOString() })
+            .eq('id', id);
+        if (error) throw error;
+    }
+
+    async cancelInvite(id: string): Promise<void> {
+        const { error } = await supabase
+            .from('invitations')
+            .update({ status: 'cancelado', updated_at: new Date().toISOString() })
+            .eq('id', id);
+        if (error) throw error;
+    }
+
+    async createConnection(data: any): Promise<void> {
+        // Implementação mockada apenas para satisfazer a interface da Fase 3
+        console.log('Criar conexão com:', data);
+    }
 }
