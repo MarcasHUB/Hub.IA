@@ -7,6 +7,7 @@ import { Link } from 'react-router-dom';
 import { Button } from '@/shared/components/ui/Button';
 import { ClearableInput } from '@/shared/components/ui/ClearableInput';
 import { PartnerCard, Partner } from '../components/PartnerCard';
+import { InviteCompanyModal } from '../components/InviteCompanyModal';
 import { SupabaseSupplierRepository } from '../../infrastructure/repositories/SupabaseSupplierRepository';
 
 const supplierRepo = new SupabaseSupplierRepository();
@@ -18,6 +19,7 @@ type StatusFilter = 'Todos' | 'Ativos' | 'Inativos';
 export default function SuppliersListPage() {
   const [activeTab, setActiveTab]       = useState<Tab>('parceiros');
   const [partners, setPartners]         = useState<Partner[]>([]);
+  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   
   useEffect(() => {
     async function load() {
@@ -215,7 +217,7 @@ export default function SuppliersListPage() {
                         className="pl-10 h-10 bg-slate-50 border-transparent focus:border-indigo-500 focus:bg-white transition-all text-sm w-full rounded-lg"
                       />
                     </div>
-                    <Button onClick={() => window.location.href = '/suppliers/network'} className="bg-indigo-600 hover:bg-indigo-700 text-white h-10 px-4 font-bold shrink-0">
+                    <Button onClick={() => setIsInviteModalOpen(true)} className="bg-indigo-600 hover:bg-indigo-700 text-white h-10 px-4 font-bold shrink-0">
                       + Convidar Parceiro
                     </Button>
                   </div>
@@ -290,6 +292,12 @@ export default function SuppliersListPage() {
           </main>
         </div>
       </div>
+
+      <InviteCompanyModal
+        isOpen={isInviteModalOpen}
+        onClose={() => setIsInviteModalOpen(false)}
+        onSuccess={() => setIsInviteModalOpen(false)}
+      />
     </div>
   );
 }
