@@ -205,14 +205,16 @@ export default function SuppliersListPage() {
                   </div>
 
                   <div className="flex items-center gap-3 w-full sm:w-auto flex-1 max-w-lg">
-                    <ClearableInput
-                      icon={<Search className="h-4 w-4 text-slate-400" />}
-                      placeholder="Pesquisar empresas, produtos, segmentos..."
-                      value={search}
-                      onChange={setSearch}
-                      onClear={() => setSearch('')}
-                      className="h-10 bg-slate-50 border-transparent focus:border-indigo-500 focus:bg-white transition-all text-sm w-full rounded-lg"
-                    />
+                    <div className="relative flex-1 w-full">
+                      <Search className="absolute left-3.5 top-3 h-4 w-4 text-slate-400" />
+                      <ClearableInput
+                        placeholder="Pesquisar empresas, produtos, segmentos..."
+                        value={search}
+                        onChange={setSearch}
+                        onClear={() => setSearch('')}
+                        className="pl-10 h-10 bg-slate-50 border-transparent focus:border-indigo-500 focus:bg-white transition-all text-sm w-full rounded-lg"
+                      />
+                    </div>
                     <Button onClick={() => window.location.href = '/suppliers/network'} className="bg-indigo-600 hover:bg-indigo-700 text-white h-10 px-4 font-bold shrink-0">
                       + Convidar Parceiro
                     </Button>
@@ -235,7 +237,7 @@ export default function SuppliersListPage() {
                     <PartnerCard
                       key={p.id} partner={p}
                       onRemove={handleRemove} onAccept={handleAccept} onReject={handleReject} onCancel={handleCancel}
-                      highlight={searchMode === 'product' ? search : undefined}
+                      highlight={search}
                     />
                   ))}
                 </div>
