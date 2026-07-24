@@ -25,6 +25,7 @@ interface Organization {
 export default function OrganizationsListPage() {
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [search, setSearch] = useState('');
+  const [filterStatus, setFilterStatus] = useState<'Todos' | 'Ativos' | 'Inativos'>('Todos');
   const [isLoading, setIsLoading] = useState(true);
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [selectedOrg, setSelectedOrg] = useState<any>(null);
@@ -53,8 +54,6 @@ export default function OrganizationsListPage() {
             status: org.status || 'ativo',
             logo_url: org.logo_url,
             segment: org.segment,
-            city: org.city || '',
-            state: org.state || '',
             operatorCount: ops.length,
             activeOperatorCount: ops.filter((o: any) => o.status === 'ativo').length,
             inactiveOperatorCount: ops.filter((o: any) => o.status === 'inativo' || o.status === 'cancelado').length,
@@ -81,6 +80,9 @@ export default function OrganizationsListPage() {
   };
 
   const filteredOrgs = organizations.filter(org => {
+    if (filterStatus === 'Ativos' && org.status !== 'ativo') return false;
+    if (filterStatus === 'Inativos' && org.status === 'ativo') return false;
+
     const s = search.toLowerCase();
     if (!s) return true;
 
@@ -92,8 +94,6 @@ export default function OrganizationsListPage() {
            org.trade_name.toLowerCase().includes(s) || 
            org.cnpj.toLowerCase().includes(s) ||
            org.profile_type.toLowerCase().includes(s) ||
-           (org.city && org.city.toLowerCase().includes(s)) ||
-           (org.state && org.state.toLowerCase().includes(s)) ||
            segmentsStr.includes(s);
   });
 
@@ -105,60 +105,78 @@ export default function OrganizationsListPage() {
 
   return (
     <div className="flex-1 bg-slate-50 min-h-full flex flex-col font-sans">
-      <div className="bg-slate-900 rounded-2xl mx-6 mt-6 mb-4 px-8 py-8 shadow-md">
-        <div className="max-w-[1600px] mx-auto space-y-6">
-          <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
-            <div>
-              <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white flex items-center gap-3">
-                <Building2 className="h-7 w-7 text-indigo-400" />
-                Master de Empresas
-              </h1>
-              <p className="text-slate-400 mt-1 text-sm max-w-2xl">
-                Gestão global de todas as organizações cadastradas na Rede Hub.IA.
-              </p>
-            </div>
-            
-            <div className="flex items-center gap-3 shrink-0">
-              <Button onClick={() => setIsInviteModalOpen(true)} className="bg-indigo-600 hover:bg-indigo-700 text-white h-10 px-5 font-bold shadow-md shadow-indigo-900/20">
-                Nova Empresa
-              </Button>
-            </div>
+      <div className="max-w-[1600px] mx-auto w-full px-6 pt-6 pb-2 space-y-6">
+        <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 flex items-center gap-3">
+              <Building2 className="h-7 w-7 text-indigo-600" />
+              Master de Empresas
+            </h1>
+            <p className="text-slate-500 mt-1 text-sm max-w-2xl">
+              Gestão global de todas as organizações cadastradas na Rede Hub.IA.
+            </p>
           </div>
-
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 pt-4 border-t border-slate-800">
-            <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700/50">
-              <p className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">Empresas Ativas</p>
-              <p className="text-2xl font-black text-emerald-400">{activeCount}</p>
-            </div>
-            <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700/50">
-              <p className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">Empresas Inativas</p>
-              <p className="text-2xl font-black text-slate-300">{inactiveCount}</p>
-            </div>
-            <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700/50">
-              <p className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">Cad. Completo</p>
-              <p className="text-2xl font-black text-indigo-400">{completeCount}</p>
-            </div>
-            <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700/50">
-              <p className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">Cad. Incompleto</p>
-              <p className="text-2xl font-black text-amber-400">{incompleteCount}</p>
-            </div>
-            <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700/50">
-              <p className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">Total Empresas</p>
-              <p className="text-2xl font-black text-white">{totalCount}</p>
-            </div>
+          
+          <div className="flex items-center gap-3 shrink-0">
+            <Button onClick={() => setIsInviteModalOpen(true)} className="bg-indigo-600 hover:bg-indigo-700 text-white h-10 px-5 font-bold shadow-md shadow-indigo-600/20">
+              Nova Empresa
+            </Button>
           </div>
+        </div>
 
-          <div className="flex gap-4 pt-2">
-            <div className="relative flex-1 max-w-2xl">
-              <Search className="absolute left-3.5 top-3 h-5 w-5 text-slate-400" />
-              <ClearableInput 
-                placeholder="Busque por Razão Social, Nome Fantasia ou CNPJ..." 
-                value={search}
-                onChange={setSearch}
-                onClear={() => setSearch('')}
-                className="pl-11 bg-white border-slate-200 text-slate-900 placeholder:text-slate-500 h-11 rounded-xl focus:border-indigo-500 shadow-sm"
-              />
-            </div>
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+          <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm">
+            <p className="text-slate-400 text-[10px] font-bold uppercase tracking-wider mb-1">Empresas Ativas</p>
+            <p className="text-2xl font-black text-emerald-600">{activeCount}</p>
+          </div>
+          <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm">
+            <p className="text-slate-400 text-[10px] font-bold uppercase tracking-wider mb-1">Empresas Inativas</p>
+            <p className="text-2xl font-black text-slate-400">{inactiveCount}</p>
+          </div>
+          <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm">
+            <p className="text-slate-400 text-[10px] font-bold uppercase tracking-wider mb-1">Cad. Completo</p>
+            <p className="text-2xl font-black text-indigo-600">{completeCount}</p>
+          </div>
+          <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm">
+            <p className="text-slate-400 text-[10px] font-bold uppercase tracking-wider mb-1">Cad. Incompleto</p>
+            <p className="text-2xl font-black text-amber-500">{incompleteCount}</p>
+          </div>
+          <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm">
+            <p className="text-slate-400 text-[10px] font-bold uppercase tracking-wider mb-1">Total Empresas</p>
+            <p className="text-2xl font-black text-slate-900">{totalCount}</p>
+          </div>
+        </div>
+
+        <div className="flex flex-col sm:flex-row gap-4 items-center justify-between bg-white p-3 rounded-2xl border border-slate-200 shadow-sm">
+          <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 shrink-0 w-full sm:w-auto overflow-x-auto">
+            <button 
+              onClick={() => setFilterStatus('Todos')}
+              className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-colors whitespace-nowrap ${filterStatus === 'Todos' ? 'bg-white text-slate-900 shadow-sm border border-slate-200/50' : 'text-slate-500 hover:text-slate-700'}`}
+            >
+              Todos
+            </button>
+            <button 
+              onClick={() => setFilterStatus('Ativos')}
+              className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-colors whitespace-nowrap ${filterStatus === 'Ativos' ? 'bg-white text-slate-900 shadow-sm border border-slate-200/50' : 'text-slate-500 hover:text-slate-700'}`}
+            >
+              Ativos
+            </button>
+            <button 
+              onClick={() => setFilterStatus('Inativos')}
+              className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-colors whitespace-nowrap ${filterStatus === 'Inativos' ? 'bg-white text-slate-900 shadow-sm border border-slate-200/50' : 'text-slate-500 hover:text-slate-700'}`}
+            >
+              Inativos
+            </button>
+          </div>
+          <div className="relative w-full sm:max-w-xl">
+            <Search className="absolute left-3.5 top-3 h-5 w-5 text-slate-400" />
+            <ClearableInput 
+              placeholder="Busque por Razão Social, Nome Fantasia, CNPJ ou Segmento..." 
+              value={search}
+              onChange={setSearch}
+              onClear={() => setSearch('')}
+              className="pl-11 bg-slate-50 border-slate-200 text-slate-900 placeholder:text-slate-500 h-11 rounded-xl focus:border-indigo-500 focus:bg-white transition-colors"
+            />
           </div>
         </div>
       </div>

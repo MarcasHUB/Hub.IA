@@ -151,69 +151,91 @@ export default function ProductsListPage() {
   return (
     <div className="flex-1 bg-slate-50 min-h-full flex flex-col font-sans">
       
-      {/* HEADER BANNER - Azul Escuro */}
-      <div className="bg-slate-900 rounded-2xl mx-6 mt-6 mb-4 px-8 py-8 shadow-md">
-        <div className="max-w-[1600px] mx-auto space-y-6">
-          <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
-            <div>
-              <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white flex items-center gap-3">
-                Catálogo de Suprimentos
-              </h1>
-              <p className="text-slate-400 mt-1 text-sm max-w-2xl">
-                Gerencie materiais, cadastre novos itens ou importe em lote.
-              </p>
-            </div>
-            
-            <div className="flex items-center gap-3 shrink-0">
-              {isSupplier ? (
-                <Button onClick={() => alert('Vincular Material ainda será implementado')} className="bg-indigo-600 hover:bg-indigo-700 text-white h-10 px-5 font-bold shadow-md shadow-indigo-900/20">
-                  <Search className="h-4 w-4 mr-1.5" />
-                  Vincular Material
-                </Button>
-              ) : (
-                <>
-                  <Button variant="outline" className="border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-200 h-10 px-4 font-bold shadow-sm">
-                    <Upload className="h-4 w-4 mr-2 text-indigo-400" />
-                    Importar em Massa
-                  </Button>
-                  <Button onClick={() => navigate('/products/new')} className="bg-indigo-600 hover:bg-indigo-700 text-white h-10 px-5 font-bold shadow-md shadow-indigo-900/20">
-                    <Plus className="h-4 w-4 mr-1.5" />
-                    Novo Produto
-                  </Button>
-                </>
-              )}
-            </div>
+      <div className="max-w-[1600px] mx-auto w-full px-6 pt-6 pb-2 space-y-6">
+        <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 flex items-center gap-3">
+              <Package className="h-7 w-7 text-indigo-600" />
+              Catálogo de Suprimentos
+            </h1>
+            <p className="text-slate-500 mt-1 text-sm max-w-2xl">
+              Gerencie materiais, cadastre novos itens ou importe em lote.
+            </p>
           </div>
-
-          <div className="flex gap-4">
-            <div className="relative flex-1 max-w-2xl">
-              <Search className="absolute left-3.5 top-3 h-5 w-5 text-slate-400" />
-              <ClearableInput 
-                placeholder="Busque por Nome, SKU, Fabricante..." 
-                value={search}
-                onChange={setSearch}
-                onClear={() => setSearch('')}
-                className="pl-11 bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500 h-11 rounded-xl focus:border-indigo-500"
-              />
-            </div>
+          
+          <div className="flex items-center gap-3 shrink-0">
+            {isSupplier ? (
+              <Button onClick={() => alert('Vincular Material ainda será implementado')} className="bg-indigo-600 hover:bg-indigo-700 text-white h-10 px-5 font-bold shadow-md shadow-indigo-600/20">
+                <Search className="h-4 w-4 mr-1.5" />
+                Vincular Material
+              </Button>
+            ) : (
+              <>
+                <Button variant="outline" className="h-10 px-4 font-bold shadow-sm">
+                  <Upload className="h-4 w-4 mr-2 text-indigo-600" />
+                  Importar em Massa
+                </Button>
+                <Button onClick={() => navigate('/products/new')} className="bg-indigo-600 hover:bg-indigo-700 text-white h-10 px-5 font-bold shadow-md shadow-indigo-600/20">
+                  <Plus className="h-4 w-4 mr-1.5" />
+                  Novo Produto
+                </Button>
+              </>
+            )}
           </div>
         </div>
-      </div>
 
-      {/* FILTER BAR */}
-      <div className="bg-white border-b border-slate-200 px-6 py-3">
-        <div className="max-w-[1600px] mx-auto flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <Button variant="outline" className="h-9 text-xs font-semibold rounded-lg border-slate-200 text-slate-700">
-              <Filter className="h-3.5 w-3.5 mr-1.5 text-slate-400" /> Todas as categorias
-            </Button>
-            <Button variant="outline" className="h-9 text-xs font-semibold rounded-lg border-slate-200 text-slate-700">
-              Todos os fornecedores
-            </Button>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm">
+            <p className="text-slate-400 text-[10px] font-bold uppercase tracking-wider mb-1">Total de Materiais</p>
+            <p className="text-2xl font-black text-slate-900">{products.length}</p>
           </div>
-          <span className="text-xs font-bold text-slate-500 bg-slate-100 px-3 py-1.5 rounded-full">
-            {filteredProducts.length} itens encontrados
-          </span>
+          <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm">
+            <p className="text-slate-400 text-[10px] font-bold uppercase tracking-wider mb-1">Materiais Ativos</p>
+            <p className="text-2xl font-black text-emerald-600">{ativos}</p>
+          </div>
+          <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm">
+            <p className="text-slate-400 text-[10px] font-bold uppercase tracking-wider mb-1">Materiais Inativos</p>
+            <p className="text-2xl font-black text-slate-400">{inativos}</p>
+          </div>
+          <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm">
+            <p className="text-slate-400 text-[10px] font-bold uppercase tracking-wider mb-1">Itens Filtrados</p>
+            <p className="text-2xl font-black text-indigo-600">{filteredProducts.length}</p>
+          </div>
+        </div>
+
+        <div className="flex flex-col sm:flex-row gap-4 items-center justify-between bg-white p-3 rounded-2xl border border-slate-200 shadow-sm">
+          <div className="flex items-center gap-4 w-full sm:w-auto">
+            <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 shrink-0 overflow-x-auto">
+              <button 
+                onClick={() => setFilterStatus('ALL')}
+                className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-colors whitespace-nowrap ${filterStatus === 'ALL' ? 'bg-white text-slate-900 shadow-sm border border-slate-200/50' : 'text-slate-500 hover:text-slate-700'}`}
+              >
+                Todos
+              </button>
+              <button 
+                onClick={() => setFilterStatus('ACTIVE')}
+                className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-colors whitespace-nowrap ${filterStatus === 'ACTIVE' ? 'bg-white text-slate-900 shadow-sm border border-slate-200/50' : 'text-slate-500 hover:text-slate-700'}`}
+              >
+                Ativos
+              </button>
+              <button 
+                onClick={() => setFilterStatus('INACTIVE')}
+                className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-colors whitespace-nowrap ${filterStatus === 'INACTIVE' ? 'bg-white text-slate-900 shadow-sm border border-slate-200/50' : 'text-slate-500 hover:text-slate-700'}`}
+              >
+                Inativos
+              </button>
+            </div>
+          </div>
+          <div className="relative w-full sm:max-w-xl">
+            <Search className="absolute left-3.5 top-3 h-5 w-5 text-slate-400" />
+            <ClearableInput 
+              placeholder="Busque por Nome, SKU, Fabricante..." 
+              value={search}
+              onChange={setSearch}
+              onClear={() => setSearch('')}
+              className="pl-11 bg-slate-50 border-slate-200 text-slate-900 placeholder:text-slate-500 h-11 rounded-xl focus:border-indigo-500 focus:bg-white transition-colors"
+            />
+          </div>
         </div>
       </div>
 

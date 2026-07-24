@@ -106,6 +106,7 @@ export function CategoryModal({
 export function CategoriesPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [search, setSearch] = useState('');
+  const [filterStatus, setFilterStatus] = useState<'Todos' | 'Ativos' | 'Inativos'>('Todos');
   const [modalOpen, setModalOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Category | undefined>();
   const repo = new SupabaseCategoryRepository();
@@ -169,9 +170,11 @@ export function CategoriesPage() {
     }
   };
 
-  const filtered = categories.filter(c =>
-    c.name.toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = categories.filter(c => {
+    if (filterStatus === 'Ativos' && c.status !== CategoryStatus.ACTIVE) return false;
+    if (filterStatus === 'Inativos' && c.status !== CategoryStatus.INACTIVE) return false;
+    return c.name.toLowerCase().includes(search.toLowerCase());
+  });
 
   const ativos = categories.filter(c => c.status === CategoryStatus.ACTIVE).length;
   const inativos = categories.filter(c => c.status === CategoryStatus.INACTIVE).length;
@@ -187,58 +190,82 @@ export function CategoriesPage() {
         />
       )}
 
-      {/* KPIs */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        {[
-          { label: 'Total de Categorias', value: categories.length, color: 'text-slate-900', desc: 'Categorias cadastradas' },
-          { label: 'Ativas', value: ativos, color: 'text-green-600', desc: 'Categorias em uso' },
-          { label: 'Inativas', value: inativos, color: 'text-slate-400', desc: 'Categorias desativadas' },
-        ].map(item => (
-          <Card key={item.label} className="rounded-2xl border-slate-200 shadow-sm bg-white">
-            <CardContent className="p-5">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{item.label}</p>
-              <p className={`text-2xl font-extrabold mt-1 ${item.color}`}>{item.value}</p>
-              <p className="text-[10px] text-slate-400 mt-1">{item.desc}</p>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      {/* HEADER UNIFICADO (LIGHT MODE) */}
+      <div className="max-w-[1600px] mx-auto w-full px-6 pt-6 pb-2 space-y-6">
+        <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 flex items-center gap-3">
+              <Layers className="h-7 w-7 text-indigo-600" />
+              Gestão de Categorias
+            </h1>
+            <p className="text-slate-500 mt-1 text-sm max-w-2xl">
+              Organize os materiais da sua empresa em categorias hierárquicas.
+            </p>
+          </div>
+          
+          <div className="flex items-center gap-3 shrink-0">
+            <Button 
+              onClick={() => { setEditingCategory(undefined); setModalOpen(true); }} 
+              className="bg-indigo-600 hover:bg-indigo-700 text-white h-10 px-5 font-bold shadow-md shadow-indigo-600/20"
+            >
+              <Plus className="h-4 w-4 mr-1.5" />
+              Nova Categoria
+            </Button>
+          </div>
+        </div>
 
-      {/* Filtros e Ações */}
-      <Card className="rounded-2xl border-slate-200 shadow-sm bg-white">
-        <CardContent className="p-5 flex flex-col sm:flex-row gap-4 items-center justify-between">
-          <div className="relative w-full sm:max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-            <ClearableInput
-              placeholder="Buscar categoria..."
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm">
+            <p className="text-slate-400 text-[10px] font-bold uppercase tracking-wider mb-1">Total de Categorias</p>
+            <p className="text-2xl font-black text-slate-900">{categories.length}</p>
+          </div>
+          <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm">
+            <p className="text-slate-400 text-[10px] font-bold uppercase tracking-wider mb-1">Categorias Ativas</p>
+            <p className="text-2xl font-black text-emerald-600">{ativos}</p>
+          </div>
+          <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm">
+            <p className="text-slate-400 text-[10px] font-bold uppercase tracking-wider mb-1">Categorias Inativas</p>
+            <p className="text-2xl font-black text-slate-400">{inativos}</p>
+          </div>
+        </div>
+
+        <div className="flex flex-col sm:flex-row gap-4 items-center justify-between bg-white p-3 rounded-2xl border border-slate-200 shadow-sm">
+          <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 shrink-0 w-full sm:w-auto overflow-x-auto">
+            <button 
+              onClick={() => setFilterStatus('Todos')}
+              className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-colors whitespace-nowrap ${filterStatus === 'Todos' ? 'bg-white text-slate-900 shadow-sm border border-slate-200/50' : 'text-slate-500 hover:text-slate-700'}`}
+            >
+              Todos
+            </button>
+            <button 
+              onClick={() => setFilterStatus('Ativos')}
+              className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-colors whitespace-nowrap ${filterStatus === 'Ativos' ? 'bg-white text-slate-900 shadow-sm border border-slate-200/50' : 'text-slate-500 hover:text-slate-700'}`}
+            >
+              Ativos
+            </button>
+            <button 
+              onClick={() => setFilterStatus('Inativos')}
+              className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-colors whitespace-nowrap ${filterStatus === 'Inativos' ? 'bg-white text-slate-900 shadow-sm border border-slate-200/50' : 'text-slate-500 hover:text-slate-700'}`}
+            >
+              Inativos
+            </button>
+          </div>
+          <div className="relative w-full sm:max-w-xl">
+            <Search className="absolute left-3.5 top-3 h-5 w-5 text-slate-400" />
+            <ClearableInput 
+              placeholder="Busque por nome da categoria..." 
               value={search}
               onChange={setSearch}
               onClear={() => setSearch('')}
-              className="pl-10 h-10 text-sm"
+              className="pl-11 bg-slate-50 border-slate-200 text-slate-900 placeholder:text-slate-500 h-11 rounded-xl focus:border-indigo-500 focus:bg-white transition-colors"
             />
           </div>
-          <Button
-            onClick={() => { setEditingCategory(undefined); setModalOpen(true); }}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white h-10 px-5 text-sm font-bold flex items-center gap-2 shrink-0 w-full sm:w-auto rounded-xl"
-          >
-            <Plus className="h-4 w-4" /> Nova Categoria
-          </Button>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {/* GRID DE CATEGORIAS */}
-      <div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          <Card
-            onClick={() => { setEditingCategory(undefined); setModalOpen(true); }}
-            className="rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50/50 hover:bg-slate-50 hover:border-indigo-300 cursor-pointer transition-all flex flex-col items-center justify-center min-h-[160px] group shadow-none"
-          >
-            <div className="h-10 w-10 rounded-full bg-white border border-slate-200 flex items-center justify-center mb-3 group-hover:scale-110 group-hover:border-indigo-200 transition-all shadow-sm">
-              <Plus className="h-5 w-5 text-indigo-500" />
-            </div>
-            <p className="font-bold text-slate-600 group-hover:text-indigo-600">Nova Categoria</p>
-            <p className="text-[10px] text-slate-400 mt-1">Adicionar ao catálogo</p>
-          </Card>
+      <div className="max-w-[1600px] mx-auto w-full px-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {filtered.map(cat => (
             <Card
               key={cat.id}
@@ -297,16 +324,6 @@ export function CategoriesPage() {
             </Card>
           ))}
 
-          {/* Card de nova categoria */}
-          <button
-            onClick={() => { setEditingCategory(undefined); setModalOpen(true); }}
-            className="rounded-2xl border-2 border-dashed border-slate-300 hover:border-indigo-400 hover:bg-indigo-50/30 transition-all duration-150 p-5 flex flex-col items-center justify-center gap-2 min-h-[160px] group"
-          >
-            <div className="h-10 w-10 rounded-xl bg-slate-100 group-hover:bg-indigo-100 transition-colors flex items-center justify-center">
-              <Plus className="h-5 w-5 text-slate-400 group-hover:text-indigo-600 transition-colors" />
-            </div>
-            <span className="text-sm font-bold text-slate-600 group-hover:text-indigo-700 transition-colors">Nova Categoria</span>
-          </button>
         </div>
       </div>
     </div>
