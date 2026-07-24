@@ -318,9 +318,9 @@ export default function ProductsListPage() {
                     className={`group relative bg-white border rounded-2xl flex flex-col transition-all duration-150 ease-out hover:-translate-y-[2px] hover:shadow-lg hover:border-slate-300 ${isSelected ? 'border-indigo-500 shadow-md shadow-indigo-100 ring-1 ring-indigo-500' : 'border-slate-200 hover:shadow-sm'}`}
                   >
                     {/* Imagem Cover / Placeholder */}
-                    <div className="h-40 w-full bg-slate-50 border-b border-slate-100 flex flex-col items-center justify-center relative rounded-t-2xl group-hover:bg-slate-100/50 transition-colors shrink-0">
+                    <div className="h-40 w-full bg-slate-50 border-b border-slate-100 flex flex-col items-center justify-center relative rounded-t-2xl group-hover:bg-slate-100/50 transition-colors shrink-0 overflow-hidden">
                       {product.imageUrl ? (
-                        <img src={product.imageUrl} alt={product.name} className="w-full h-full object-cover rounded-t-2xl" />
+                        <img src={product.imageUrl} alt={product.name} className="w-full h-full object-contain p-4" />
                       ) : (
                         <>
                           <div className="absolute inset-0 opacity-[0.03] bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-slate-900 via-slate-900 to-transparent"></div>
