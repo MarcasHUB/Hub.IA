@@ -119,7 +119,7 @@ export function OrganizationDetailsModal({ isOpen, onClose, organization, onSave
         <div className="flex-1 overflow-y-auto p-6">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             
-            <div className="lg:col-span-2 space-y-8">
+            <div className="lg:col-span-2 space-y-6">
               {/* DADOS GERAIS */}
               <section className="space-y-4">
                 <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2 pb-2 border-b border-slate-100">
@@ -196,20 +196,20 @@ export function OrganizationDetailsModal({ isOpen, onClose, organization, onSave
               </section>
               
               {/* EVOLUÇÃO FUTURA (MOCK) */}
-              <section className="space-y-4 pt-4 opacity-50 pointer-events-none">
+              <section className="space-y-3 pt-1 opacity-50 pointer-events-none">
                 <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2 pb-2 border-b border-slate-100">
                   Métricas de Negócio (Em Breve)
                 </h3>
                 <div className="grid grid-cols-3 gap-4">
-                  <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                  <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
                     <p className="text-[10px] font-bold text-slate-500 uppercase">Volume Comprado</p>
                     <p className="text-lg font-extrabold text-slate-800 mt-1">R$ --</p>
                   </div>
-                  <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                  <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
                     <p className="text-[10px] font-bold text-slate-500 uppercase">BIDs Ganhos</p>
                     <p className="text-lg font-extrabold text-slate-800 mt-1">--</p>
                   </div>
-                  <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                  <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
                     <p className="text-[10px] font-bold text-slate-500 uppercase">Fornecedores</p>
                     <p className="text-lg font-extrabold text-slate-800 mt-1">--</p>
                   </div>
@@ -218,7 +218,7 @@ export function OrganizationDetailsModal({ isOpen, onClose, organization, onSave
 
             </div>
 
-            <div className="space-y-8">
+            <div className="space-y-6">
               {/* CONTATO & OPERAÇÃO */}
               <section className="space-y-4">
                 <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2 pb-2 border-b border-slate-100">

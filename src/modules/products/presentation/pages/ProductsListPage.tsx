@@ -332,7 +332,7 @@ export default function ProductsListPage() {
 
                     <div className="p-6 flex flex-col flex-1">
                       {/* Nome do Material */}
-                      <div className="mb-2">
+                      <div className="mb-2 min-h-[40px]">
                         <h3 
                           className="font-bold text-slate-900 text-sm leading-snug line-clamp-2 hover:text-indigo-600 cursor-pointer transition-colors" 
                           title={product.name}
@@ -343,11 +343,9 @@ export default function ProductsListPage() {
                       </div>
                       
                       {/* Descrição Breve */}
-                      <div className="mb-3">
-                        {product.description ? (
-                          <p className="text-xs text-slate-500 line-clamp-2 min-h-[32px]">{product.description}</p>
-                        ) : (
-                          <div className="h-[32px]"></div> /* Placeholder */
+                      <div className="mb-3 h-[32px]">
+                        {product.description && (
+                          <p className="text-xs text-slate-500 line-clamp-2">{product.description}</p>
                         )}
                       </div>
 
@@ -405,7 +403,7 @@ export default function ProductsListPage() {
                         <Button 
                           onClick={() => handleToggleSelect(product)}
                           disabled={product.status === 'Inactive'}
-                          className={`w-full font-bold h-9 transition-all border-none ${isSelected ? 'bg-indigo-700 text-white shadow-sm' : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed'}`}
+                          className={`w-full font-bold text-[11px] px-2 h-9 flex items-center justify-center transition-all border-none ${isSelected ? 'bg-indigo-700 text-white shadow-sm' : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed'}`}
                           variant="outline"
                         >
                           <ShoppingCart className="h-4 w-4 mr-2" />
