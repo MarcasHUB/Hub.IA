@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Building2, X, Loader2 } from 'lucide-react';
+import { Building2, X, Loader2, CheckCircle2 } from 'lucide-react';
 import { Input } from '@/shared/components/ui/Input';
 import { Button } from '@/shared/components/ui/Button';
 import { supabase } from '@/infrastructure/supabase/client';

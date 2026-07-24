@@ -20,4 +20,20 @@ export class LocalStorageOrganizationConnectionRepository implements IOrganizati
         else all.push(connection);
         localStorage.setItem(this.KEY, JSON.stringify(all));
     }
+
+    async acceptInvite(id: string): Promise<void> {
+        // Mock
+    }
+
+    async rejectInvite(id: string): Promise<void> {
+        // Mock
+    }
+
+    async cancelInvite(id: string): Promise<void> {
+        // Mock
+    }
+
+    async createConnection(data: any): Promise<void> {
+        // Mock
+    }
 }
