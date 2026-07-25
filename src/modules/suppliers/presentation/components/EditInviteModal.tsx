@@ -82,33 +82,6 @@ export function EditInviteModal({ isOpen, onClose, onSuccess, partner }: EditInv
     return Array.from(suggestions);
   };
 
-  const handleCnpjBlur = async () => {
-    const cleanCnpj = newCompDoc.replace(/\D/g, '');
-    if (cleanCnpj.length !== 14) return;
-    setIsFetchingCnpj(true);
-    try {
-      const response = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${cleanCnpj}`);
-      if (response.ok) {
-        const data = await response.json();
-        setNewCompName(data.razao_social || data.nome_fantasia || '');
-        setNewCompCity(data.municipio || '');
-        setNewCompState(data.uf || '');
-        if (data.cnae_fiscal_descricao) {
-          const suggested = matchSegments(data.cnae_fiscal_descricao);
-          if (suggested.length > 0) {
-            setNewCompSeg(suggested.join(', '));
-          } else {
-            setNewCompSeg(data.cnae_fiscal_descricao.substring(0, 80));
-          }
-        }
-      }
-    } catch (e) {
-      console.error("Falha ao buscar CNPJ na BrasilAPI", e);
-    } finally {
-      setIsFetchingCnpj(false);
-    }
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newCompName.trim() || !newCompDoc.trim() || !newCompEmail.trim() || !newCompContact.trim()) return;

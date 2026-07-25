@@ -52,6 +52,8 @@ export function PartnerCard({
   onAccept, 
   onReject, 
   onCancel,
+  onEdit,
+  onViewDetails,
   highlight 
 }: {
   partner: Partner;
