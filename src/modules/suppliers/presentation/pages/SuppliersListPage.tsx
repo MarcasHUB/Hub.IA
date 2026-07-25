@@ -8,6 +8,8 @@ import { Button } from '@/shared/components/ui/Button';
 import { ClearableInput } from '@/shared/components/ui/ClearableInput';
 import { PartnerCard, Partner } from '../components/PartnerCard';
 import { InviteCompanyModal } from '../components/InviteCompanyModal';
+import { EditInviteModal } from '../components/EditInviteModal';
+import { CompanyDetailsDrawer } from '../components/CompanyDetailsDrawer';
 import { SupabaseSupplierRepository } from '../../infrastructure/repositories/SupabaseSupplierRepository';
 
 const supplierRepo = new SupabaseSupplierRepository();
@@ -19,6 +21,8 @@ export default function SuppliersListPage() {
   const [activeTab, setActiveTab]       = useState<Tab>('parceiros');
   const [partners, setPartners]         = useState<Partner[]>([]);
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
+  const [partnerToEdit, setPartnerToEdit] = useState<Partner | null>(null);
+  const [partnerDetails, setPartnerDetails] = useState<Partner | null>(null);
   const [tenantId, setTenantId] = useState<string>('');
 
   useEffect(() => {
@@ -274,6 +278,7 @@ export default function SuppliersListPage() {
                       key={p.id} partner={p}
                       onRemove={handleRemove} onAccept={handleAccept} onReject={handleReject} onCancel={handleCancel}
                       highlight={search}
+                      onViewDetails={() => setPartnerDetails(p)}
                     />
                   ))}
                 </div>
@@ -292,6 +297,7 @@ export default function SuppliersListPage() {
                     <PartnerCard
                       key={p.id} partner={p}
                       onRemove={handleRemove} onAccept={handleAccept} onReject={handleReject} onCancel={handleCancel}
+                      onViewDetails={() => setPartnerDetails(p)}
                     />
                   ))}
                 </div>
@@ -310,6 +316,8 @@ export default function SuppliersListPage() {
                     <PartnerCard
                       key={p.id} partner={p}
                       onRemove={handleRemove} onAccept={handleAccept} onReject={handleReject} onCancel={handleCancel}
+                      onEdit={() => setPartnerToEdit(p)}
+                      onViewDetails={() => setPartnerDetails(p)}
                     />
                   ))}
                 </div>
@@ -333,6 +341,21 @@ export default function SuppliersListPage() {
         onSuccess={(companyData) => {
           setPartners(prev => [companyData, ...prev]);
         }}
+      />
+      
+      <EditInviteModal
+        isOpen={!!partnerToEdit}
+        partner={partnerToEdit}
+        onClose={() => setPartnerToEdit(null)}
+        onSuccess={(updatedData) => {
+          setPartners(prev => prev.map(p => p.id === updatedData.id ? updatedData : p));
+        }}
+      />
+
+      <CompanyDetailsDrawer
+        isOpen={!!partnerDetails}
+        partner={partnerDetails}
+        onClose={() => setPartnerDetails(null)}
       />
     </div>
   );

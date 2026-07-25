@@ -59,6 +59,8 @@ export function PartnerCard({
   onAccept: (id: string) => void;
   onReject: (id: string) => void;
   onCancel: (id: string) => void;
+  onEdit?: (partner: Partner) => void;
+  onViewDetails?: (partner: Partner) => void;
   highlight?: string;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -109,7 +111,13 @@ export function PartnerCard({
             {initials}
           </div>
           <div className="flex-1 min-w-0 pr-6">
-            <h3 className="font-bold text-slate-900 text-sm leading-tight truncate" title={partner.name}>{partner.name}</h3>
+            <button 
+              onClick={() => onViewDetails?.(partner)}
+              className="font-bold text-slate-900 text-sm leading-tight truncate hover:text-indigo-600 hover:underline text-left" 
+              title={partner.name}
+            >
+              {partner.name}
+            </button>
             <div className="flex items-center gap-2 mt-1">
               <Badge variant="secondary" className="text-[10px] bg-slate-100 text-slate-600 border-0 px-1.5 py-0.5">
                 CNPJ: {partner.document}
@@ -222,7 +230,10 @@ export function PartnerCard({
         )}
         {partner.status === 'pending_sent' && (
           <div className="flex gap-2">
-            <Button size="sm" variant="outline" onClick={() => onCancel(partner.id)} className="flex-1 border-amber-300 text-amber-700 hover:bg-amber-50 text-xs h-8">
+            <Button size="sm" onClick={() => onEdit?.(partner)} className="flex-1 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border-indigo-200 text-xs h-8">
+              Editar Convite
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => onCancel(partner.id)} className="flex-1 border-red-300 text-red-600 hover:bg-red-50 text-xs h-8">
               Cancelar Convite
             </Button>
           </div>
