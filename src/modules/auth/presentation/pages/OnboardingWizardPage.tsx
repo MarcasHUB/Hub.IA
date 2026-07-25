@@ -115,11 +115,14 @@ export default function OnboardingWizardPage() {
       });
 
       // Atualiza com os campos custom que o service base não mapeia nativamente
+      // Como o orgService atualmente gera IDs mockados ('org_...'), protegemos a chamada ao Supabase
       const { supabase } = await import('@/infrastructure/supabase/client');
-      await supabase.from('organizations').update({
-        website: site,
-        service_radius: raio || 'national'
-      }).eq('id', org.id);
+      if (org.id && org.id.includes('-')) {
+        await supabase.from('organizations').update({
+          website: site,
+          service_radius: raio || 'national'
+        }).eq('id', org.id);
+      }
 
       // Salva os segmentos na nova tabela de relacionamento N:N
       // Como o orgService atualmente gera IDs mockados ('org_...'), protegemos a chamada ao Supabase
