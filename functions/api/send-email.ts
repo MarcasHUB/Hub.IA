@@ -224,6 +224,17 @@ export async function onRequestPost(context: any) {
       
       const link = joinUrl(publicUrl, `onboarding?token=${invite.token_hash}`);
 
+      const inviterName = user?.user_metadata?.nome 
+        ? `${user.user_metadata.nome} ${user.user_metadata.sobrenome || ''}`.trim() 
+        : 'Usuário do Sistema';
+      const inviterEmail = user?.email || 'contato@hub.ia';
+      
+      let inviterCompany = 'Rede Hub.IA';
+      if (invite.organization_id) {
+         const { data: org } = await supabase.from('organizations').select('name').eq('id', invite.organization_id).maybeSingle();
+         if (org && org.name) inviterCompany = org.name;
+      }
+
       const messageBlock = invite.message ? `
           <div style="background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 16px; margin: 24px 0;">
             <p style="margin: 0; color: #166534; font-style: italic;">"${invite.message}"</p>
@@ -237,6 +248,13 @@ export async function onRequestPost(context: any) {
           <p>Sua empresa foi convidada para participar da <strong>Rede Hub.IA de Suprimentos</strong>.</p>
           <p>A Hub.IA conecta empresas compradoras e fornecedoras em um ambiente único para geração de negócios, cotações, parcerias estratégicas e oportunidades comerciais.</p>
           
+          <div style="background-color: #f8fafc; border-left: 4px solid #4F46E5; padding: 16px; margin: 24px 0;">
+            <p style="margin: 0 0 8px 0; color: #64748b; font-size: 12px; font-weight: bold; text-transform: uppercase;">Convite enviado por:</p>
+            <p style="margin: 0 0 4px 0;"><strong>Empresa:</strong> ${inviterCompany}</p>
+            <p style="margin: 0 0 4px 0;"><strong>Contato:</strong> ${inviterName}</p>
+            <p style="margin: 0;"><strong>E-mail:</strong> ${inviterEmail}</p>
+          </div>
+
           ${messageBlock}
 
           <div style="background-color: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; margin: 24px 0;">
@@ -244,7 +262,6 @@ export async function onRequestPost(context: any) {
             <p style="margin: 8px 0 0 0;"><strong>Razão Social:</strong> ${invite.company}</p>
             <p style="margin: 4px 0 0 0;"><strong>CNPJ:</strong> ${invite.document}</p>
             ${invite.city && invite.state ? `<p style="margin: 4px 0 0 0;"><strong>Localização:</strong> ${invite.city}/${invite.state}</p>` : ''}
-            ${invite.website ? `<p style="margin: 4px 0 0 0;"><strong>Site:</strong> ${invite.website}</p>` : ''}
           </div>
 
           <p style="font-weight: bold; margin-bottom: 8px;">Próximo passo</p>

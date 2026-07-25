@@ -28,7 +28,6 @@ export function InviteCompanyModal({ isOpen, onClose, onSuccess }: InviteCompany
   const [newCompState, setNewCompState] = useState('');
   const [newCompDesc, setNewCompDesc] = useState('');
   const [newCompContact, setNewCompContact] = useState('');
-  const [newCompWeb, setNewCompWeb] = useState('');
   const [newCompMessage, setNewCompMessage] = useState('');
   const [isFetchingCnpj, setIsFetchingCnpj] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -139,7 +138,6 @@ export function InviteCompanyModal({ isOpen, onClose, onSuccess }: InviteCompany
         city: newCompCity,
         state: newCompState,
         contact_name: newCompContact,
-        website: newCompWeb,
         message: newCompMessage
       });
 
@@ -200,7 +198,6 @@ export function InviteCompanyModal({ isOpen, onClose, onSuccess }: InviteCompany
     setNewCompState('');
     setNewCompDesc('');
     setNewCompContact('');
-    setNewCompWeb('');
     setNewCompMessage('');
     setSuccessData(null);
     onClose();
@@ -294,14 +291,10 @@ export function InviteCompanyModal({ isOpen, onClose, onSuccess }: InviteCompany
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-5">
+            <div className="grid grid-cols-1 gap-5">
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-slate-700">Segmentos (Separados por vírgula)</label>
                 <Input placeholder="Ex: Material Elétrico, EPIs" value={newCompSeg} onChange={e => setNewCompSeg(e.target.value)} />
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700">Site Corporativo (Opcional)</label>
-                <Input placeholder="Ex: www.empresa.com.br" value={newCompWeb} onChange={e => setNewCompWeb(e.target.value)} />
               </div>
             </div>
 

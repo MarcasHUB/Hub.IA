@@ -25,7 +25,6 @@ export default function OnboardingWizardPage() {
   const [nomeFantasia, setNomeFantasia] = useState('');
   const [cidade, setCidade] = useState('');
   const [estado, setEstado] = useState('');
-  const [logo, setLogo] = useState('');
   const [site, setSite] = useState('');
 
   // Formulário: Perfil
@@ -58,14 +57,17 @@ export default function OnboardingWizardPage() {
     if (!token) return;
     const fetchInvite = async () => {
       const { supabase } = await import('@/infrastructure/supabase/client');
-      const { data, error } = await supabase.from('invitations').select('*').eq('token_hash', token).single();
-      if (data && !error) {
-        setCnpj(data.document || '');
-        setRazaoSocial(data.company || '');
-        setCidade(data.city || '');
-        setEstado(data.state || '');
-        setUserEmail(data.email || '');
-        setInviteId(data.id);
+      // Chama a RPC 'validate_company_invite' que tem SECURITY DEFINER para bypassar o RLS
+      const { data, error } = await supabase.rpc('validate_company_invite', { p_token: token });
+      
+      if (data && data.length > 0) {
+        const inv = data[0];
+        setCnpj(inv.document || '');
+        setRazaoSocial(inv.company || inv.name || '');
+        setCidade(inv.city || '');
+        setEstado(inv.state || '');
+        setUserEmail(inv.email || '');
+        setInviteId(inv.id);
       }
     };
     fetchInvite();
@@ -91,11 +93,8 @@ export default function OnboardingWizardPage() {
 
       // Cálculo de Completude
       let completion = 50;
-      if (logo) completion += 20;
       if (site) completion += 10;
       if (tipoEmpresa.length > 0) completion += 10;
-
-      // 1. Cria a Organização com os novos campos
       const org = await orgService.createOrganization({
         name: razaoSocial || nomeFantasia,
         tradeName: nomeFantasia,
@@ -108,7 +107,6 @@ export default function OnboardingWizardPage() {
       // Atualiza com os campos custom que o service base não mapeia nativamente
       const { supabase } = await import('@/infrastructure/supabase/client');
       await supabase.from('organizations').update({
-        logo_url: logo,
         website: site,
         service_radius: raio || 'national'
       }).eq('id', org.id);
@@ -217,10 +215,6 @@ export default function OnboardingWizardPage() {
                     <label className="text-xs font-bold text-slate-700">Nome Fantasia *</label>
                     <Input value={nomeFantasia} onChange={e => setNomeFantasia(e.target.value)} required />
                   </div>
-                  <div className="space-y-1.5 md:col-span-2">
-                    <label className="text-xs font-bold text-slate-700">Logo (URL) *</label>
-                    <Input value={logo} onChange={e => setLogo(e.target.value)} required placeholder="Cole o link da sua logomarca" />
-                  </div>
                   <div className="space-y-1.5">
                     <label className="text-xs font-bold text-slate-700">Cidade</label>
                     <Input value={cidade} onChange={e => setCidade(e.target.value)} />
@@ -232,7 +226,7 @@ export default function OnboardingWizardPage() {
                 </div>
 
                 <div className="flex justify-end pt-4">
-                  <Button onClick={() => setStep(2)} disabled={!nomeFantasia || !logo} className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-8 shadow-md">
+                  <Button onClick={() => setStep(2)} disabled={!nomeFantasia} className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-8 shadow-md">
                     Próximo <ChevronRight className="h-4 w-4 ml-1" />
                   </Button>
                 </div>
