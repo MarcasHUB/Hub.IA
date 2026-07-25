@@ -10,9 +10,7 @@ import { PartnerCard, Partner } from '../components/PartnerCard';
 import { InviteCompanyModal } from '../components/InviteCompanyModal';
 import { EditInviteModal } from '../components/EditInviteModal';
 import { CompanyDetailsDrawer } from '../components/CompanyDetailsDrawer';
-import { SupabaseSupplierRepository } from '../../infrastructure/repositories/SupabaseSupplierRepository';
-
-const supplierRepo = new SupabaseSupplierRepository();
+// SupabaseSupplierRepository removido pois utilizaremos apenas dados reais de convites (invitations)
 
 type Tab = 'parceiros' | 'convites_recebidos' | 'convites_enviados' | 'historico';
 type StatusFilter = 'Todos' | 'Ativos' | 'Inativos';
@@ -33,31 +31,11 @@ export default function SuppliersListPage() {
          
          const { supabase } = await import('@/infrastructure/supabase/client');
          
-         // 1. Fornecedores aceitos (Simulado pelo supplierRepo por enquanto ou real dependendo do repo)
-         const suppliers = await supplierRepo.findAll(orgId);
-         const mappedSuppliers = suppliers.map(s => ({
-            id: s.id,
-            name: s.name,
-            document: s.document,
-            segment: 'Não definido',
-            city: '-',
-            state: '-',
-            status: 'accepted' as const,
-            connectionId: '',
-            employeesRange: '-',
-            rating: 0,
-            responseTime: '-',
-            quotationsCount: 0,
-            products: [],
-            email: ''
-         }));
-
-         // 2. Convites pendentes/enviados
          const { data: invs } = await supabase
             .from('invitations')
             .select('*')
             .eq('organization_id', orgId)
-            .in('status', ['pendente', 'aceito', 'recusado', 'cancelado']);
+            .in('status', ['pendente', 'aceito']);
             
          const mappedInvites = (invs || []).map(inv => ({
             id: inv.id,
@@ -66,7 +44,7 @@ export default function SuppliersListPage() {
             segment: (inv.segments && inv.segments.length > 0) ? inv.segments.join(', ') : 'Não definido',
             city: inv.city || '-',
             state: inv.state || '-',
-            status: inv.status === 'pendente' ? 'pending_sent' as const : inv.status as any,
+            status: inv.status === 'pendente' ? 'pending_sent' as const : (inv.status === 'aceito' ? 'accepted' as const : inv.status as any),
             connectionId: '',
             employeesRange: '-',
             rating: 0,
@@ -78,7 +56,7 @@ export default function SuppliersListPage() {
             message: inv.message
          }));
 
-         setPartners([...mappedSuppliers, ...mappedInvites]);
+         setPartners([...mappedInvites]);
        } catch(e) {
          console.error('Erro ao carregar parceiros:', e);
        }

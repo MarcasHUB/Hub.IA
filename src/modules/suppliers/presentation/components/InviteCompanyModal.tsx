@@ -69,8 +69,9 @@ export function InviteCompanyModal({ isOpen, onClose, onSuccess }: InviteCompany
     return Array.from(suggestions);
   };
 
-  const handleCnpjBlur = async () => {
-    const cleanCnpj = newCompDoc.replace(/\D/g, '');
+  const handleCnpjBlur = async (e?: React.FocusEvent<HTMLInputElement>) => {
+    const docValue = e ? e.target.value : newCompDoc;
+    const cleanCnpj = docValue.replace(/\D/g, '');
     if (cleanCnpj.length !== 14) return;
     setIsFetchingCnpj(true);
     try {
