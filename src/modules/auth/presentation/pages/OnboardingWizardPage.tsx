@@ -106,7 +106,11 @@ export default function OnboardingWizardPage() {
   const handleFinish = async () => {
     setIsLoading(true);
     try {
+      console.log('[ONBOARDING] Iniciando handleFinish...');
+      console.log('[ONBOARDING] Dados:', { userEmail, userName, userRole, cnpj, razaoSocial, nomeFantasia, cidade, estado, selectedSegments, token });
+
       // 1. Cadastra o Usuário no Supabase Auth primeiro
+      console.log('[ONBOARDING] PASSO 1 - Criando usuário no Auth...');
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: userEmail,
         password: userPass,
@@ -118,8 +122,10 @@ export default function OnboardingWizardPage() {
       });
 
       if (authError || !authData.user) {
-        throw new Error('Erro ao criar usuário: ' + authError?.message);
+        console.error('[ONBOARDING] PASSO 1 FALHOU:', authError);
+        throw new Error('PASSO 1 - Erro ao criar usuário Auth: ' + authError?.message);
       }
+      console.log('[ONBOARDING] PASSO 1 OK - auth_id:', authData.user.id);
 
       // 2. Mapeia a role selecionada
       let mappedRole = 'admin';
@@ -127,7 +133,7 @@ export default function OnboardingWizardPage() {
       if (userRole === 'Engenharia') mappedRole = 'buyer';
 
       // 3. Executa a RPC transacional que cria a organização, os vínculos e aceita o convite
-      const { error: rpcError } = await supabase.rpc('complete_onboarding', {
+      const rpcPayload = {
         p_token: token || '',
         p_auth_id: authData.user.id,
         p_email: userEmail,
@@ -140,17 +146,23 @@ export default function OnboardingWizardPage() {
         p_org_state: estado,
         p_org_website: site || null,
         p_segments: selectedSegments
-      });
+      };
+      console.log('[ONBOARDING] PASSO 2 - Chamando RPC complete_onboarding com payload:', rpcPayload);
+
+      const { data: rpcData, error: rpcError } = await supabase.rpc('complete_onboarding', rpcPayload);
+
+      console.log('[ONBOARDING] PASSO 2 - Resultado RPC:', { rpcData, rpcError });
 
       if (rpcError) {
-        console.error('Erro na RPC de onboarding:', rpcError);
-        throw new Error('Erro ao consolidar os dados da empresa. ' + rpcError.message);
+        console.error('[ONBOARDING] PASSO 2 FALHOU - Erro completo:', JSON.stringify(rpcError, null, 2));
+        throw new Error('PASSO 2 - RPC falhou: [' + rpcError.code + '] ' + rpcError.message + (rpcError.details ? ' | ' + rpcError.details : ''));
       }
 
+      console.log('[ONBOARDING] SUCESSO - Avançando para tela de sucesso.');
       setStep(4);
-    } catch (e) {
-      console.error(e);
-      alert('Erro ao concluir cadastro.');
+    } catch (e: any) {
+      console.error('[ONBOARDING] ERRO FINAL:', e);
+      alert('Erro ao concluir cadastro:\n\n' + (e?.message || JSON.stringify(e)));
     } finally {
       setIsLoading(false);
     }
