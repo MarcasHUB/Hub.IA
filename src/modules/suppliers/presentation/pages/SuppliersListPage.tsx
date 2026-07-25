@@ -199,7 +199,7 @@ export default function SuppliersListPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Total Parceiros</p>
-                    <p className="text-2xl font-black text-slate-900">{partners.length}</p>
+                    <p className="text-2xl font-black text-slate-900">{accepted.length}</p>
                   </div>
                   <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Parceiros Ativos</p>

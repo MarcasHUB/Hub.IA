@@ -181,7 +181,9 @@ export function InviteCompanyModal({ isOpen, onClose, onSuccess }: InviteCompany
         quotationsCount: 0,
         products: [],
         email: newCompEmail,
-        connectionId: ''
+        connectionId: '',
+        contact_name: newCompContact,
+        message: newCompMessage
       });
       
     } catch (e) {
