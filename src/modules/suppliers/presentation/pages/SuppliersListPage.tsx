@@ -63,7 +63,7 @@ export default function SuppliersListPage() {
             id: inv.id,
             name: inv.company || inv.name,
             document: inv.document,
-            segment: 'Não definido',
+            segment: (inv.segments && inv.segments.length > 0) ? inv.segments.join(', ') : 'Não definido',
             city: inv.city || '-',
             state: inv.state || '-',
             status: inv.status === 'pendente' ? 'pending_sent' as const : inv.status as any,

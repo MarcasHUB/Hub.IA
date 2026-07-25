@@ -100,6 +100,7 @@ export function EditInviteModal({ isOpen, onClose, onSuccess, partner }: EditInv
         state: newCompState,
         contact_name: newCompContact,
         message: newCompMessage,
+        segments: newCompSeg ? [newCompSeg] : [],
         updated_at: new Date().toISOString()
       }).eq('id', partner.id).select().single();
 
@@ -131,10 +132,12 @@ export function EditInviteModal({ isOpen, onClose, onSuccess, partner }: EditInv
         ...partner,
         name: newCompName,
         document: newCompDoc,
-        segment: newCompSeg || 'Geral',
-        city: newCompCity || 'São Paulo',
-        state: newCompState || 'SP',
+        segment: newCompSeg || 'Não definido',
+        city: newCompCity || '-',
+        state: newCompState || '-',
         email: newCompEmail,
+        contact_name: newCompContact,
+        message: newCompMessage,
       });
       
     } catch (e) {

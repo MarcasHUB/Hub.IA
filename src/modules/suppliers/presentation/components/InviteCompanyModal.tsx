@@ -139,7 +139,8 @@ export function InviteCompanyModal({ isOpen, onClose, onSuccess }: InviteCompany
         city: newCompCity,
         state: newCompState,
         contact_name: newCompContact,
-        message: newCompMessage
+        message: newCompMessage,
+        segments: newCompSeg ? [newCompSeg] : []
       });
 
       if (inviteError) {
