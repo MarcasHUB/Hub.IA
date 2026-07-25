@@ -77,11 +77,13 @@ export default function OnboardingWizardPage() {
         const inv = data[0];
         setCnpj(inv.document || '');
         setRazaoSocial(inv.company || inv.name || '');
+        setNomeFantasia(inv.company || inv.name || ''); // pré-preenche com razão social
         setCidade(inv.city || '');
         setEstado(inv.state || '');
         setUserEmail(inv.email || '');
         setInviteId(inv.id);
         
+        if (inv.contact_name) setUserName(inv.contact_name);
         if (inv.inviter_logo_url) setInviterLogo(inv.inviter_logo_url);
         if (inv.inviter_name) setInviterName(inv.inviter_name);
         
@@ -132,7 +134,7 @@ export default function OnboardingWizardPage() {
         p_full_name: userName,
         p_role: mappedRole,
         p_org_name: razaoSocial || nomeFantasia,
-        p_org_trade_name: nomeFantasia,
+        p_org_trade_name: nomeFantasia || razaoSocial,
         p_org_document: cnpj,
         p_org_city: cidade,
         p_org_state: estado,

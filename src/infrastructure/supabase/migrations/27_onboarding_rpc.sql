@@ -35,10 +35,10 @@ BEGIN
 
   -- 1. Cria a organização com os nomes reais das colunas
   INSERT INTO public.organizations (
-    name, slug, razao_social, nome_fantasia, cnpj, city, state, website
+    name, slug, razao_social, nome_fantasia, cnpj, city, state, website, status
   ) VALUES (
     p_org_name, v_slug, p_org_name, p_org_trade_name, p_org_document,
-    p_org_city, p_org_state, p_org_website
+    p_org_city, p_org_state, p_org_website, 'ativo'
   ) RETURNING id INTO v_org_id;
 
   -- 2. Insere os segmentos vinculando ao UUID real da org
