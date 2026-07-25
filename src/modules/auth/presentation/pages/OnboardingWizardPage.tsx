@@ -34,6 +34,7 @@ export default function OnboardingWizardPage() {
   // Passo 2: Segmento (Atuação Empresarial)
   const [selectedSegments, setSelectedSegments] = useState<string[]>([]);
   const [globalSegments, setGlobalSegments] = useState<any[]>([]);
+  const [inviteSegments, setInviteSegments] = useState<string[]>([]);
 
   useEffect(() => {
     const fetchSegments = async () => {
@@ -45,6 +46,18 @@ export default function OnboardingWizardPage() {
     };
     fetchSegments();
   }, []);
+
+  // Mapeia nomes de segmentos vindos do convite para UUIDs assim que os globais carregarem
+  useEffect(() => {
+    if (globalSegments.length > 0 && inviteSegments.length > 0) {
+      const mappedIds = inviteSegments.map(name => {
+        const seg = globalSegments.find(s => s.nome === name);
+        return seg ? seg.id : null;
+      }).filter(Boolean) as string[];
+      
+      setSelectedSegments(prev => Array.from(new Set([...prev, ...mappedIds])));
+    }
+  }, [globalSegments, inviteSegments]);
 
   // Formulário: Usuário
   const [userName, setUserName] = useState('');
@@ -73,7 +86,7 @@ export default function OnboardingWizardPage() {
         if (inv.inviter_name) setInviterName(inv.inviter_name);
         
         if (inv.segments && Array.isArray(inv.segments)) {
-          setSelectedSegments(inv.segments);
+          setInviteSegments(inv.segments);
         }
       }
     };
