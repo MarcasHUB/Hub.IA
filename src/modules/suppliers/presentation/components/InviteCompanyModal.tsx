@@ -3,6 +3,7 @@ import { Building2, X, Loader2, CheckCircle2 } from 'lucide-react';
 import { Input } from '@/shared/components/ui/Input';
 import { Button } from '@/shared/components/ui/Button';
 import { supabase } from '@/infrastructure/supabase/client';
+import { maskCNPJ } from '@/shared/utils/formatters';
 
 interface InviteCompanyModalProps {
   isOpen: boolean;
@@ -270,7 +271,7 @@ export function InviteCompanyModal({ isOpen, onClose, onSuccess }: InviteCompany
               <div className="space-y-1.5 relative">
                 <label className="text-xs font-bold text-slate-700">CNPJ *</label>
                 <div className="relative">
-                  <Input placeholder="Ex: 00.000.000/0001-00" value={newCompDoc} onChange={e => setNewCompDoc(e.target.value)} onBlur={handleCnpjBlur} required />
+                  <Input placeholder="Ex: 00.000.000/0001-00" value={newCompDoc} onChange={e => setNewCompDoc(maskCNPJ(e.target.value))} onBlur={handleCnpjBlur} required />
                   {isFetchingCnpj && <Loader2 className="absolute right-3 top-2.5 h-4 w-4 animate-spin text-slate-400" />}
                 </div>
               </div>

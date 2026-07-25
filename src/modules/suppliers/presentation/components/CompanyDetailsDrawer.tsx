@@ -2,6 +2,7 @@ import { X, Building2, MapPin, Package, Star, Calendar, Link as LinkIcon, Mail, 
 import { Partner } from './PartnerCard';
 import { Badge } from '@/shared/components/ui/Badge';
 import { Button } from '@/shared/components/ui/Button';
+import { formatCNPJ } from '@/shared/utils/formatters';
 
 interface CompanyDetailsDrawerProps {
   isOpen: boolean;
@@ -46,7 +47,7 @@ export function CompanyDetailsDrawer({ isOpen, onClose, partner }: CompanyDetail
             </div>
             <div>
               <h3 className="font-bold text-xl text-slate-900 leading-tight">{partner.name}</h3>
-              <p className="text-sm text-slate-500 mt-1">{partner.document}</p>
+              <p className="text-sm text-slate-500 mt-1">{formatCNPJ(partner.document)}</p>
               <div className="mt-2">
                 {isAccepted ? (
                    <Badge variant="secondary" className="bg-emerald-50 text-emerald-700 border-emerald-200">Parceiro Ativo</Badge>

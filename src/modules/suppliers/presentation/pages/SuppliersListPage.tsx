@@ -73,7 +73,9 @@ export default function SuppliersListPage() {
             responseTime: '-',
             quotationsCount: 0,
             products: [],
-            email: inv.email
+            email: inv.email,
+            contact_name: inv.contact_name,
+            message: inv.message
          }));
 
          setPartners([...mappedSuppliers, ...mappedInvites]);
@@ -126,9 +128,15 @@ export default function SuppliersListPage() {
     const updated = partners.filter(p => p.id !== id);
     setPartners(updated);
   };
-  const handleCancel = (id: string) => {
-    const updated = partners.filter(p => p.id !== id);
-    setPartners(updated);
+  const handleCancel = async (id: string) => {
+    try {
+      const { supabase } = await import('@/infrastructure/supabase/client');
+      await supabase.from('invitations').update({ status: 'cancelado' }).eq('id', id);
+      const updated = partners.filter(p => p.id !== id);
+      setPartners(updated);
+    } catch (e) {
+      console.error('Erro ao cancelar convite:', e);
+    }
   };
 
   const SIDEBAR_SECTIONS = [

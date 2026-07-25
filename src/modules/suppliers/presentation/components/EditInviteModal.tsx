@@ -3,6 +3,7 @@ import { Building2, X, Loader2, CheckCircle2 } from 'lucide-react';
 import { Input } from '@/shared/components/ui/Input';
 import { Button } from '@/shared/components/ui/Button';
 import { supabase } from '@/infrastructure/supabase/client';
+import { maskCNPJ } from '@/shared/utils/formatters';
 
 interface EditInviteModalProps {
   isOpen: boolean;
@@ -37,7 +38,7 @@ export function EditInviteModal({ isOpen, onClose, onSuccess, partner }: EditInv
   React.useEffect(() => {
     if (isOpen && partner) {
       setNewCompName(partner.name || '');
-      setNewCompDoc(partner.document || '');
+      setNewCompDoc(partner.document ? maskCNPJ(partner.document) : '');
       setNewCompEmail(partner.email || '');
       setNewCompSeg(partner.segment && partner.segment !== 'Não definido' ? partner.segment : '');
       setNewCompCity(partner.city !== '-' ? partner.city : '');
@@ -213,7 +214,7 @@ export function EditInviteModal({ isOpen, onClose, onSuccess, partner }: EditInv
               <div className="space-y-1.5 relative">
                 <label className="text-xs font-bold text-slate-700">CNPJ *</label>
                 <div className="relative">
-                  <Input placeholder="Ex: 00.000.000/0001-00" value={newCompDoc} onChange={e => setNewCompDoc(e.target.value)} disabled required />
+                  <Input placeholder="Ex: 00.000.000/0001-00" value={newCompDoc} onChange={e => setNewCompDoc(maskCNPJ(e.target.value))} disabled required />
                 </div>
               </div>
               <div className="space-y-1.5">

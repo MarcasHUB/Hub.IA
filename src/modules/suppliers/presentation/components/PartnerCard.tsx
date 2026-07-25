@@ -3,6 +3,7 @@ import { Clock, CheckCircle2, XCircle, MoreVertical, MapPin, Mail, Phone, Globe,
 import { Badge } from '@/shared/components/ui/Badge';
 import { Button } from '@/shared/components/ui/Button';
 import { useChatDrawer } from '@/modules/messages/presentation/context/ChatDrawerContext';
+import { formatCNPJ } from '@/shared/utils/formatters';
 
 export interface Partner {
   id: string;
@@ -22,6 +23,8 @@ export interface Partner {
   responseTime: string;
   quotationsCount: number;
   products: string[];
+  contact_name?: string;
+  message?: string;
 }
 
 const GRADIENTS: Record<string, string> = {
@@ -122,7 +125,7 @@ export function PartnerCard({
             </button>
             <div className="flex items-center gap-2 mt-1">
               <Badge variant="secondary" className="text-[10px] bg-slate-100 text-slate-600 border-0 px-1.5 py-0.5">
-                CNPJ: {partner.document}
+                CNPJ: {formatCNPJ(partner.document)}
               </Badge>
             </div>
             <p className="text-[11px] text-slate-500 mt-0.5">{partner.segment}</p>

@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/shared/components/ui/Button';
 import { Input } from '@/shared/components/ui/Input';
 import { Building2, UserCircle, Briefcase, CheckCircle2, ChevronRight, ChevronLeft, PackageSearch } from 'lucide-react';
+import { formatCNPJ } from '@/shared/utils/formatters';
 
 import { OrganizationService } from '@/modules/organizations/application/services/OrganizationService';
 import { UserService } from '@/modules/auth/application/services/UserService';
@@ -205,7 +206,7 @@ export default function OnboardingWizardPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <label className="text-xs font-bold text-slate-700">CNPJ</label>
-                    <Input value={cnpj} disabled className="bg-slate-50 text-slate-500 border-slate-200" placeholder="00.000.000/0001-00" />
+                    <Input value={formatCNPJ(cnpj)} disabled className="bg-slate-50 text-slate-500 border-slate-200" placeholder="00.000.000/0001-00" />
                   </div>
                   <div className="space-y-1.5 md:col-span-2">
                     <label className="text-xs font-bold text-slate-700">Razão Social</label>

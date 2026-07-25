@@ -76,6 +76,14 @@ export async function onRequestPost(context: any) {
       const cleanPath = path.replace(/^\/+/, '');
       return `${cleanBase}/${cleanPath}`;
     }
+
+    function formatCNPJ(value: string | undefined | null): string {
+      if (!value) return '';
+      const digits = value.replace(/\D/g, '');
+      if (digits.length !== 14) return value;
+      return digits.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, "$1.$2.$3/$4-$5");
+    }
+
     let toEmail = '';
     let toName = '';
     let subject = '';
@@ -260,7 +268,7 @@ export async function onRequestPost(context: any) {
           <div style="background-color: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; margin: 24px 0;">
             <h3 style="margin-top: 0; color: #111827; font-size: 16px;">Dados da Empresa</h3>
             <p style="margin: 8px 0 0 0;"><strong>Razão Social:</strong> ${invite.company}</p>
-            <p style="margin: 4px 0 0 0;"><strong>CNPJ:</strong> ${invite.document}</p>
+            <p style="margin: 4px 0 0 0;"><strong>CNPJ:</strong> ${formatCNPJ(invite.document)}</p>
             ${invite.city && invite.state ? `<p style="margin: 4px 0 0 0;"><strong>Localização:</strong> ${invite.city}/${invite.state}</p>` : ''}
           </div>
 
@@ -276,7 +284,7 @@ export async function onRequestPost(context: any) {
         </div>
       `;
       
-      textContent = `Olá ${toName},\n\nBem-vindo à Rede Hub.IA\n\nSua empresa foi convidada para participar da Rede Hub.IA de Suprimentos.\nA Hub.IA conecta empresas compradoras e fornecedoras em um ambiente único para geração de negócios, cotações, parcerias estratégicas e oportunidades comerciais.\n\nDados da Empresa:\nRazão Social: ${invite.company}\nCNPJ: ${invite.document}\n\nPróximo passo:\nClique no link abaixo para acessar a plataforma e concluir seu cadastro:\n${link}\n\nEste convite expira em 7 dias.`;
+      textContent = `Olá ${toName},\n\nBem-vindo à Rede Hub.IA\n\nSua empresa foi convidada para participar da Rede Hub.IA de Suprimentos.\nA Hub.IA conecta empresas compradoras e fornecedoras em um ambiente único para geração de negócios, cotações, parcerias estratégicas e oportunidades comerciais.\n\nDados da Empresa:\nRazão Social: ${invite.company}\nCNPJ: ${formatCNPJ(invite.document)}\n\nPróximo passo:\nClique no link abaixo para acessar a plataforma e concluir seu cadastro:\n${link}\n\nEste convite expira em 7 dias.`;
     }
 
     // Disparar Mailtrap
