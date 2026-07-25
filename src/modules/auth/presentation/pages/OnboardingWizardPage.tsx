@@ -93,30 +93,7 @@ export default function OnboardingWizardPage() {
   const handleFinish = async () => {
     setIsLoading(true);
     try {
-      // 1. Cria a Organização no Supabase
-      const { data: org, error: orgError } = await supabase.from('organizations').insert({
-        name: razaoSocial || nomeFantasia,
-        trade_name: nomeFantasia,
-        document: cnpj,
-        city: cidade,
-        state: estado,
-        website: site
-      }).select('id').single();
-
-      if (orgError || !org) {
-        throw new Error('Erro ao criar organização: ' + orgError?.message);
-      }
-
-      // 2. Salva os segmentos
-      if (selectedSegments.length > 0) {
-        const segmentsData = selectedSegments.map(segId => ({
-          organization_id: org.id,
-          segment_id: segId
-        }));
-        await supabase.from('company_segments').insert(segmentsData);
-      }
-
-      // 3. Cadastra o Usuário no Supabase Auth
+      // 1. Cadastra o Usuário no Supabase Auth primeiro
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: userEmail,
         password: userPass,
@@ -131,27 +108,30 @@ export default function OnboardingWizardPage() {
         throw new Error('Erro ao criar usuário: ' + authError?.message);
       }
 
-      // 4. Mapeia a role selecionada
+      // 2. Mapeia a role selecionada
       let mappedRole = 'admin';
       if (userRole === 'Comercial') mappedRole = 'manager';
       if (userRole === 'Engenharia') mappedRole = 'buyer';
 
-      // 5. Vincula o Usuário na tabela users pública
-      const { error: userError } = await supabase.from('users').insert({
-        id: authData.user.id,
-        organization_id: org.id,
-        email: userEmail,
-        full_name: userName,
-        role: mappedRole
+      // 3. Executa a RPC transacional que cria a organização, os vínculos e aceita o convite
+      const { error: rpcError } = await supabase.rpc('complete_onboarding', {
+        p_token: token || '',
+        p_auth_id: authData.user.id,
+        p_email: userEmail,
+        p_full_name: userName,
+        p_role: mappedRole,
+        p_org_name: razaoSocial || nomeFantasia,
+        p_org_trade_name: nomeFantasia,
+        p_org_document: cnpj,
+        p_org_city: cidade,
+        p_org_state: estado,
+        p_org_website: site || null,
+        p_segments: selectedSegments
       });
 
-      if (userError) {
-        console.error('Erro ao inserir em users:', userError);
-      }
-
-      // 6. Marca convite como aceito ignorando RLS
-      if (token) {
-        await supabase.rpc('accept_company_invite', { p_token: token });
+      if (rpcError) {
+        console.error('Erro na RPC de onboarding:', rpcError);
+        throw new Error('Erro ao consolidar os dados da empresa. ' + rpcError.message);
       }
 
       setStep(4);
