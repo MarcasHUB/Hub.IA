@@ -21,11 +21,11 @@ DECLARE
   v_invite_id uuid;
   v_seg_id uuid;
 BEGIN
-  -- 1. Cria a organização
+  -- 1. Cria a organização e captura o UUID real
   INSERT INTO public.organizations (
-    name, document, trade_name, city, state, website
+    name, razao_social, cnpj, nome_fantasia, city, state, website
   ) VALUES (
-    p_org_name, p_org_document, p_org_trade_name, p_org_city, p_org_state, p_org_website
+    p_org_name, p_org_name, p_org_document, p_org_trade_name, p_org_city, p_org_state, p_org_website
   ) RETURNING id INTO v_org_id;
 
   -- 2. Insere os segmentos
