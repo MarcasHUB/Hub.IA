@@ -141,15 +141,9 @@ export default function OnboardingWizardPage() {
       // 3. Cria a Associação (Membership)
       await memService.addMembership(user.id, org.id, userRole, 'Sócio / Proprietário');
 
-      // 4. Marca convite como concluído e cria a conexão
-      if (inviteId) {
-        await supabase.from('invitations').update({ status: 'aceito' }).eq('id', inviteId);
-        
-        // Pega quem convidou para conectar
-        const { data: inv } = await supabase.from('invitations').select('organization_id').eq('id', inviteId).single();
-        if (inv?.organization_id) {
-          await conService.createConnection(inv.organization_id, org.id);
-        }
+      // 4. Marca convite como aceito ignorando RLS
+      if (token) {
+        await supabase.rpc('accept_company_invite', { p_token: token });
       }
 
       setStep(4);
