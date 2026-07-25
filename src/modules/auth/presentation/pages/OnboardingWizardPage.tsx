@@ -5,11 +5,8 @@ import { Input } from '@/shared/components/ui/Input';
 import { Building2, UserCircle, Briefcase, CheckCircle2, ChevronRight, ChevronLeft, PackageSearch } from 'lucide-react';
 import { formatCNPJ } from '@/shared/utils/formatters';
 
-import { OrganizationService } from '@/modules/organizations/application/services/OrganizationService';
-import { UserService } from '@/modules/auth/application/services/UserService';
-import { MembershipService } from '@/modules/organizations/application/services/MembershipService';
-import { ConnectionService } from '@/modules/suppliers/application/services/ConnectionService';
 import { Logo } from '@/shared/components/ui/Logo';
+import { supabase } from '@/infrastructure/supabase/client';
 
 export default function OnboardingWizardPage() {
   const navigate = useNavigate();
@@ -96,37 +93,22 @@ export default function OnboardingWizardPage() {
   const handleFinish = async () => {
     setIsLoading(true);
     try {
-      const orgService = new OrganizationService();
-      const userService = new UserService();
-      const memService = new MembershipService();
-      const conService = new ConnectionService();
-
-      // Cálculo de Completude
-      let completion = 50;
-      if (site) completion += 10;
-      if (tipoEmpresa.length > 0) completion += 10;
-      const org = await orgService.createOrganization({
+      // 1. Cria a Organização no Supabase
+      const { data: org, error: orgError } = await supabase.from('organizations').insert({
         name: razaoSocial || nomeFantasia,
-        tradeName: nomeFantasia,
-        taxId: cnpj,
+        trade_name: nomeFantasia,
+        document: cnpj,
         city: cidade,
         state: estado,
-        profiles: perfis,
-      });
+        website: site
+      }).select('id').single();
 
-      // Atualiza com os campos custom que o service base não mapeia nativamente
-      // Como o orgService atualmente gera IDs mockados ('org_...'), protegemos a chamada ao Supabase
-      const { supabase } = await import('@/infrastructure/supabase/client');
-      if (org.id && org.id.includes('-')) {
-        await supabase.from('organizations').update({
-          website: site,
-          service_radius: raio || 'national'
-        }).eq('id', org.id);
+      if (orgError || !org) {
+        throw new Error('Erro ao criar organização: ' + orgError?.message);
       }
 
-      // Salva os segmentos na nova tabela de relacionamento N:N
-      // Como o orgService atualmente gera IDs mockados ('org_...'), protegemos a chamada ao Supabase
-      if (selectedSegments.length > 0 && org.id.includes('-')) {
+      // 2. Salva os segmentos
+      if (selectedSegments.length > 0) {
         const segmentsData = selectedSegments.map(segId => ({
           organization_id: org.id,
           segment_id: segId
@@ -134,17 +116,40 @@ export default function OnboardingWizardPage() {
         await supabase.from('company_segments').insert(segmentsData);
       }
 
-      // 2. Cria o Usuário
-      const user = await userService.createUser({
-        name: userName,
+      // 3. Cadastra o Usuário no Supabase Auth
+      const { data: authData, error: authError } = await supabase.auth.signUp({
         email: userEmail,
-        passwordHash: userPass
+        password: userPass,
+        options: {
+          data: {
+            full_name: userName
+          }
+        }
       });
 
-      // 3. Cria a Associação (Membership)
-      await memService.addMembership(user.id, org.id, userRole, 'Sócio / Proprietário');
+      if (authError || !authData.user) {
+        throw new Error('Erro ao criar usuário: ' + authError?.message);
+      }
 
-      // 4. Marca convite como aceito ignorando RLS
+      // 4. Mapeia a role selecionada
+      let mappedRole = 'admin';
+      if (userRole === 'Comercial') mappedRole = 'manager';
+      if (userRole === 'Engenharia') mappedRole = 'buyer';
+
+      // 5. Vincula o Usuário na tabela users pública
+      const { error: userError } = await supabase.from('users').insert({
+        id: authData.user.id,
+        organization_id: org.id,
+        email: userEmail,
+        full_name: userName,
+        role: mappedRole
+      });
+
+      if (userError) {
+        console.error('Erro ao inserir em users:', userError);
+      }
+
+      // 6. Marca convite como aceito ignorando RLS
       if (token) {
         await supabase.rpc('accept_company_invite', { p_token: token });
       }
