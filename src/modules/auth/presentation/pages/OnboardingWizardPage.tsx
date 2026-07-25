@@ -19,6 +19,8 @@ export default function OnboardingWizardPage() {
   const [step, setStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const [inviteId, setInviteId] = useState('');
+  const [inviterLogo, setInviterLogo] = useState('');
+  const [inviterName, setInviterName] = useState('');
 
   // Formulário: Empresa
   const [cnpj, setCnpj] = useState('');
@@ -69,6 +71,13 @@ export default function OnboardingWizardPage() {
         setEstado(inv.state || '');
         setUserEmail(inv.email || '');
         setInviteId(inv.id);
+        
+        if (inv.inviter_logo_url) setInviterLogo(inv.inviter_logo_url);
+        if (inv.inviter_name) setInviterName(inv.inviter_name);
+        
+        if (inv.segments && Array.isArray(inv.segments)) {
+          setSelectedSegments(inv.segments);
+        }
       }
     };
     fetchInvite();
@@ -134,7 +143,7 @@ export default function OnboardingWizardPage() {
 
       // 4. Marca convite como concluído e cria a conexão
       if (inviteId) {
-        await supabase.from('invitations').update({ status: 'concluido' }).eq('id', inviteId);
+        await supabase.from('invitations').update({ status: 'aceito' }).eq('id', inviteId);
         
         // Pega quem convidou para conectar
         const { data: inv } = await supabase.from('invitations').select('organization_id').eq('id', inviteId).single();
@@ -155,8 +164,15 @@ export default function OnboardingWizardPage() {
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center py-12 px-4 sm:px-6 lg:px-8 font-sans selection:bg-indigo-500 selection:text-white">
       <div className="w-full max-w-3xl">
-        <div className="flex justify-center mb-8">
-          <Logo />
+        <div className="flex justify-center mb-8 flex-col items-center">
+          {inviterLogo ? (
+            <img src={inviterLogo} alt={inviterName || 'Logo'} className="h-16 object-contain" />
+          ) : inviterName ? (
+            <div className="text-2xl font-black text-slate-800 tracking-tight">{inviterName}</div>
+          ) : (
+            <Logo />
+          )}
+          {inviterName && <p className="text-sm text-slate-500 mt-2">Você foi convidado(a) por {inviterName}</p>}
         </div>
 
         <div className="bg-white shadow-xl shadow-slate-200/50 rounded-2xl overflow-hidden border border-slate-100">
