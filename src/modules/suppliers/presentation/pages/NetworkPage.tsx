@@ -166,10 +166,10 @@ function CompanyCard({
               <Building2 className="h-3.5 w-3.5" /> {roleLabel}
             </span>
             <span className="flex items-center gap-1.5 text-slate-500">
-              <LayoutGrid className="h-3.5 w-3.5" /> {org.segments_count || 0} Segmentos
+              <LayoutGrid className="h-3.5 w-3.5" /> {org.segments_count || 0} {org.segments_count === 1 ? 'Segmento' : 'Segmentos'}
             </span>
             <span className="flex items-center gap-1.5 text-slate-500">
-              <Package className="h-3.5 w-3.5" /> {org.materials_count || 0} Materiais
+              <Package className="h-3.5 w-3.5" /> {org.materials_count || 0} {org.materials_count === 1 ? 'Material' : 'Materiais'}
             </span>
           </div>
         </div>
@@ -399,55 +399,50 @@ export default function NetworkPage() {
       <div className="flex-1 px-6 pb-8">
         <div className="max-w-[1600px] mx-auto space-y-6">
           
-          {/* PAINEL SUPERIOR: MÉTRICAS E BUSCA */}
-          <div className="flex flex-col xl:flex-row gap-6">
-            {/* Indicadores */}
-            {!isLoading && (
-              <div className="flex-1 grid grid-cols-2 md:grid-cols-5 gap-3">
-                <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-sm flex flex-col justify-center">
-                  <p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider mb-1">Empresas</p>
-                  <p className="text-xl font-black text-slate-900">{networkOrgs.length}</p>
-                </div>
-                <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-sm flex flex-col justify-center">
-                  <p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider mb-1">Fornecedores</p>
-                  <p className="text-xl font-black text-emerald-600">
-                    {networkOrgs.filter(o => o.profile_type === 'seller' || o.profile_type === 'both' || o.business_model === 'seller' || o.business_model === 'both').length}
-                  </p>
-                </div>
-                <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-sm flex flex-col justify-center">
-                  <p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider mb-1">Compradores</p>
-                  <p className="text-xl font-black text-blue-600">
-                    {networkOrgs.filter(o => o.profile_type === 'buyer' || o.profile_type === 'both' || o.business_model === 'buyer' || o.business_model === 'both').length}
-                  </p>
-                </div>
-                <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-sm flex flex-col justify-center">
-                  <p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider mb-1">Segmentos</p>
-                  <p className="text-xl font-black text-indigo-600">
-                    {new Set(networkOrgs.flatMap(o => Array.isArray(o.segment) ? o.segment : (typeof o.segment === 'string' ? o.segment.split(',') : Object.values(o.segment || {}))).filter(Boolean)).size}
-                  </p>
-                </div>
-                <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-sm flex flex-col justify-center">
-                  <p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider mb-1">Materiais</p>
-                  <p className="text-xl font-black text-violet-600">
-                    {networkOrgs.reduce((acc, o) => acc + (o.materials_count || 0), 0)}
-                  </p>
-                </div>
+          {/* PAINEL SUPERIOR: MÉTRICAS */}
+          {!isLoading && (
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+              <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-sm flex flex-col justify-center">
+                <p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider mb-1">Empresas</p>
+                <p className="text-xl font-black text-slate-900">{networkOrgs.length}</p>
               </div>
-            )}
-            
-            {/* Busca */}
-            <div className="xl:w-80 shrink-0">
-              <div className="relative w-full h-full min-h-[64px]">
-                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
-                <ClearableInput
-                  placeholder="Buscar por nome, segmento..."
-                  className="pl-11 bg-white border-slate-200 text-slate-900 placeholder:text-slate-500 h-full rounded-xl focus:border-indigo-500 shadow-sm w-full"
-                  value={search}
-                  onChange={setSearch}
-                  onClear={() => setSearch('')}
-                />
+              <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-sm flex flex-col justify-center">
+                <p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider mb-1">Fornecedores</p>
+                <p className="text-xl font-black text-emerald-600">
+                  {networkOrgs.filter(o => o.profile_type === 'seller' || o.profile_type === 'both' || o.business_model === 'seller' || o.business_model === 'both').length}
+                </p>
+              </div>
+              <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-sm flex flex-col justify-center">
+                <p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider mb-1">Compradores</p>
+                <p className="text-xl font-black text-blue-600">
+                  {networkOrgs.filter(o => o.profile_type === 'buyer' || o.profile_type === 'both' || o.business_model === 'buyer' || o.business_model === 'both').length}
+                </p>
+              </div>
+              <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-sm flex flex-col justify-center">
+                <p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider mb-1">Segmentos</p>
+                <p className="text-xl font-black text-indigo-600">
+                  {new Set(networkOrgs.flatMap(o => Array.isArray(o.segment) ? o.segment : (typeof o.segment === 'string' ? o.segment.split(',') : Object.values(o.segment || {}))).filter(Boolean)).size}
+                </p>
+              </div>
+              <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-sm flex flex-col justify-center">
+                <p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider mb-1">Materiais</p>
+                <p className="text-xl font-black text-violet-600">
+                  {networkOrgs.reduce((acc, o) => acc + (o.materials_count || 0), 0)}
+                </p>
               </div>
             </div>
+          )}
+            
+          {/* Busca */}
+          <div className="relative w-full h-12">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
+            <ClearableInput
+              placeholder="Buscar por nome, segmento, cidade ou CNPJ..."
+              className="pl-11 bg-white border-slate-200 text-slate-900 placeholder:text-slate-500 h-full rounded-xl focus:border-indigo-500 shadow-sm w-full"
+              value={search}
+              onChange={setSearch}
+              onClear={() => setSearch('')}
+            />
           </div>
 
           {/* LISTA DE EMPRESAS */}
