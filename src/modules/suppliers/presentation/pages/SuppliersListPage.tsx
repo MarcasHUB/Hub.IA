@@ -94,9 +94,15 @@ export default function SuppliersListPage() {
   const invitesSent     = filtered.filter(p => p.status === 'pending_sent');
   const invitesReceived = filtered.filter(p => p.status === 'pending_received');
 
-  const handleRemove = (id: string) => {
-    const updated = partners.filter(p => p.id !== id);
-    setPartners(updated);
+  const handleRemove = async (id: string) => {
+    try {
+      const { supabase } = await import('@/infrastructure/supabase/client');
+      await supabase.from('invitations').delete().eq('id', id);
+      const updated = partners.filter(p => p.id !== id);
+      setPartners(updated);
+    } catch (e) {
+      console.error('Erro ao desfazer parceria:', e);
+    }
   };
   const handleAccept = (id: string) => {
     const updated = partners.map(p => p.id === id ? { ...p, status: 'accepted' as const, since: new Date().toLocaleDateString('pt-BR') } : p);

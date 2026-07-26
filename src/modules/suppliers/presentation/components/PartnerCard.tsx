@@ -82,33 +82,7 @@ export function PartnerCard({
     <div className="relative flex flex-col bg-white border border-slate-200 rounded-2xl overflow-hidden hover:border-indigo-300 hover:shadow-md transition-all duration-200 group h-full">
       <div className={`h-1.5 w-full bg-gradient-to-r ${gradient}`} />
 
-      {partner.status === 'accepted' && (
-        <div className="absolute top-3 right-3 z-10">
-          <button
-            onClick={() => setMenuOpen(!menuOpen)}
-            className="p-1.5 text-slate-300 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors opacity-0 group-hover:opacity-100"
-          >
-            <MoreVertical className="h-4 w-4" />
-          </button>
-          {menuOpen && (
-            <div className="absolute right-0 mt-1 w-40 bg-white border border-slate-200 rounded-xl shadow-lg py-1 z-20">
-              <button 
-                onClick={() => { openChat(partner.id); setMenuOpen(false); }}
-                className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
-              >
-                Enviar Mensagem
-              </button>
-              <div className="h-px bg-slate-100 my-1"></div>
-              <button 
-                onClick={() => { onRemove(partner.id); setMenuOpen(false); }}
-                className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 font-medium transition-colors"
-              >
-                Remover Conexão
-              </button>
-            </div>
-          )}
-        </div>
-      )}
+      {/* O menu dropdown de contexto foi removido em favor de botões explícitos */}
 
       <div className="p-5 flex flex-col flex-1 gap-4">
         <div className="flex items-start gap-3">
@@ -214,13 +188,23 @@ export function PartnerCard({
 
       <div className="border-t border-slate-100 px-5 py-3 mt-auto">
         {partner.status === 'accepted' && (
-          <div className="flex items-center justify-between">
-            <p className="text-[11px] text-slate-400">
-              Parceiro desde <span className="font-semibold text-slate-600">{partner.since}</span>
-            </p>
-            <span className="text-[11px] text-indigo-600 font-semibold">
-              {partner.quotationsCount} cotaç{partner.quotationsCount === 1 ? 'ão' : 'ões'}
-            </span>
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-between mb-1">
+              <p className="text-[11px] text-slate-400">
+                Parceiro desde <span className="font-semibold text-slate-600">{partner.since}</span>
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <Button size="sm" onClick={() => onViewDetails?.(partner)} className="flex-1 bg-slate-100 text-slate-700 hover:bg-slate-200 text-xs h-8">
+                Ver Perfil
+              </Button>
+              <Button size="sm" onClick={() => openChat(partner.id)} className="flex-1 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 text-xs h-8">
+                Chat/Mensagem
+              </Button>
+            </div>
+            <Button size="sm" variant="outline" onClick={() => onRemove(partner.id)} className="w-full border-red-300 text-red-600 hover:bg-red-50 text-xs h-8 mt-1">
+              Desfazer Parceria
+            </Button>
           </div>
         )}
         {partner.status === 'pending_received' && (
