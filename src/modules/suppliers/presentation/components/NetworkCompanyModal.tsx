@@ -21,8 +21,8 @@ export interface NetworkOrg {
   telefone: string | null;
   whatsapp: string | null;
   business_model: string | null;
-  company_role: string | null;
-  operation_radius: string | null;
+  profile_type: string | null;
+  service_radius: string | null;
   profile_completion: number | null;
   created_at: string | null;
   status: string | null;
@@ -140,7 +140,7 @@ export default function NetworkCompanyModal({ org, isOpen, onClose }: NetworkCom
                 <Clock className="h-3 w-3" /> Convite Enviado
               </span>
             )}
-            <RoleLabel role={org.company_role || org.business_model} />
+            <RoleLabel role={org.profile_type || org.business_model} />
           </div>
         </div>
 
@@ -205,13 +205,15 @@ export default function NetworkCompanyModal({ org, isOpen, onClose }: NetworkCom
               <div className="flex items-center gap-2">
                 <Briefcase className="h-4 w-4 text-slate-400" />
                 <span className="text-sm text-slate-600 font-medium">Tipo de operação:</span>
-                <RoleLabel role={org.company_role || org.business_model} />
+                {org.profile_type || org.business_model ? (
+                <RoleLabel role={org.profile_type || org.business_model} />
+              ) : null}
               </div>
-              {org.operation_radius && (
-                <div className="flex items-center gap-2">
-                  <MapPin className="h-4 w-4 text-slate-400" />
-                  <span className="text-sm text-slate-600 font-medium">Área de atendimento:</span>
-                  <span className="text-sm text-slate-700">{org.operation_radius}</span>
+              {org.service_radius && (
+                <div className="flex items-center gap-1.5 mt-2">
+                  <Globe className="h-3.5 w-3.5 text-slate-400" />
+                  <span className="text-sm text-slate-700">Abrangência: </span>
+                  <span className="text-sm text-slate-700">{org.service_radius}</span>
                 </div>
               )}
             </div>

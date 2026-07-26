@@ -123,7 +123,7 @@ function CompanyCard({
   })();
 
   const roleLabel = (() => {
-    const r = (org.company_role || org.business_model || '').toLowerCase();
+    const r = (org.profile_type || org.business_model || '').toLowerCase();
     if (r === 'buyer') return { text: 'Comprador', cls: 'text-blue-600 bg-blue-50' };
     if (r === 'seller') return { text: 'Fornecedor', cls: 'text-emerald-600 bg-emerald-50' };
     if (r === 'both') return { text: 'Comprador & Fornecedor', cls: 'text-violet-600 bg-violet-50' };
@@ -225,7 +225,7 @@ export default function NetworkPage() {
         .select(`
           id, name, razao_social, nome_fantasia, cnpj, city, state, country,
           logo_url, website, description, segment, business_email, email_corporativo,
-          phone, telefone, whatsapp, business_model, company_role, operation_radius,
+          phone, telefone, whatsapp, business_model, profile_type, service_radius,
           profile_completion, created_at, status
         `)
         .in('status', ['ativo', 'active'])
