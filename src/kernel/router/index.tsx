@@ -193,6 +193,10 @@ export const router = createBrowserRouter([
         element: <SuspenseWrapper><MinhaEmpresaPage /></SuspenseWrapper>,
       },
       {
+        path: '/empresa/:id',
+        element: <SuspenseWrapper><MinhaEmpresaPage /></SuspenseWrapper>,
+      },
+      {
         path: '/empresa/comercial',
         element: <SuspenseWrapper><MinhaEmpresaPage /></SuspenseWrapper>,
       },

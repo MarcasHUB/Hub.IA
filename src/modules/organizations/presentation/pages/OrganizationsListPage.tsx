@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/infrastructure/supabase/client';
 import { Building2, Search, PackageOpen, Shield, Users, CheckCircle, XCircle, Edit2, ToggleLeft, ToggleRight } from 'lucide-react';
 import { Button } from '@/shared/components/ui/Button';
@@ -23,6 +24,7 @@ interface Organization {
 }
 
 export default function OrganizationsListPage() {
+  const navigate = useNavigate();
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState<'Todos' | 'Ativos' | 'Inativos'>('Todos');
@@ -286,7 +288,7 @@ export default function OrganizationsListPage() {
                       {/* Ações: Editar e Ativar/Inativar */}
                       <div className="flex items-center gap-2 pt-3 border-t border-slate-100">
                         <button
-                          onClick={() => setSelectedOrg(org)}
+                          onClick={() => navigate(`/empresa/${org.id}`)}
                           className="flex-1 flex items-center justify-center gap-1.5 text-[10px] font-bold text-slate-600 hover:text-indigo-700 hover:bg-indigo-50 py-1.5 rounded-lg transition-colors"
                         >
                           <Edit2 className="h-3 w-3" /> Editar

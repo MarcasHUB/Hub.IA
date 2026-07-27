@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { useLocation, Link, useParams, useNavigate } from 'react-router-dom';
 import {
-  Building2, Users, Layers, ArrowLeftRight, ScrollText,
-  Globe, Phone, Mail, Hash, Shield, UserCheck,
-  Save, CheckCircle2, Sparkles, ChevronDown, Tag, XCircle
+  Building2, Upload, FileText, CheckCircle2, ChevronRight, Save, Store, Truck, BadgeDollarSign, ShieldCheck, Mail, MapPin,
+  Users, Layers, ArrowLeftRight, ScrollText,
+  Globe, Phone, Hash, Shield, UserCheck,
+  Sparkles, ChevronDown, Tag, XCircle
 } from 'lucide-react';
 import { Button } from '@/shared/components/ui/Button';
 import { Input } from '@/shared/components/ui/Input';
@@ -135,9 +136,11 @@ function DadosEmpresaTab() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newSegment, setNewSegment] = useState({ nome: '', descricao: '' });
 
+  const { id: routeId } = useParams<{ id: string }>();
+
   useEffect(() => {
     const load = async () => {
-      const id = localStorage.getItem('supplyhub_organization_id');
+      const id = routeId || localStorage.getItem('supplyhub_organization_id');
       if (!id) return;
       setOrgId(id);
       const { data } = await supabase.from('organizations').select('*').eq('id', id).single();
