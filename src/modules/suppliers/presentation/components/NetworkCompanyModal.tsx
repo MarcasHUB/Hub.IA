@@ -230,7 +230,7 @@ export default function NetworkCompanyModal({ org, isOpen, onClose, onConnectSuc
               <h2 className="text-xl sm:text-2xl font-extrabold leading-tight">{displayName}</h2>
               {tradeName && <p className="text-slate-400 text-sm mt-1">{tradeName}</p>}
               <div className="flex flex-wrap items-center gap-3 mt-3">
-                <RoleLabel role={org.profile_type || org.business_model} />
+                <RoleLabel role={org.perfil_comercial || org.tipo_empresa || org.business_model} />
                 {org.cnpj && <span className="text-slate-400 text-sm font-mono">{org.cnpj}</span>}
                 {org.isPartner && (
                   <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-400 bg-emerald-900/40 border border-emerald-700/50 rounded-lg px-2.5 py-1">
@@ -302,16 +302,19 @@ export default function NetworkCompanyModal({ org, isOpen, onClose, onConnectSuc
               </div>
 
               {/* Área de Atendimento */}
-              {org.service_radius && (
-                <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-2">
-                  <h3 className="text-sm font-bold text-slate-900">Área de Atendimento</h3>
-                  <div className="flex items-center gap-2 text-sm text-slate-600">
+              {org.raio_atendimento_km && (
+                <div className="flex items-start gap-3">
+                  <div className="h-8 w-8 rounded-full bg-slate-50 border border-slate-100 flex items-center justify-center shrink-0">
                     <Globe className="h-4 w-4 text-slate-400" />
-                    <span>{org.service_radius}</span>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-0.5">Raio de Atendimento</p>
+                    <p className="text-sm text-slate-700 flex items-center gap-1.5">
+                      Atende até <span>{org.raio_atendimento_km} km</span>
+                    </p>
                   </div>
                 </div>
-              )}
-            </div>
+              )}</div>
 
             {/* Coluna Direita: Segmentos, Descrição e Materiais */}
             <div className="lg:col-span-2 space-y-8">

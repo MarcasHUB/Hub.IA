@@ -455,13 +455,13 @@ export default function NetworkPage() {
               <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-sm flex flex-col justify-center">
                 <p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider mb-1">Fornecedores</p>
                 <p className="text-xl font-black text-emerald-600">
-                  {networkOrgs.filter(o => o.profile_type === 'seller' || o.profile_type === 'both' || o.business_model === 'seller' || o.business_model === 'both').length}
+                  {networkOrgs.filter(o => o.perfil_comercial === 'seller' || o.perfil_comercial === 'both' || o.business_model === 'seller' || o.business_model === 'both' || o.tipo_empresa === 'seller' || o.tipo_empresa === 'both').length}
                 </p>
               </div>
               <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-sm flex flex-col justify-center">
                 <p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider mb-1">Compradores</p>
                 <p className="text-xl font-black text-blue-600">
-                  {networkOrgs.filter(o => o.profile_type === 'buyer' || o.profile_type === 'both' || o.business_model === 'buyer' || o.business_model === 'both').length}
+                  {networkOrgs.filter(o => o.perfil_comercial === 'buyer' || o.perfil_comercial === 'both' || o.business_model === 'buyer' || o.business_model === 'both' || o.tipo_empresa === 'buyer' || o.tipo_empresa === 'both').length}
                 </p>
               </div>
               <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-sm flex flex-col justify-center">

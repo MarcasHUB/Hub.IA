@@ -28,6 +28,7 @@ export interface Partner {
   perfil_comercial?: string;
   tipo_empresa?: string;
   raio_atendimento_km?: number | null;
+  certifications?: string;
   score_hubia?: number;
 }
 
