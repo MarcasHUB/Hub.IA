@@ -118,11 +118,11 @@ function CompanyCard({
   const initials = tradeName.split(' ').filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase();
 
   const roleLabel = (() => {
-    const r = (org.profile_type || org.business_model || '').toLowerCase();
-    if (r === 'buyer') return 'Comprador';
-    if (r === 'seller') return 'Fornecedor';
-    if (r === 'both') return 'Comprador & Fornecedor';
-    return 'Não informado';
+    const r = (org.perfil_comercial || org.tipo_empresa || org.business_model || '').toLowerCase();
+    if (r === 'buyer' || r === 'comprador') return 'Comprador';
+    if (r === 'seller' || r === 'fornecedor') return 'Fornecedor';
+    if (r === 'both' || r === 'ambos' || r === 'comprador e fornecedor') return 'Comprador & Fornecedor';
+    return r ? r.charAt(0).toUpperCase() + r.slice(1) : 'Não informado';
   })();
 
   const cityState = [org.city, org.state].filter(Boolean).join(' - ');
@@ -169,9 +169,9 @@ function CompanyCard({
               </span>
             )}
             
-            {org.service_radius && (
+            {org.raio_atendimento_km && (
               <span className="flex items-center gap-1.5 text-slate-500">
-                <Globe className="h-3.5 w-3.5 text-slate-400" /> {org.service_radius}
+                <Globe className="h-3.5 w-3.5 text-slate-400" /> Atende até {org.raio_atendimento_km} km
               </span>
             )}
             
@@ -254,7 +254,7 @@ export default function NetworkPage() {
         .select(`
           id, name, razao_social, nome_fantasia, cnpj, city, state, country,
           logo_url, website, description, segment, business_email, email_corporativo,
-          phone, telefone, whatsapp, business_model, profile_type, service_radius,
+          phone, telefone, whatsapp, business_model, perfil_comercial, tipo_empresa, raio_atendimento_km,
           profile_completion, created_at, status,
           empresa_certificacoes(certifications(name))
         `)

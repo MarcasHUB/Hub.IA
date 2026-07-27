@@ -23,8 +23,9 @@ export interface NetworkOrg {
   telefone: string | null;
   whatsapp: string | null;
   business_model: string | null;
-  profile_type: string | null;
-  service_radius: string | null;
+  perfil_comercial: string | null;
+  tipo_empresa: string | null;
+  raio_atendimento_km: number | null;
   profile_completion: number | null;
   created_at: string | null;
   status: string | null;

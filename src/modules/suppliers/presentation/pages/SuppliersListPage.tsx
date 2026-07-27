@@ -66,9 +66,10 @@ export default function SuppliersListPage() {
               email: org?.email_corporativo || org?.business_email || inv.email,
               contact_name: inv.contact_name,
               message: inv.message,
-              profile_type: org?.profile_type || org?.business_model,
+              perfil_comercial: org?.perfil_comercial || org?.business_model,
+              tipo_empresa: org?.tipo_empresa,
               certifications: org?.empresa_certificacoes ? org.empresa_certificacoes.map((ec: any) => ec?.certifications?.name).filter(Boolean).join(', ') : undefined,
-              service_radius: org?.service_radius,
+              raio_atendimento_km: org?.raio_atendimento_km,
               score_hubia: undefined,
               phone: org?.telefone || org?.phone,
               website: org?.website

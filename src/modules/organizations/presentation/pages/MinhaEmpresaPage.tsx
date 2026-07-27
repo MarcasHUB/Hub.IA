@@ -143,7 +143,16 @@ function DadosEmpresaTab() {
       const id = routeId || localStorage.getItem('supplyhub_organization_id');
       if (!id) return;
       setOrgId(id);
-      const { data } = await supabase.from('organizations').select('*').eq('id', id).single();
+      const { data } = await supabase.from('organizations')
+        .select(`
+          *,
+          empresa_certificacoes(certifications(name)),
+          empresa_cnaes(cnae_code),
+          empresa_estados_atendidos(state_code),
+          organization_segments(segments(nome))
+        `)
+        .eq('id', id)
+        .single();
       if (data) {
         setForm({
           razao_social: data.name || data.razao_social || '',
@@ -164,15 +173,18 @@ function DadosEmpresaTab() {
           uf: data.address_state || data.state || '',
           latitude: data.latitude?.toString() || '',
           longitude: data.longitude?.toString() || '',
-          tipo_empresa: data.company_type || '',
-          area_cobertura_raio: data.coverage_radius?.toString() || '',
-          area_cobertura_estados: data.coverage_states?.join(', ') || '',
-          certificacoes: data.certifications || '',
-          cnae_principal: data.cnae_main || '',
-          cnaes_secundarios: data.cnae_secondary || [],
-          business_model: data.business_model || '',
+          tipo_empresa: data.tipo_empresa || '',
+          area_cobertura_raio: data.raio_atendimento_km?.toString() || '',
+          area_cobertura_estados: data.empresa_estados_atendidos ? data.empresa_estados_atendidos.map((e: any) => e.state_code).filter(Boolean).join(', ') : '',
+          certificacoes: data.empresa_certificacoes ? data.empresa_certificacoes.map((c: any) => c.certifications?.name).filter(Boolean).join(', ') : '',
+          cnae_principal: data.cnae_principal || '',
+          cnaes_secundarios: data.empresa_cnaes ? data.empresa_cnaes.filter((c: any) => c.is_primary === false).map((c: any) => c.cnae_code).filter(Boolean) : [],
+          business_model: data.business_model || data.perfil_comercial || '',
         });
-        if (data.segment) {
+        if (data.organization_segments) {
+          const segs = data.organization_segments.map((s: any) => s.segments?.nome).filter(Boolean);
+          setSelectedSegments(segs);
+        } else if (data.segment) {
           if (Array.isArray(data.segment)) {
             setSelectedSegments(data.segment);
           } else if (typeof data.segment === 'string') {
@@ -332,20 +344,65 @@ function DadosEmpresaTab() {
       profile_completion: comp,
       latitude: form.latitude ? parseFloat(form.latitude) : null,
       longitude: form.longitude ? parseFloat(form.longitude) : null,
-      company_type: form.tipo_empresa,
-      coverage_radius: form.area_cobertura_raio ? parseInt(form.area_cobertura_raio) : null,
-      coverage_states: form.area_cobertura_estados ? form.area_cobertura_estados.split(',').map(s=>s.trim()) : null,
-      certifications: form.certificacoes,
-      cnae_main: form.cnae_principal,
-      cnae_secondary: form.cnaes_secundarios,
-      business_model: form.business_model,
-      segment: selectedSegments.length > 0 ? selectedSegments : null,
+      tipo_empresa: form.tipo_empresa,
+      perfil_comercial: form.business_model,
+      raio_atendimento_km: form.area_cobertura_raio ? parseInt(form.area_cobertura_raio) : null,
+      cnae_principal: form.cnae_principal,
     }).eq('id', orgId);
 
     if (error) {
-      console.error("Erro ao salvar:", error);
+      console.error("Erro ao salvar organizations:", error);
       setSaveError(error.message || 'Erro ao salvar os dados.');
       return;
+    }
+
+    // ─── SALVAR CERTIFICAÇÕES ───
+    if (form.certificacoes !== undefined) {
+      await supabase.from('empresa_certificacoes').delete().eq('organization_id', orgId);
+      const certNames = form.certificacoes.split(',').map(c => c.trim()).filter(Boolean);
+      for (const cName of certNames) {
+        let { data: certData } = await supabase.from('certifications').select('id').eq('name', cName).single();
+        if (!certData) {
+          // Tenta criar se não existir (depende de RLS)
+          const { data: newCert, error: errC } = await supabase.from('certifications').insert({ name: cName }).select('id').single();
+          if (!errC) certData = newCert;
+        }
+        if (certData) {
+          await supabase.from('empresa_certificacoes').insert({ organization_id: orgId, certification_id: certData.id });
+        }
+      }
+    }
+
+    // ─── SALVAR CNAES SECUNDÁRIOS ───
+    if (form.cnaes_secundarios !== undefined) {
+      await supabase.from('empresa_cnaes').delete().eq('organization_id', orgId);
+      for (const cnae of form.cnaes_secundarios) {
+        await supabase.from('empresa_cnaes').insert({ organization_id: orgId, cnae_code: cnae, is_primary: false });
+      }
+    }
+
+    // ─── SALVAR ESTADOS ATENDIDOS ───
+    if (form.area_cobertura_estados !== undefined) {
+      await supabase.from('empresa_estados_atendidos').delete().eq('organization_id', orgId);
+      const states = form.area_cobertura_estados.split(',').map(s => s.trim().toUpperCase()).filter(Boolean);
+      for (const st of states) {
+        await supabase.from('empresa_estados_atendidos').insert({ organization_id: orgId, state_code: st });
+      }
+    }
+
+    // ─── SALVAR SEGMENTOS ───
+    if (selectedSegments !== undefined) {
+      await supabase.from('organization_segments').delete().eq('organization_id', orgId);
+      for (const segName of selectedSegments) {
+        let { data: segData } = await supabase.from('segments').select('id').eq('nome', segName).single();
+        if (!segData) {
+           const { data: newSeg, error: errS } = await supabase.from('segments').insert({ nome: segName }).select('id').single();
+           if (!errS) segData = newSeg;
+        }
+        if (segData) {
+          await supabase.from('organization_segments').insert({ organization_id: orgId, segment_id: segData.id, origem: 'usuario' });
+        }
+      }
     }
 
     setCompletion(comp);

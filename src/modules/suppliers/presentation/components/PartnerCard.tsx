@@ -25,9 +25,9 @@ export interface Partner {
   products: string[];
   contact_name?: string;
   message?: string;
-  profile_type?: string;
-  certifications?: string;
-  service_radius?: string;
+  perfil_comercial?: string;
+  tipo_empresa?: string;
+  raio_atendimento_km?: number | null;
   score_hubia?: number;
 }
 
@@ -129,10 +129,16 @@ export function PartnerCard({
 
         <div className="space-y-2 mb-4 text-xs font-semibold text-slate-600">
           <div className="flex flex-col gap-1.5">
-            {partner.profile_type && (
+            {(partner.perfil_comercial || partner.tipo_empresa) && (
               <span className="flex items-center gap-1.5 text-slate-700">
                 <Building2 className="h-3.5 w-3.5 text-indigo-500" /> 
-                {partner.profile_type.toLowerCase() === 'buyer' ? 'Comprador' : partner.profile_type.toLowerCase() === 'seller' ? 'Fornecedor' : partner.profile_type.toLowerCase() === 'both' ? 'Comprador e Fornecedor' : partner.profile_type}
+                {(() => {
+                   const r = (partner.perfil_comercial || partner.tipo_empresa || '').toLowerCase();
+                   if (r === 'buyer' || r === 'comprador') return 'Comprador';
+                   if (r === 'seller' || r === 'fornecedor') return 'Fornecedor';
+                   if (r === 'both' || r === 'ambos' || r === 'comprador e fornecedor') return 'Comprador & Fornecedor';
+                   return partner.perfil_comercial || partner.tipo_empresa;
+                })()}
               </span>
             )}
             
@@ -142,9 +148,9 @@ export function PartnerCard({
               </span>
             )}
             
-            {partner.service_radius && (
+            {partner.raio_atendimento_km && (
               <span className="flex items-center gap-1.5 text-slate-500">
-                <Globe className="h-3.5 w-3.5 text-slate-400" /> {partner.service_radius}
+                <Globe className="h-3.5 w-3.5 text-slate-400" /> Atende até {partner.raio_atendimento_km} km
               </span>
             )}
             
