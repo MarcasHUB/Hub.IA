@@ -255,7 +255,8 @@ export default function NetworkPage() {
           id, name, razao_social, nome_fantasia, cnpj, city, state, country,
           logo_url, website, description, segment, business_email, email_corporativo,
           phone, telefone, whatsapp, business_model, profile_type, service_radius,
-          profile_completion, created_at, status, certifications, score_hubia
+          profile_completion, created_at, status,
+          empresa_certificacoes(certifications(name))
         `)
         .in('status', ['ativo', 'active'])
         .neq('id', HUB_IA_ORG_ID)
@@ -263,10 +264,19 @@ export default function NetworkPage() {
 
       if (error) throw error;
 
-      // Exclui a própria empresa do diretório
       const allOrgs = (orgsData || []).filter(o =>
         !tenantId || tenantId === '00000000-0000-0000-0000-000000000000' || o.id !== tenantId
-      );
+      ).map((o: any) => {
+        const certs = (o.empresa_certificacoes || [])
+          .map((ec: any) => ec?.certifications?.name)
+          .filter(Boolean)
+          .join(', ');
+        return {
+          ...o,
+          certifications: certs || null,
+          score_hubia: null // Mock temporário
+        };
+      });
 
       // Busca convites existentes (pendentes + aceitos) para marcar status de relacionamento
       let partnerIds = new Set<string>();

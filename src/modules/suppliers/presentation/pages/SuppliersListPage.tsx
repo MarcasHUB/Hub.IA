@@ -40,7 +40,10 @@ export default function SuppliersListPage() {
          const docs = (invs || []).map((i: any) => i.document).filter(Boolean);
          const { data: orgs } = await supabase
             .from('organizations')
-            .select('*')
+            .select(`
+              *,
+              empresa_certificacoes(certifications(name))
+            `)
             .in('cnpj', docs)
             .in('status', ['ativo', 'active']);
             
@@ -64,9 +67,9 @@ export default function SuppliersListPage() {
               contact_name: inv.contact_name,
               message: inv.message,
               profile_type: org?.profile_type || org?.business_model,
-              certifications: org?.certifications,
+              certifications: org?.empresa_certificacoes ? org.empresa_certificacoes.map((ec: any) => ec?.certifications?.name).filter(Boolean).join(', ') : undefined,
               service_radius: org?.service_radius,
-              score_hubia: org?.score_hubia,
+              score_hubia: undefined,
               phone: org?.telefone || org?.phone,
               website: org?.website
             };
