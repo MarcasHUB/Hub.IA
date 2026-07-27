@@ -18,7 +18,7 @@ const SearchResultsPage = React.lazy(() => import('../../modules/search/presenta
 const QuotationsListPage = React.lazy(() => import('../../modules/quotations/presentation/pages/QuotationsListPage'));
 const NewQuotationPage = React.lazy(() => import('../../modules/quotations/presentation/pages/NewQuotationPage'));
 const QuotationComparisonPage = React.lazy(() => import('../../modules/quotations/presentation/pages/QuotationComparisonPage'));
-const OrganizationPage = React.lazy(() => import('../../modules/organizations/presentation/pages/OrganizationPage'));
+// OrganizationPage was removed
 const OrganizationsListPage = React.lazy(() => import('../../modules/organizations/presentation/pages/OrganizationsListPage'));
 const MessagesPage = React.lazy(() => import('../../modules/messages/presentation/pages/MessagesPage'));
 const QuotationResponsePage = React.lazy(() => import('../../modules/quotations/presentation/pages/QuotationResponsePage'));
@@ -154,7 +154,7 @@ export const router = createBrowserRouter([
       },
       {
         path: '/organizations',
-        element: <SuspenseWrapper><OrganizationPage /></SuspenseWrapper>,
+        element: <SuspenseWrapper><MinhaEmpresaPage /></SuspenseWrapper>,
       },
       {
         path: '/messages',
