@@ -1,1 +1,1 @@
-export { default as OrganizationPage } from './presentation/pages/OrganizationPage';
+export { default as MinhaEmpresaPage } from './presentation/pages/MinhaEmpresaPage';
