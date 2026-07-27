@@ -5,7 +5,9 @@ import { Building2, Search, PackageOpen, Shield, Users, CheckCircle, XCircle, Ed
 import { Button } from '@/shared/components/ui/Button';
 import { ClearableInput } from '@/shared/components/ui/ClearableInput';
 import { InviteCompanyModal } from '../../../suppliers/presentation/components/InviteCompanyModal';
+import { CompanyProfileModal } from '../components/CompanyProfileModal';
 import { EntityCard } from '@/shared/components/ui/EntityCard'; // We might use EntityCard or build custom
+import { Eye } from 'lucide-react';
 
 interface Organization {
   id: string;
@@ -29,7 +31,8 @@ export default function OrganizationsListPage() {
   const [filterStatus, setFilterStatus] = useState<'Todos' | 'Ativos' | 'Inativos'>('Todos');
   const [isLoading, setIsLoading] = useState(true);
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
-  const [selectedOrg, setSelectedOrg] = useState<any>(null);
+  const [selectedOrgId, setSelectedOrgId] = useState<string | null>(null);
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
 
   const loadData = async () => {
     setIsLoading(true);
@@ -222,7 +225,10 @@ export default function OrganizationsListPage() {
                         
                         <div className="flex-1 min-w-0">
                           <button 
-                            onClick={() => setSelectedOrg(org)}
+                            onClick={() => {
+                              setSelectedOrgId(org.id);
+                              setIsProfileModalOpen(true);
+                            }}
                             className="font-bold text-slate-900 text-sm leading-snug line-clamp-2 hover:text-indigo-600 cursor-pointer text-left block" 
                             title={org.name}
                           >
@@ -287,10 +293,13 @@ export default function OrganizationsListPage() {
                       {/* Ações: Editar e Ativar/Inativar */}
                       <div className="flex items-center gap-2 pt-3 border-t border-slate-100">
                         <button
-                          onClick={() => navigate(`/empresa/${org.id}`)}
+                          onClick={() => {
+                            setSelectedOrgId(org.id);
+                            setIsProfileModalOpen(true);
+                          }}
                           className="flex-1 flex items-center justify-center gap-1.5 text-[10px] font-bold text-slate-600 hover:text-indigo-700 hover:bg-indigo-50 py-1.5 rounded-lg transition-colors"
                         >
-                          <Edit2 className="h-3 w-3" /> Editar
+                          <Eye className="h-3 w-3" /> Visualizar
                         </button>
                         <button
                           onClick={() => toggleStatus(org.id, org.status)}
@@ -321,6 +330,16 @@ export default function OrganizationsListPage() {
         onSuccess={() => {
           loadData();
         }}
+      />
+      
+      <CompanyProfileModal
+        open={isProfileModalOpen}
+        onOpenChange={(open: boolean) => {
+          setIsProfileModalOpen(open);
+          if (!open) setSelectedOrgId(null);
+        }}
+        organizationId={selectedOrgId}
+        mode="view"
       />
       
     </div>

@@ -60,7 +60,7 @@ function PerfilBadge({ perfil }: { perfil: OperatorPerfil }) {
 
 // ─── Modal de Convite ─────────────────────────────────────────────────────────
 
-function InviteModal({ onClose, onInvite, operators }: { onClose: () => void; onInvite: (op: Operator) => void, operators: Operator[] }) {
+function InviteModal({ onClose, onInvite, operators, organizationId }: { onClose: () => void; onInvite: (op: Operator) => void, operators: Operator[], organizationId?: string }) {
   const [form, setForm] = useState({
     nome: '', sobrenome: '', email: '', telefone: '',
     macroProfile: 'Comprador' as MacroProfile,
@@ -76,7 +76,7 @@ function InviteModal({ onClose, onInvite, operators }: { onClose: () => void; on
   const [copiedLink, setCopiedLink] = useState(false);
   const [copiedEmail, setCopiedEmail] = useState(false);
 
-  const orgId = localStorage.getItem('supplyhub_organization_id') || '00000000-0000-0000-0000-000000000000';
+  const orgId = organizationId || localStorage.getItem('supplyhub_organization_id') || '00000000-0000-0000-0000-000000000000';
   
   const { data: categories = [] } = useQuery({
     queryKey: ['categories', orgId],
@@ -92,7 +92,7 @@ function InviteModal({ onClose, onInvite, operators }: { onClose: () => void; on
     setErrorMsg('');
     try {
       const repo = new SupabaseOperatorRepository();
-      const orgId = localStorage.getItem('supplyhub_organization_id') || '00000000-0000-0000-0000-000000000000';
+      const orgId = organizationId || localStorage.getItem('supplyhub_organization_id') || '00000000-0000-0000-0000-000000000000';
       const loggedOperator = JSON.parse(localStorage.getItem('supplyhub_logged_operator') || '{}');
 
       const mapInfo = MACRO_PROFILES[form.macroProfile];
@@ -425,9 +425,9 @@ function InviteModal({ onClose, onInvite, operators }: { onClose: () => void; on
 }
 
 // ─── OperatorsPage ────────────────────────────────────────────────────────────
-export default function OperatorsPage() {
+export default function OperatorsPage({ organizationId }: { organizationId?: string }) {
   const queryClient = useQueryClient();
-  const orgId = localStorage.getItem('supplyhub_organization_id') || '00000000-0000-0000-0000-000000000000';
+  const orgId = organizationId || localStorage.getItem('supplyhub_organization_id') || '00000000-0000-0000-0000-000000000000';
 
   const { data: operators = [], isLoading: isLoadingOps } = useQuery({
     queryKey: ['operators', orgId],

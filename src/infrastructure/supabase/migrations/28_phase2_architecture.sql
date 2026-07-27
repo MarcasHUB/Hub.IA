@@ -130,3 +130,12 @@ CREATE POLICY "empresa_catalogo_read_all" ON public.empresa_catalogo FOR SELECT 
 
 CREATE POLICY "empresa_parceiros_org_all" ON public.empresa_parceiros FOR ALL USING (organization_id = current_org_id() OR partner_id = current_org_id());
 CREATE POLICY "empresa_parceiros_read_all" ON public.empresa_parceiros FOR SELECT USING (true);
+
+-- GRANTS FOR API
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.empresa_cnaes TO anon, authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.certifications TO anon, authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.empresa_certificacoes TO anon, authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.empresa_estados_atendidos TO anon, authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.organization_segments TO anon, authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.empresa_catalogo TO anon, authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.empresa_parceiros TO anon, authenticated;

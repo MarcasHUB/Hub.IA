@@ -1,5 +1,5 @@
 import React, { Suspense, lazy } from 'react';
-import { createBrowserRouter, Outlet } from 'react-router-dom';
+import { createBrowserRouter, Outlet, Navigate } from 'react-router-dom';
 import { AppLayout } from '../layouts/AppLayout';
 import { AuthLayout } from '../layouts/AuthLayout';
 import LandingPage from '../../modules/landing/presentation/pages/LandingPage'; // imported directly for speed
@@ -167,6 +167,14 @@ export const router = createBrowserRouter([
       {
         path: '/admin/empresas',
         element: <SuspenseWrapper><GlobalAdminPage /></SuspenseWrapper>,
+      },
+      {
+        path: '/admin/empresas/:id',
+        element: <Navigate to="/admin/empresas" replace />,
+      },
+      {
+        path: '/admin/empresas/:id/*',
+        element: <Navigate to="/admin/empresas" replace />,
       },
       {
         path: '/admin/materiais',

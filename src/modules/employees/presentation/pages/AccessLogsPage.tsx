@@ -9,7 +9,7 @@ import { Input } from '@/shared/components/ui/Input';
 import { Button } from '@/shared/components/ui/Button';
 import { SupabaseLogRepository } from '../../infrastructure/repositories/SupabaseLogRepository';
 
-export default function AccessLogsPage() {
+export default function AccessLogsPage({ organizationId }: { organizationId?: string }) {
   const [activeTab, setActiveTab] = useState<'acesso' | 'operacao'>('acesso');
 
   // Filtros
@@ -22,7 +22,7 @@ export default function AccessLogsPage() {
   const [selectedLog, setSelectedLog] = useState<any>(null);
 
   const logRepo = new SupabaseLogRepository();
-  const orgId = localStorage.getItem('supplyhub_organization_id') || '00000000-0000-0000-0000-000000000000';
+  const orgId = organizationId || localStorage.getItem('supplyhub_organization_id') || '00000000-0000-0000-0000-000000000000';
 
   const { data: logsData, isLoading: loading } = useQuery({
     queryKey: ['logs', orgId],

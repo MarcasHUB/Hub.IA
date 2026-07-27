@@ -13,7 +13,7 @@ import { DelegationModal } from '../components/DelegationModal';
 
 type FilterType = 'all' | 'active' | 'future' | 'ended';
 
-export default function DelegationsPage() {
+export default function DelegationsPage({ organizationId }: { organizationId?: string }) {
   const queryClient = useQueryClient();
   const [filter, setFilter] = useState<FilterType>('all');
   const [showModal, setShowModal] = useState(false);
@@ -21,7 +21,7 @@ export default function DelegationsPage() {
   const delRepo = new SupabaseDelegationRepository();
   const opRepo = new SupabaseOperatorRepository();
 
-  const orgId = localStorage.getItem('supplyhub_organization_id') || '00000000-0000-0000-0000-000000000000';
+  const orgId = organizationId || localStorage.getItem('supplyhub_organization_id') || '00000000-0000-0000-0000-000000000000';
 
   const { data: operators = [], isLoading: loadingOps } = useQuery({
     queryKey: ['operators', orgId],

@@ -1,3 +1,5 @@
+import { GeographicCoverageType } from '../types/GeographicCoverageType';
+
 export class Organization {
     constructor(
         public readonly id: string,
@@ -14,6 +16,7 @@ export class Organization {
         public latitude?: number,
         public longitude?: number,
         public companyType?: string,
+        public geographicCoverageType?: GeographicCoverageType | null,
         public coverageRadius?: number,
         public coverageStates?: string[],
         public certifications?: string,
