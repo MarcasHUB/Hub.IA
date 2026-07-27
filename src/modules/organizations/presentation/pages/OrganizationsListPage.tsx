@@ -5,7 +5,6 @@ import { Building2, Search, PackageOpen, Shield, Users, CheckCircle, XCircle, Ed
 import { Button } from '@/shared/components/ui/Button';
 import { ClearableInput } from '@/shared/components/ui/ClearableInput';
 import { InviteCompanyModal } from '../../../suppliers/presentation/components/InviteCompanyModal';
-import { OrganizationDetailsModal } from '../components/OrganizationDetailsModal';
 import { EntityCard } from '@/shared/components/ui/EntityCard'; // We might use EntityCard or build custom
 
 interface Organization {
@@ -324,12 +323,6 @@ export default function OrganizationsListPage() {
         }}
       />
       
-      <OrganizationDetailsModal
-        isOpen={!!selectedOrg}
-        onClose={() => setSelectedOrg(null)}
-        organization={selectedOrg}
-        onSaved={loadData}
-      />
     </div>
   );
 }

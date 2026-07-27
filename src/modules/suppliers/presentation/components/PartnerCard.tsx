@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Clock, CheckCircle2, XCircle, MoreVertical, MapPin, Mail, Phone, Globe, Star, Package } from 'lucide-react';
+import { Clock, CheckCircle2, XCircle, MoreVertical, MapPin, Mail, Phone, Globe, Star, Package, Building2 } from 'lucide-react';
 import { Badge } from '@/shared/components/ui/Badge';
 import { Button } from '@/shared/components/ui/Button';
 import { useChatDrawer } from '@/modules/messages/presentation/context/ChatDrawerContext';
@@ -25,6 +25,10 @@ export interface Partner {
   products: string[];
   contact_name?: string;
   message?: string;
+  profile_type?: string;
+  certifications?: string;
+  service_radius?: string;
+  score_hubia?: number;
 }
 
 const GRADIENTS: Record<string, string> = {
@@ -123,56 +127,80 @@ export function PartnerCard({
           </div>
         )}
 
-        <div>
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 flex items-center gap-1">
-            <Package className="h-3 w-3" />
-            Produtos & Serviços
-          </p>
-          <div className="flex flex-wrap gap-1">
-            {partner.products.slice(0, 3).map(prod => (
-              <span
-                key={prod}
-                className={`text-[10px] px-2 py-0.5 rounded-full font-medium border ${
-                  matchedProduct === prod
-                    ? 'bg-amber-100 text-amber-800 border-amber-300'
-                    : 'bg-slate-100 text-slate-600 border-slate-200'
-                }`}
-              >
-                {prod}
-              </span>
-            ))}
-            {partner.products.length > 3 && (
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600 border border-indigo-200 font-medium">
-                +{partner.products.length - 3} mais
+        <div className="space-y-2 mb-4 text-xs font-semibold text-slate-600">
+          <div className="flex flex-col gap-1.5">
+            {partner.profile_type && (
+              <span className="flex items-center gap-1.5 text-slate-700">
+                <Building2 className="h-3.5 w-3.5 text-indigo-500" /> 
+                {partner.profile_type.toLowerCase() === 'buyer' ? 'Comprador' : partner.profile_type.toLowerCase() === 'seller' ? 'Fornecedor' : partner.profile_type.toLowerCase() === 'both' ? 'Comprador e Fornecedor' : partner.profile_type}
               </span>
             )}
+            
+            {partner.city && partner.city !== '-' && (
+              <span className="flex items-center gap-1.5 text-slate-500">
+                <MapPin className="h-3.5 w-3.5 text-slate-400" /> {partner.city}, {partner.state}
+              </span>
+            )}
+            
+            {partner.service_radius && (
+              <span className="flex items-center gap-1.5 text-slate-500">
+                <Globe className="h-3.5 w-3.5 text-slate-400" /> {partner.service_radius}
+              </span>
+            )}
+            
+            {partner.certifications && (
+              <div className="flex flex-col gap-1 mt-1">
+                {partner.certifications.split(',').slice(0, 3).map((cert, idx) => (
+                  <span key={idx} className="flex items-center gap-1.5 text-emerald-600 font-bold">
+                    <CheckCircle2 className="h-3.5 w-3.5" /> {cert.trim()}
+                  </span>
+                ))}
+                {partner.certifications.split(',').length > 3 && (
+                  <span className="text-[10px] text-slate-400 ml-5 font-medium">
+                    +{partner.certifications.split(',').length - 3} Certificações
+                  </span>
+                )}
+              </div>
+            )}
+            
+            <div className="flex flex-wrap gap-1 mt-1">
+              {(() => {
+                const segs: string[] = Array.isArray(partner.segment) ? partner.segment : (typeof partner.segment === 'string' ? partner.segment.split(',') : []);
+                return segs.slice(0, 3).map((seg: string, idx: number) => (
+                  <span key={idx} className="bg-slate-100 text-slate-600 text-[10px] px-2 py-0.5 rounded-full flex items-center gap-1 border border-slate-200">
+                    <Package className="h-2.5 w-2.5" /> {seg.trim()}
+                  </span>
+                ));
+              })()}
+            </div>
+            
+            <div className="mt-2 bg-indigo-50 border border-indigo-100 text-indigo-700 text-[10px] font-bold px-2.5 py-1.5 rounded-lg flex items-center justify-between">
+              <span className="flex items-center gap-1.5">
+                <Star className="h-3.5 w-3.5" /> Hub.IA Score
+              </span>
+              <span className="bg-indigo-100 px-1.5 py-0.5 rounded text-indigo-800 text-[9px] uppercase tracking-wider">Em Breve</span>
+            </div>
           </div>
         </div>
 
-        <div className="space-y-1">
+        {partner.email && (
           <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
-            <MapPin className="h-3 w-3 text-slate-400 flex-shrink-0" />
-            {partner.city}, {partner.state} · {partner.employeesRange} func.
+            <Mail className="h-3 w-3 text-slate-400 flex-shrink-0" />
+            <span className="truncate">{partner.email}</span>
           </div>
-          {partner.email && (
-            <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
-              <Mail className="h-3 w-3 text-slate-400 flex-shrink-0" />
-              <span className="truncate">{partner.email}</span>
-            </div>
-          )}
-          {partner.phone && (
-            <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
-              <Phone className="h-3 w-3 text-slate-400 flex-shrink-0" />
-              {partner.phone}
-            </div>
-          )}
-          {partner.website && (
-            <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
-              <Globe className="h-3 w-3 text-slate-400 flex-shrink-0" />
-              {partner.website}
-            </div>
-          )}
-        </div>
+        )}
+        {partner.phone && (
+          <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
+            <Phone className="h-3 w-3 text-slate-400 flex-shrink-0" />
+            {partner.phone}
+          </div>
+        )}
+        {partner.website && (
+          <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
+            <Globe className="h-3 w-3 text-slate-400 flex-shrink-0" />
+            {partner.website}
+          </div>
+        )}
 
         {partner.status === 'pending_received' && (
           <Badge variant="secondary" className="text-[10px] bg-blue-50 text-blue-700 border-blue-200 self-start">

@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { supabase } from '@/infrastructure/supabase/client';
-import { Search, Network, Building2, Mail, MapPin, Globe, CheckCircle2, Clock, ExternalLink, X, Loader2, PackageOpen, LayoutGrid, Package } from 'lucide-react';
+import { Search, Network, Building2, Mail, MapPin, Globe, CheckCircle2, Clock, ExternalLink, X, Loader2, PackageOpen, LayoutGrid, Package, Sparkles } from 'lucide-react';
 import { ClearableInput } from '@/shared/components/ui/ClearableInput';
 import { InviteCompanyModal } from '../components/InviteCompanyModal';
 import { useNotifications } from '@/modules/notifications/presentation/context/NotificationContext';
@@ -157,20 +157,56 @@ function CompanyCard({
         {/* Informações detalhadas */}
         <div className="space-y-2 mb-4 text-xs font-semibold text-slate-600">
           <div className="flex flex-col gap-1.5">
-            {cityState && (
-              <span className="flex items-center gap-1.5 text-slate-500">
-                <MapPin className="h-3.5 w-3.5" /> {cityState}
+            {roleLabel !== 'Não informado' && (
+              <span className="flex items-center gap-1.5 text-slate-700">
+                <Building2 className="h-3.5 w-3.5 text-indigo-500" /> {roleLabel}
               </span>
             )}
-            <span className="flex items-center gap-1.5 text-slate-500">
-              <Building2 className="h-3.5 w-3.5" /> {roleLabel}
-            </span>
-            <span className="flex items-center gap-1.5 text-slate-500">
-              <LayoutGrid className="h-3.5 w-3.5" /> {org.segments_count || 0} {org.segments_count === 1 ? 'Segmento' : 'Segmentos'}
-            </span>
-            <span className="flex items-center gap-1.5 text-slate-500">
-              <Package className="h-3.5 w-3.5" /> {org.materials_count || 0} {org.materials_count === 1 ? 'Material' : 'Materiais'}
-            </span>
+            
+            {cityState && (
+              <span className="flex items-center gap-1.5 text-slate-500">
+                <MapPin className="h-3.5 w-3.5 text-slate-400" /> {cityState}
+              </span>
+            )}
+            
+            {org.service_radius && (
+              <span className="flex items-center gap-1.5 text-slate-500">
+                <Globe className="h-3.5 w-3.5 text-slate-400" /> {org.service_radius}
+              </span>
+            )}
+            
+            {org.certifications && (
+              <div className="flex flex-col gap-1 mt-1">
+                {org.certifications.split(',').slice(0, 3).map((cert, idx) => (
+                  <span key={idx} className="flex items-center gap-1.5 text-emerald-600 font-bold">
+                    <CheckCircle2 className="h-3.5 w-3.5" /> {cert.trim()}
+                  </span>
+                ))}
+                {org.certifications.split(',').length > 3 && (
+                  <span className="text-[10px] text-slate-400 ml-5 font-medium">
+                    +{org.certifications.split(',').length - 3} Certificações
+                  </span>
+                )}
+              </div>
+            )}
+            
+            <div className="flex flex-wrap gap-1 mt-1">
+              {(() => {
+                const segs = Array.isArray(org.segment) ? org.segment : (typeof org.segment === 'string' ? org.segment.split(',') : []);
+                return segs.slice(0, 3).map((seg: string, idx: number) => (
+                  <span key={idx} className="bg-slate-100 text-slate-600 text-[10px] px-2 py-0.5 rounded-full flex items-center gap-1 border border-slate-200">
+                    <Package className="h-2.5 w-2.5" /> {seg.trim()}
+                  </span>
+                ));
+              })()}
+            </div>
+            
+            <div className="mt-2 bg-indigo-50 border border-indigo-100 text-indigo-700 text-[10px] font-bold px-2.5 py-1.5 rounded-lg flex items-center justify-between">
+              <span className="flex items-center gap-1.5">
+                <Sparkles className="h-3.5 w-3.5" /> Hub.IA Score
+              </span>
+              <span className="bg-indigo-100 px-1.5 py-0.5 rounded text-indigo-800 text-[9px] uppercase tracking-wider">Em Breve</span>
+            </div>
           </div>
         </div>
 
@@ -219,7 +255,7 @@ export default function NetworkPage() {
           id, name, razao_social, nome_fantasia, cnpj, city, state, country,
           logo_url, website, description, segment, business_email, email_corporativo,
           phone, telefone, whatsapp, business_model, profile_type, service_radius,
-          profile_completion, created_at, status
+          profile_completion, created_at, status, certifications, score_hubia
         `)
         .in('status', ['ativo', 'active'])
         .neq('id', HUB_IA_ORG_ID)

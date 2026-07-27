@@ -37,24 +37,40 @@ export default function SuppliersListPage() {
             .eq('organization_id', orgId)
             .in('status', ['pendente', 'aceito']);
             
-         const mappedInvites = (invs || []).map(inv => ({
-            id: inv.id,
-            name: inv.company || inv.name,
-            document: inv.document,
-            segment: (inv.segments && inv.segments.length > 0) ? inv.segments.join(', ') : 'Não definido',
-            city: inv.city || '-',
-            state: inv.state || '-',
-            status: inv.status === 'pendente' ? 'pending_sent' as const : (inv.status === 'aceito' ? 'accepted' as const : inv.status as any),
-            connectionId: '',
-            employeesRange: '-',
-            rating: 0,
-            responseTime: '-',
-            quotationsCount: 0,
-            products: [],
-            email: inv.email,
-            contact_name: inv.contact_name,
-            message: inv.message
-         }));
+         const docs = (invs || []).map((i: any) => i.document).filter(Boolean);
+         const { data: orgs } = await supabase
+            .from('organizations')
+            .select('*')
+            .in('cnpj', docs)
+            .in('status', ['ativo', 'active']);
+            
+         const mappedInvites = (invs || []).map((inv: any) => {
+            const org = (orgs || []).find((o: any) => o.cnpj === inv.document);
+            return {
+              id: inv.id,
+              name: org?.razao_social || org?.nome_fantasia || org?.name || inv.company || inv.name,
+              document: inv.document,
+              segment: org?.segment || ((inv.segments && inv.segments.length > 0) ? inv.segments.join(', ') : 'Não definido'),
+              city: org?.city || inv.city || '-',
+              state: org?.state || inv.state || '-',
+              status: inv.status === 'pendente' ? 'pending_sent' as const : (inv.status === 'aceito' ? 'accepted' as const : inv.status as any),
+              connectionId: '',
+              employeesRange: '-',
+              rating: 0,
+              responseTime: '-',
+              quotationsCount: 0,
+              products: [],
+              email: org?.email_corporativo || org?.business_email || inv.email,
+              contact_name: inv.contact_name,
+              message: inv.message,
+              profile_type: org?.profile_type || org?.business_model,
+              certifications: org?.certifications,
+              service_radius: org?.service_radius,
+              score_hubia: org?.score_hubia,
+              phone: org?.telefone || org?.phone,
+              website: org?.website
+            };
+         });
 
          setPartners([...mappedInvites]);
        } catch(e) {

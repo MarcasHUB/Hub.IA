@@ -28,6 +28,8 @@ export interface NetworkOrg {
   profile_completion: number | null;
   created_at: string | null;
   status: string | null;
+  certifications: string | null;
+  score_hubia: number | null;
   isPartner?: boolean;
   hasPendingInvite?: boolean;
   segments_count?: number;
