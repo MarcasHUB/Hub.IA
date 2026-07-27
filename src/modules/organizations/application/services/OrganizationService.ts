@@ -22,6 +22,7 @@ export class OrganizationService {
             orgData.profiles || [],
             orgData.segments || [],
             orgData.logoUrl || null,
+            undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined,
             new Date(),
             new Date()
         );
