@@ -25,7 +25,7 @@ export interface OrganizationProfileData {
   geographic_coverage_type?: GeographicCoverageType | null;
   raio_atendimento_km?: number | null;
   cnae_principal?: string;
-  business_model?: string;
+  commercialProfile?: string;
   profile_completion?: number;
 }
 export const organizationProfileKeys = {
@@ -97,7 +97,7 @@ export function useOrganizationProfile(organizationId: string | null) {
     geographic_coverage_type: data.geographic_coverage_type as GeographicCoverageType | null,
     raio_atendimento_km: data.raio_atendimento_km,
     cnae_principal: data.cnae_principal || '',
-    business_model: data.business_model || data.perfil_comercial || '',
+    commercialProfile: data.perfil_comercial || '',
     profile_completion: data.profile_completion || 50,
   } : null;
 

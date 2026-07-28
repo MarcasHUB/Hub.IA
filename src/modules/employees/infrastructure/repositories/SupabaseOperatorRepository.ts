@@ -81,26 +81,72 @@ export class SupabaseOperatorRepository implements IOperatorRepository {
     return data.data as Invitation;
   }
 
-  /**
-   * Lista todos os operadores do tenant atual
-   */
   async listOperators(organizationId: string): Promise<Operator[]> {
-    const { data, error } = await supabase
+    // 1. Fetch user_roles (memberships)
+    const { data: rolesData, error: rolesError } = await supabase
+      .from('user_roles')
+      .select('*')
+      .eq('organization_id', organizationId);
+
+    if (rolesError) throw rolesError;
+
+    if (!rolesData || rolesData.length === 0) return [];
+
+    const userIds = rolesData.map(r => r.user_id).filter(Boolean);
+
+    // 2. Fetch profiles
+    const { data: profilesData, error: profilesError } = await supabase
+      .from('profiles')
+      .select('*')
+      .in('id', userIds);
+
+    // 3. Fetch legacy operators
+    const { data: operatorsData, error: operatorsError } = await supabase
       .from('operators')
       .select('*, operator_categories(category_id)')
       .eq('organization_id', organizationId)
-      .is('deleted_at', null)
-      .order('nome', { ascending: true });
+      .is('deleted_at', null);
 
-    if (error) {
-      throw error;
+    const operators: Operator[] = [];
+    const usedEmails = new Set<string>();
+
+    for (const role of rolesData) {
+      const profile = profilesData?.find(p => p.id === role.user_id || p.user_id === role.user_id);
+      const email = profile?.contact_email || profile?.email || '';
+      const op = operatorsData?.find(o => o.user_id === role.user_id || (email && o.email === email));
+
+      if (email) usedEmails.add(email);
+      if (op && op.email) usedEmails.add(op.email);
+
+      if (!profile && !op && !role.user_id) continue;
+
+      operators.push({
+        id: op?.id || profile?.id || role.user_id || crypto.randomUUID(),
+        organization_id: organizationId,
+        nome: profile?.full_name || op?.nome || 'Usuário Autenticado',
+        email: email || op?.email || '',
+        telefone: op?.telefone || '',
+        cargo: role.role || op?.cargo || 'Membro',
+        status: op?.status || 'ativo',
+        created_at: op?.created_at || new Date().toISOString(),
+        updated_at: op?.updated_at || new Date().toISOString(),
+        categories: op?.operator_categories ? op.operator_categories.map((c: any) => c.category_id) : []
+      } as Operator);
     }
 
-    // Map `operator_categories` para um array de strings `categories` para o frontend
-    return (data as any[]).map(op => ({
-      ...op,
-      categories: op.operator_categories ? op.operator_categories.map((os: any) => os.category_id) : []
-    })) as Operator[];
+    // Include operators without user_roles (pending invites or legacy)
+    if (operatorsData) {
+      for (const op of operatorsData) {
+        if (!usedEmails.has(op.email) && !operators.some(o => o.id === op.id)) {
+          operators.push({
+            ...op,
+            categories: op.operator_categories ? op.operator_categories.map((c: any) => c.category_id) : []
+          } as Operator);
+        }
+      }
+    }
+
+    return operators.sort((a, b) => a.nome.localeCompare(b.nome));
   }
 
   async getInvitationByEmail(email: string): Promise<Invitation | null> {

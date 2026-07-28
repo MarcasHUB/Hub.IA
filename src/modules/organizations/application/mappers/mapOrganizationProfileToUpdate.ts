@@ -19,7 +19,7 @@ export interface OrganizationProfileFormData {
   latitude: string;
   longitude: string;
   tipo_empresa: string;
-  business_model: string;
+  commercialProfile: string;
   geographicCoverageType: GeographicCoverageType | null;
   coverageRadius: string;
   cnae_principal: string;
@@ -110,7 +110,7 @@ export function mapOrganizationProfileToUpdate(formData: OrganizationProfileForm
     latitude: formData.latitude ? parseFloat(formData.latitude) : null,
     longitude: formData.longitude ? parseFloat(formData.longitude) : null,
     tipo_empresa: formData.tipo_empresa,
-    perfil_comercial: formData.business_model,
+    perfil_comercial: formData.commercialProfile,
     geographic_coverage_type: formData.geographicCoverageType,
     raio_atendimento_km: normalizeCoverageRadius(formData.coverageRadius),
     cnae_principal: formData.cnae_principal,

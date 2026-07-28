@@ -2,6 +2,13 @@ import { supabase } from '../../../../infrastructure/supabase/client';
 import { Category, CategoryStatus } from '../../domain/entities/Category';
 import { ICategoryRepository } from '../../domain/repositories/ICategoryRepository';
 
+export class CategoryAlreadyExistsError extends Error {
+  constructor(message: string = 'Já existe uma categoria com esse nome nesta empresa.') {
+    super(message);
+    this.name = 'CategoryAlreadyExistsError';
+  }
+}
+
 export class SupabaseCategoryRepository implements ICategoryRepository {
     private async resolveTenantId(tenantId: string): Promise<string> {
         if (tenantId !== '00000000-0000-0000-0000-000000000000') return tenantId;
@@ -58,6 +65,9 @@ export class SupabaseCategoryRepository implements ICategoryRepository {
 
         if (error) {
             console.error('Supabase save category error:', error);
+            if (error.code === '23505') {
+                throw new CategoryAlreadyExistsError();
+            }
             throw error;
         }
     }

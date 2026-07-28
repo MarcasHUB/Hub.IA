@@ -36,7 +36,7 @@ const Field = ({ label, icon: Icon, value, onChange, type = 'text', placeholder,
 export interface CompanyCommercialDataSectionProps {
   form: {
     tipo_empresa: string;
-    business_model: string;
+    commercialProfile: string;
     coverageRadius: string;
     area_cobertura_estados: string;
     geographicCoverageType: GeographicCoverageType | null;
@@ -53,6 +53,7 @@ export interface CompanyCommercialDataSectionProps {
   onAcceptSuggestions: () => void;
   onOpenNewSegmentModal: () => void;
   readOnly?: boolean;
+  isSuperAdmin?: boolean;
 }
 
 export function CompanyCommercialDataSection({
@@ -65,7 +66,8 @@ export function CompanyCommercialDataSection({
   onRemoveSegment,
   onAcceptSuggestions,
   onOpenNewSegmentModal,
-  readOnly
+  readOnly,
+  isSuperAdmin
 }: CompanyCommercialDataSectionProps) {
   return (
     <div className="space-y-6">
@@ -88,8 +90,8 @@ export function CompanyCommercialDataSection({
           </label>
           <div className="relative">
             <select
-              value={form.business_model}
-              onChange={(e: React.ChangeEvent<HTMLSelectElement>) => onChange('business_model', e.target.value)}
+              value={form.commercialProfile}
+              onChange={(e: React.ChangeEvent<HTMLSelectElement>) => onChange('commercialProfile', e.target.value)}
               className="w-full h-10 px-3 pr-10 text-sm border border-slate-200 rounded-lg appearance-none bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:opacity-75 disabled:bg-slate-50"
               disabled={readOnly}
             >
@@ -198,12 +200,14 @@ export function CompanyCommercialDataSection({
                 <option key={s.id} value={s.nome}>{s.nome}</option>
               ))}
             </select>
-            <button 
-              onClick={onOpenNewSegmentModal}
-              className="px-3 h-9 border border-dashed border-slate-300 text-slate-500 text-xs font-bold rounded-lg hover:border-indigo-500 hover:text-slate-700 transition-colors"
-            >
-              + Novo
-            </button>
+            {isSuperAdmin && (
+              <button 
+                onClick={onOpenNewSegmentModal}
+                className="px-3 h-9 border border-dashed border-slate-300 text-slate-500 text-xs font-bold rounded-lg hover:border-indigo-500 hover:text-slate-700 transition-colors"
+              >
+                + Novo
+              </button>
+            )}
           </div>
         </div>
       </div>

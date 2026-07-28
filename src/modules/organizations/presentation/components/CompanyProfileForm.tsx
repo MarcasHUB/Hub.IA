@@ -19,6 +19,7 @@ export interface CompanyProfileFormProps {
   initialCoverageStates: string[];
   onSave: (formData: any) => Promise<void>;
   readOnly?: boolean;
+  isSuperAdmin?: boolean;
 }
 
 const applyMask = (field: string, value: string) => {
@@ -56,12 +57,13 @@ export function CompanyProfileForm({
   initialCertifications,
   initialCoverageStates,
   onSave,
-  readOnly = false
+  readOnly = false,
+  isSuperAdmin = false
 }: CompanyProfileFormProps) {
   const [activeSubTab, setActiveSubTab] = useState<'gerais'|'comerciais'>('gerais');
   
   const [form, setForm] = useState({
-    business_model: '',
+    commercialProfile: '',
     latitude: '',
     longitude: '',
     tipo_empresa: '',
@@ -96,6 +98,9 @@ export function CompanyProfileForm({
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
   const [saved, setSaved] = useState(false);
+  const [internalIsSuperAdmin, setInternalIsSuperAdmin] = useState(false);
+
+  const effectiveIsSuperAdmin = isSuperAdmin || internalIsSuperAdmin;
 
   useEffect(() => {
     if (initialData && !initialized) {
@@ -124,7 +129,7 @@ export function CompanyProfileForm({
         certificacoes: initialCertifications.join(', '),
         cnae_principal: initialData.cnae_principal || '',
         cnaes_secundarios: initialSecondaryCnaes,
-        business_model: initialData.business_model || '',
+        commercialProfile: initialData.commercialProfile || '',
       });
       setSelectedSegments(initialSegments);
       setInitialized(true);
@@ -132,10 +137,27 @@ export function CompanyProfileForm({
   }, [initialData, initialized, initialCoverageStates, initialCertifications, initialSecondaryCnaes, initialSegments]);
 
   useEffect(() => {
-    supabase.from('segments').select('id, nome').order('nome').then(({ data }) => {
-      if (data) setAvailableSegments(data);
+    import('../../../employees/infrastructure/repositories/SupabaseSegmentRepository').then(({ SupabaseSegmentRepository }) => {
+      const repo = new SupabaseSegmentRepository();
+      repo.listSegments(organizationId || 'GLOBAL')
+        .then((data) => {
+          if (data) setAvailableSegments(data.filter(d => d.status === 'ativo'));
+        })
+        .catch(err => {
+          console.error('[CompanyProfileForm] RLS Error on segments:', err);
+        });
     });
-  }, []);
+
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) {
+        supabase.from('profiles').select('is_super_admin').eq('user_id', user.id).single().then(({ data }) => {
+          if (data?.is_super_admin) {
+            setInternalIsSuperAdmin(true);
+          }
+        });
+      }
+    });
+  }, [organizationId]);
 
   const handleChange = (field: string, value: any) => {
     const maskedValue = (typeof value === 'string' && ['cnpj', 'telefone', 'whatsapp', 'cep'].includes(field)) 
@@ -301,6 +323,7 @@ export function CompanyProfileForm({
               availableSegments={availableSegments}
               sugestoesHubIA={sugestoesHubIA}
               readOnly={readOnly}
+              isSuperAdmin={effectiveIsSuperAdmin}
               onAddSegment={seg => setSelectedSegments(prev => prev.includes(seg) ? prev : [...prev, seg])}
               onRemoveSegment={seg => setSelectedSegments(prev => prev.filter(s => s !== seg))}
               onAcceptSuggestions={() => setSelectedSegments(prev => Array.from(new Set([...prev, ...sugestoesHubIA])))}

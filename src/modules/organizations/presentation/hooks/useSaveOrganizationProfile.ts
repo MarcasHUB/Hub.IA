@@ -1,25 +1,56 @@
 import { supabase } from '../../../../infrastructure/supabase/client';
-import { mapOrganizationProfileToUpdate } from '../../application/mappers/mapOrganizationProfileToUpdate';
+import { mapOrganizationProfileToUpdate, normalizeCoverageRadius } from '../../application/mappers/mapOrganizationProfileToUpdate';
 
 export function useSaveOrganizationProfile() {
   const saveProfile = async (organizationId: string, formData: any) => {
+    // Validação de raio de atendimento
+    if (formData.coverageRadius !== undefined && String(formData.coverageRadius).trim() !== '') {
+      const normalized = normalizeCoverageRadius(formData.coverageRadius);
+      if (normalized === null) {
+        throw new Error('Informe o raio de atendimento utilizando apenas quilômetros inteiros.');
+      }
+    }
+
     const payload = mapOrganizationProfileToUpdate(formData);
 
-    const { error: orgError } = await supabase.from('organizations').update(payload).eq('id', organizationId);
+    const { data: orgData, error: orgError } = await supabase
+      .from('organizations')
+      .update(payload)
+      .eq('id', organizationId)
+      .select('id, perfil_comercial, geographic_coverage_type, raio_atendimento_km')
+      .single();
+
     if (orgError) {
       console.error("Falha ao salvar organizations:", orgError);
       throw new Error(`Falha ao salvar dados principais: ${orgError.message}`);
     }
+    if (!orgData) {
+      throw new Error('Nenhuma organização foi atualizada. Verifique se o ID existe.');
+    }
 
+    // Persistência de Certificações (Parcialmente atômica: não deletar se falhar antes de tentar insert)
+    // OBS: O fluxo continua sujeito a falha parcial caso insert estoure após delete.
     if (formData.certificacoes !== undefined) {
+      // 1. Normalizar e deduplicar
+      const rawCerts = String(formData.certificacoes).split(',').map(c => c.trim()).filter(Boolean);
+      // Deduplicar case-insensitive, preservando grafia original
+      const certsMap = new Map<string, string>();
+      for (const c of rawCerts) {
+        const lower = c.toLowerCase();
+        if (!certsMap.has(lower)) {
+          certsMap.set(lower, c);
+        }
+      }
+      const uniqueCerts = Array.from(certsMap.values());
+
+      // 2. Deletar os antigos APÓS normalizar os dados com sucesso
       const { error: delCertError } = await supabase.from('empresa_certificacoes').delete().eq('organization_id', organizationId);
       if (delCertError) throw new Error(`Falha ao limpar certificações: ${delCertError.message}`);
       
-      const certNames = formData.certificacoes.split(',').map((c: string) => c.trim()).filter(Boolean);
-      for (const cName of Array.from(new Set(certNames))) {
+      for (const cName of uniqueCerts) {
         let { data: certData } = await supabase.from('certifications').select('id').eq('name', cName).single();
         if (!certData) {
-          const { data: newCert, error: errC } = await supabase.from('certifications').insert({ name: cName as string }).select('id').single();
+          const { data: newCert, error: errC } = await supabase.from('certifications').insert({ name: cName }).select('id').single();
           if (errC) throw new Error(`Falha ao criar certificação ${cName}: ${errC.message}`);
           certData = newCert;
         }
