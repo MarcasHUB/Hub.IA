@@ -93,6 +93,68 @@ export function AppLayout() {
         console.log('GLOBAL USER', globalUser);
         console.log('IS SUPER ADMIN', globalUser?.is_super_admin);
 
+        // Carregar todas as possíveis memberships do usuário logado
+        let memberships: string[] = [];
+        
+        try {
+          const { data: opData } = await supabase.from('operators').select('organization_id').eq('id', user.id);
+          if (opData) memberships.push(...opData.map((o: any) => o.organization_id).filter(Boolean));
+        } catch {}
+
+        try {
+          const { data: roleData } = await supabase.from('user_roles').select('organization_id').eq('user_id', user.id);
+          if (roleData) memberships.push(...roleData.map((r: any) => r.organization_id).filter(Boolean));
+        } catch {}
+
+        try {
+          const { data: profileData } = await supabase.from('profiles').select('organization_id').eq('user_id', user.id);
+          if (profileData) memberships.push(...profileData.map((p: any) => p.organization_id).filter(Boolean));
+        } catch {}
+
+        // Remove duplicatas
+        memberships = Array.from(new Set(memberships));
+
+        // Obter o tenant preferido do storage
+        const storedOrgId = localStorage.getItem('supplyhub_organization_id');
+        let activeOrganizationId = null;
+
+        if (storedOrgId && memberships.includes(storedOrgId)) {
+          activeOrganizationId = storedOrgId;
+        } else if (memberships.length > 0) {
+          activeOrganizationId = memberships[0];
+          localStorage.setItem('supplyhub_organization_id', activeOrganizationId);
+        }
+
+        // Buscar dados da organização ativa
+        if (activeOrganizationId) {
+          const { data: orgData } = await supabase
+            .from('organizations')
+            .select('trade_name, name, logo_url')
+            .eq('id', activeOrganizationId)
+            .single();
+
+          if (orgData) {
+            const orgName = orgData.trade_name || orgData.name || 'Empresa';
+            if (isMounted) {
+              setCompanyName(orgName);
+              setCompanyLogo(orgData.logo_url || null);
+            }
+            // Persistir também pro resto do app em modo compatibilidade
+            localStorage.setItem('supplyhub_company_name', orgName);
+            if (orgData.logo_url) {
+              localStorage.setItem('supplyhub_company_logo', orgData.logo_url);
+            } else {
+              localStorage.removeItem('supplyhub_company_logo');
+            }
+          }
+        } else {
+          // Caso não tenha nenhuma organização
+          if (isMounted) {
+            setCompanyName('Empresa');
+            setCompanyLogo(null);
+          }
+        }
+
         if (isMounted) {
           let currentProfile = 'Operador';
           if (globalUser?.is_super_admin) {
@@ -110,8 +172,8 @@ export function AppLayout() {
           
           setOperatorProfile(currentProfile);
           
-          // Nome (prioriza o full_name do profile, fallback pro operator)
-          const nameToSet = globalUser?.full_name || (operator ? `${operator.nome} ${operator.sobrenome || ''}`.trim() : 'Usuário');
+          // Nome do operador autenticado (nunca usar nome da empresa aqui)
+          const nameToSet = globalUser?.full_name || operator?.nome || user.email || 'Usuário';
           setOperatorName(nameToSet);
         }
       } catch (err: any) {

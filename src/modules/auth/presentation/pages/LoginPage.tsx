@@ -30,8 +30,13 @@ export default function LoginPage() {
     
     const ua = navigator.userAgent;
     let orgId = localStorage.getItem('supplyhub_organization_id');
-    if (!orgId || orgId === 'org-1') {
-      orgId = '00000000-0000-0000-0000-000000000000';
+    
+    // Limpar cache visual do tenant anterior
+    localStorage.removeItem('supplyhub_company_name');
+    localStorage.removeItem('supplyhub_company_logo');
+
+    if (!orgId) {
+      orgId = '68a2f0b2-80f7-4868-bbb9-30b531c12db2';
       localStorage.setItem('supplyhub_organization_id', orgId);
     }
 

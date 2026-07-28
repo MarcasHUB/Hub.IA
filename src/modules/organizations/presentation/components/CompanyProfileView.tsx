@@ -35,16 +35,16 @@ const EMPRESA_SECTIONS = [
     ]
   },
   {
-    title: 'GOVERNANÃ‡A',
+    title: 'GOVERNANÇA',
     items: [
-      { id: 'permissoes', label: 'PermissÃµes', icon: Shield, href: '/empresa/permissoes' },
-      { id: 'aprovacoes', label: 'AprovaÃ§Ãµes', icon: CheckCircle2, href: '/empresa/aprovacoes' },
+      { id: 'permissoes', label: 'Permissões', icon: Shield, href: '/empresa/permissoes' },
+      { id: 'aprovacoes', label: 'Aprovações', icon: CheckCircle2, href: '/empresa/aprovacoes' },
     ]
   },
   {
-    title: 'OPERAÃ‡ÃƒO',
+    title: 'OPERAÇÃO',
     items: [
-      { id: 'delegacoes', label: 'DelegaÃ§Ãµes', icon: ArrowLeftRight, href: '/empresa/delegacoes' },
+      { id: 'delegacoes', label: 'Delegações', icon: ArrowLeftRight, href: '/empresa/delegacoes' },
       { id: 'logs', label: 'Logs', icon: ScrollText, href: '/empresa/logs' },
     ]
   }
@@ -280,19 +280,19 @@ export default function CompanyProfileView({ organizationId }: CompanyProfileVie
             {activeTab === 'solicitantes' && (
               <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-200">
                 <h2 className="text-xl font-bold text-slate-800 mb-4">Solicitantes</h2>
-                <p className="text-slate-600">GestÃ£o de solicitantes (Em breve).</p>
+                <p className="text-slate-600">Gestão de solicitantes (Em breve).</p>
               </div>
             )}
             {activeTab === 'permissoes' && (
               <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-200">
-                <h2 className="text-xl font-bold text-slate-800 mb-4">PermissÃµes</h2>
-                <p className="text-slate-600">GestÃ£o de permissÃµes de acesso (Em breve).</p>
+                <h2 className="text-xl font-bold text-slate-800 mb-4">Permissões</h2>
+                <p className="text-slate-600">Gestão de permissões de acesso (Em breve).</p>
               </div>
             )}
             {activeTab === 'aprovacoes' && (
               <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-200">
-                <h2 className="text-xl font-bold text-slate-800 mb-4">AprovaÃ§Ãµes</h2>
-                <p className="text-slate-600">GestÃ£o de alÃ§adas de aprovaÃ§Ã£o (Em breve).</p>
+                <h2 className="text-xl font-bold text-slate-800 mb-4">Aprovações</h2>
+                <p className="text-slate-600">Gestão de alçadas de aprovação (Em breve).</p>
               </div>
             )}
             {activeTab === 'delegacoes' && <DelegationsPage organizationId={organizationId} />}

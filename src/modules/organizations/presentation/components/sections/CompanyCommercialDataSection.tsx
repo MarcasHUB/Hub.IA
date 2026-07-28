@@ -37,7 +37,7 @@ export interface CompanyCommercialDataSectionProps {
   form: {
     tipo_empresa: string;
     business_model: string;
-    area_cobertura_raio: string;
+    coverageRadius: string;
     area_cobertura_estados: string;
     geographicCoverageType: GeographicCoverageType | null;
     certificacoes: string;
@@ -119,8 +119,8 @@ export function CompanyCommercialDataSection({
         <Field 
           label="Área de Cobertura (Raio em km)" 
           icon={Globe} 
-          value={form.area_cobertura_raio} 
-          onChange={v => onChange('area_cobertura_raio', v)} 
+          value={form.coverageRadius} 
+          onChange={v => onChange('coverageRadius', v)} 
           type="number" 
           placeholder="Ex: 100" 
           readOnly={readOnly}

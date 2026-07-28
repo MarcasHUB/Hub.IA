@@ -65,7 +65,7 @@ export function CompanyProfileForm({
     latitude: '',
     longitude: '',
     tipo_empresa: '',
-    area_cobertura_raio: '',
+    coverageRadius: '',
     area_cobertura_estados: '',
     geographicCoverageType: null as GeographicCoverageType | null,
     certificacoes: '',
@@ -119,7 +119,7 @@ export function CompanyProfileForm({
         longitude: initialData.longitude?.toString() || '',
         tipo_empresa: initialData.tipo_empresa || '',
         geographicCoverageType: initialData.geographic_coverage_type || null,
-        area_cobertura_raio: initialData.raio_atendimento_km?.toString() || '',
+        coverageRadius: initialData.raio_atendimento_km?.toString() || '',
         area_cobertura_estados: initialCoverageStates.join(', '),
         certificacoes: initialCertifications.join(', '),
         cnae_principal: initialData.cnae_principal || '',
@@ -155,61 +155,64 @@ export function CompanyProfileForm({
 
   const fetchCNPJ = async (cnpjVal: string) => {
     const cleanCNPJ = cnpjVal.replace(/\D/g, '');
-    if (cleanCNPJ.length === 14) {
-      try {
-        const response = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${cleanCNPJ}`);
-        if (response.ok) {
-          const data = await response.json();
-          const cnaePrincipal = data.cnae_fiscal ? `${data.cnae_fiscal} - ${data.cnae_fiscal_descricao}` : '';
-          const cnaesSecundarios = data.cnaes_secundarios ? data.cnaes_secundarios.map((c: any) => `${c.codigo} - ${c.descricao}`) : [];
-          
-          setForm(f => ({
-            ...f,
-            razao_social: data.razao_social || f.razao_social,
-            nome_fantasia: data.nome_fantasia || data.razao_social || f.nome_fantasia,
-            telefone: data.ddd_telefone_1 || f.telefone,
-            email_corporativo: data.email || f.email_corporativo,
-            cep: data.cep || f.cep,
-            endereco: data.logradouro || f.endereco,
-            numero: data.numero || f.numero,
-            complemento: data.complemento || f.complemento,
-            bairro: data.bairro || f.bairro,
-            cidade: data.municipio || f.cidade,
-            uf: data.uf || f.uf,
-            cnae_principal: cnaePrincipal,
-            cnaes_secundarios: cnaesSecundarios
-          }));
-          if (data.nome_fantasia || data.razao_social) {
-             localStorage.setItem('supplyhub_company_name', data.nome_fantasia || data.razao_social);
-             window.dispatchEvent(new Event('storage'));
-          }
+    if (cleanCNPJ.length !== 14) return;
 
-          if (cnaePrincipal.toLowerCase().includes('elétrica')) {
-            setSugestoesHubIA(['Indústria Elétrica', 'Materiais Elétricos', 'Automação Industrial']);
-          } else if (cnaePrincipal.toLowerCase().includes('tecnologia') || cnaePrincipal.toLowerCase().includes('software')) {
-            setSugestoesHubIA(['Tecnologia da Informação', 'Software B2B', 'Serviços em Nuvem']);
-          } else {
-            setSugestoesHubIA(['Indústria Geral', 'Serviços Corporativos']);
-          }
-
-          if (data.cep && data.logradouro) {
-             const addressStr = `${data.logradouro}, ${data.numero || ''}, ${data.municipio} - ${data.uf}, ${data.cep}`;
-             const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
-             if (apiKey) {
-                try {
-                  const geoRes = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(addressStr)}&key=${apiKey}`);
-                  const geoData = await geoRes.json();
-                  if (geoData.results && geoData.results.length > 0) {
-                     const { lat, lng } = geoData.results[0].geometry.location;
-                     setForm(f => ({ ...f, latitude: lat.toString(), longitude: lng.toString() }));
-                  }
-                } catch(e) { console.error('Erro no geocoding:', e); }
-             }
-          }
-        }
-      } catch (error) {
-        console.error("Erro ao buscar CNPJ", error);
+    try {
+      const response = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${cleanCNPJ}`);
+      if (!response.ok) {
+         setSaveError('Não foi possível consultar os dados do CNPJ. Os demais campos podem ser preenchidos manualmente.');
+         return;
       }
+      
+      const data = await response.json();
+      const cnaePrincipal = data.cnae_fiscal ? `${data.cnae_fiscal} - ${data.cnae_fiscal_descricao}` : '';
+      const cnaesSecundarios = data.cnaes_secundarios ? data.cnaes_secundarios.map((c: any) => `${c.codigo} - ${c.descricao}`) : [];
+      
+      setForm(f => ({
+        ...f,
+        razao_social: f.razao_social || data.razao_social || '',
+        nome_fantasia: f.nome_fantasia || data.nome_fantasia || data.razao_social || '',
+        telefone: f.telefone || data.ddd_telefone_1 || '',
+        email_corporativo: f.email_corporativo || data.email || '',
+        cep: f.cep || data.cep || '',
+        endereco: f.endereco || data.logradouro || '',
+        numero: f.numero || data.numero || '',
+        complemento: f.complemento || data.complemento || '',
+        bairro: f.bairro || data.bairro || '',
+        cidade: f.cidade || data.municipio || '',
+        uf: f.uf || data.uf || '',
+        cnae_principal: f.cnae_principal || cnaePrincipal,
+        cnaes_secundarios: f.cnaes_secundarios && f.cnaes_secundarios.length > 0 ? f.cnaes_secundarios : cnaesSecundarios
+      }));
+
+      // Apenas sugere IA se o CNAE estiver vazio no form original
+      if (!form.cnae_principal && cnaePrincipal.toLowerCase().includes('elétrica')) {
+        setSugestoesHubIA(['Indústria Elétrica', 'Materiais Elétricos', 'Automação Industrial']);
+      } else if (!form.cnae_principal && (cnaePrincipal.toLowerCase().includes('tecnologia') || cnaePrincipal.toLowerCase().includes('software'))) {
+        setSugestoesHubIA(['Tecnologia da Informação', 'Software B2B', 'Serviços em Nuvem']);
+      } else if (!form.cnae_principal) {
+        setSugestoesHubIA(['Indústria Geral', 'Serviços Corporativos']);
+      }
+
+      if (data.cep && data.logradouro) {
+         const addressStr = `${data.logradouro}, ${data.numero || ''}, ${data.municipio} - ${data.uf}, ${data.cep}`;
+         const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+         if (apiKey) {
+            try {
+              const geoRes = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(addressStr)}&key=${apiKey}`);
+              if (geoRes.ok) {
+                const geoData = await geoRes.json();
+                if (geoData.results && geoData.results[0]) {
+                   const loc = geoData.results[0].geometry.location;
+                   setForm(f => ({ ...f, latitude: loc.lat.toString(), longitude: loc.lng.toString() }));
+                }
+              }
+            } catch(e) { console.error('Erro na geocodificação', e); }
+         }
+      }
+    } catch (error) {
+      console.error("Erro ao buscar CNPJ na BrasilAPI:", error);
+      setSaveError('Erro de rede ao consultar o CNPJ.');
     }
   };
 

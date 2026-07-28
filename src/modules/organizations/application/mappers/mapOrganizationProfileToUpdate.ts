@@ -21,7 +21,7 @@ export interface OrganizationProfileFormData {
   tipo_empresa: string;
   business_model: string;
   geographicCoverageType: GeographicCoverageType | null;
-  area_cobertura_raio: string;
+  coverageRadius: string;
   cnae_principal: string;
 }
 
@@ -111,8 +111,8 @@ export function mapOrganizationProfileToUpdate(formData: OrganizationProfileForm
     longitude: formData.longitude ? parseFloat(formData.longitude) : null,
     tipo_empresa: formData.tipo_empresa,
     perfil_comercial: formData.business_model,
-    geographic_coverage_type: formData.geographicCoverageType !== undefined ? formData.geographicCoverageType : null,
-    raio_atendimento_km: normalizeCoverageRadius(formData.area_cobertura_raio),
+    geographic_coverage_type: formData.geographicCoverageType,
+    raio_atendimento_km: normalizeCoverageRadius(formData.coverageRadius),
     cnae_principal: formData.cnae_principal,
   };
 }
