@@ -1,0 +1,1 @@
+UPDATE users SET is_superadmin = true WHERE email = 'viniciuscordebello@gmail.com';

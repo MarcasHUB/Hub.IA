@@ -22,6 +22,7 @@ interface Organization {
   operatorCount: number;
   activeOperatorCount: number;
   inactiveOperatorCount: number;
+  is_platform_internal?: boolean;
 }
 
 export default function OrganizationsListPage() {
