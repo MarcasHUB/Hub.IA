@@ -21,7 +21,8 @@ export class CreateProductUseCase {
             request.uom,
             request.manufacturer,
             request.price,
-            ProductStatus.ACTIVE
+            ProductStatus.ACTIVE,
+            undefined // materialId
         );
 
         await this.productRepository.save(product);

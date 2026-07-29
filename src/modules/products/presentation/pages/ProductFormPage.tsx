@@ -229,6 +229,7 @@ export default function ProductFormPage({
         basicInfo.manufacturer,
         Number(commercial.targetPrice) || 0,
         statusToSave === 'Draft' ? ProductStatus.DRAFT : ProductStatus.ACTIVE,
+        undefined, // materialId (to be filled by the repository or via backfill)
         new Date(),
         new Date(),
         undefined, // categoryName (not needed for save)
