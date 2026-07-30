@@ -53,7 +53,7 @@ export default function ProductFormPage({
   // Aggregates State
   const [basicInfo, setBasicInfo] = useState({
     name: '', sku: '', manufacturer: '', description: '', status: 'Active', imageUrl: '', manufacturerCode: '', technicalDescription: '', availableForPurchase: true, availableForSale: false,
-    role: 'revenda', salesCode: ''
+    role: 'revenda', salesCode: '', materialId: ''
   });
   
   const [businessModel, setBusinessModel] = useState<'manufacturer' | 'reseller' | 'both'>('reseller');
@@ -155,7 +155,8 @@ export default function ProductFormPage({
               imageUrl: product.imageUrl || '',
               availableForPurchase: product.availableForPurchase ?? true,
               availableForSale: product.availableForSale ?? false,
-              status: product.status === ProductStatus.DRAFT ? 'Draft' : 'Active'
+              status: product.status === ProductStatus.DRAFT ? 'Draft' : 'Active',
+              materialId: product.materialId || ''
             }));
             setClassification(prev => ({
               ...prev,
@@ -229,7 +230,7 @@ export default function ProductFormPage({
         basicInfo.manufacturer,
         Number(commercial.targetPrice) || 0,
         statusToSave === 'Draft' ? ProductStatus.DRAFT : ProductStatus.ACTIVE,
-        undefined, // materialId (to be filled by the repository or via backfill)
+        basicInfo.materialId || undefined, // Preserva o materialId caso exista
         new Date(),
         new Date(),
         undefined, // categoryName (not needed for save)
@@ -289,7 +290,7 @@ export default function ProductFormPage({
                   {isEditing ? 'Detalhes do Produto' : 'Novo Produto'}
                 </h1>
                 <p className="text-slate-400 mt-1 text-sm max-w-2xl">
-                  Master Data Management: gerencie todos os aspectos do item.
+                  Os dados globais identificam o material na rede Hub.IA. Os dados internos pertencem somente à sua empresa.
                 </p>
               </div>
               
@@ -329,112 +330,93 @@ export default function ProductFormPage({
           <div className="flex-1 bg-white rounded-2xl border border-slate-200 shadow-sm p-6 sm:p-8 min-h-[500px]">
             
             {activeTab === 'basic' && (
-              <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                <div className="flex flex-col gap-6">
-                  {/* Utilização do Item e Papel */}
-                  <div className="bg-slate-50 border border-slate-100 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center gap-6 justify-between">
+              <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                
+                {/* Bloco 1 - Identificação Global do Material */}
+                <div className="border border-indigo-100 rounded-2xl overflow-hidden shadow-sm">
+                  <div className="bg-indigo-50/50 p-4 border-b border-indigo-100 flex items-center justify-between">
                     <div>
-                      <h4 className="text-sm font-bold text-slate-900">Perfil e Utilização do Item</h4>
-                      <p className="text-xs text-slate-500 mt-1">Defina o seu papel e os fluxos operacionais B2B.</p>
+                      <h3 className="text-sm font-bold text-indigo-900 flex items-center gap-2">
+                        <Package className="h-4 w-4" /> 
+                        Identificação Global do Material
+                      </h3>
+                      <p className="text-xs text-indigo-700/80 mt-1">
+                        Estes dados identificam o material no Catálogo Global da Hub.IA. 
+                        {basicInfo.materialId && " Como este material já está vinculado à rede, os campos estão protegidos."}
+                      </p>
                     </div>
-                    <div className="flex flex-wrap gap-4">
-                      {/* Role Selector */}
-                      <div className="flex bg-white rounded-lg border border-slate-200 p-1 shadow-sm">
-                        <button
-                          type="button"
-                          onClick={() => setBasicInfo({ ...basicInfo, role: 'fabricante' })}
-                          className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors ${basicInfo.role === 'fabricante' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:text-slate-900'}`}
-                        >
-                          Sou fabricante
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setBasicInfo({ ...basicInfo, role: 'revenda' })}
-                          className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors ${basicInfo.role === 'revenda' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:text-slate-900'}`}
-                        >
-                          Sou revenda
-                        </button>
-                      </div>
-                      
-                      <label className="flex items-center gap-2 cursor-pointer bg-white px-3 py-2 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors shadow-sm">
-                        <input 
-                          type="checkbox" 
-                          checked={basicInfo.availableForPurchase} 
-                          onChange={e => setBasicInfo({...basicInfo, availableForPurchase: e.target.checked})}
-                          className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 w-4 h-4"
-                        />
-                        <span className="text-sm font-medium text-slate-700">Item disponível para Compra</span>
-                      </label>
-                      <label className="flex items-center gap-2 cursor-pointer bg-white px-3 py-2 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors shadow-sm">
-                        <input 
-                          type="checkbox" 
-                          checked={basicInfo.availableForSale} 
-                          onChange={e => setBasicInfo({...basicInfo, availableForSale: e.target.checked})}
-                          className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 w-4 h-4"
-                        />
-                        <span className="text-sm font-medium text-slate-700">Item disponível para Venda</span>
-                      </label>
+                    <div>
+                      {basicInfo.materialId ? (
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-indigo-100 text-indigo-700 border border-indigo-200">
+                          <span className="h-1.5 w-1.5 rounded-full bg-indigo-500"></span>
+                          Catálogo Global
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+                          <span className="h-1.5 w-1.5 rounded-full bg-amber-500"></span>
+                          Material Global Pendente
+                        </span>
+                      )}
                     </div>
                   </div>
-
-                  <div className="flex-1 space-y-5">
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  
+                  <div className="p-6 bg-white space-y-5">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <div className="space-y-2">
                         <div className="flex items-center h-5">
-                          <Label>Fabricante / Marca *</Label>
+                          <Label>Nome Global do Material *</Label>
+                        </div>
+                        <Input 
+                          value={basicInfo.name} 
+                          onChange={e => setBasicInfo({...basicInfo, name: e.target.value})}
+                          placeholder="Ex: Motor Elétrico Trifásico 15CV"
+                          disabled={!!basicInfo.materialId}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <div className="flex items-center h-5">
+                          <Label>Fabricante / Marca Global *</Label>
                         </div>
                         <Input 
                           value={basicInfo.manufacturer} 
                           onChange={e => setBasicInfo({...basicInfo, manufacturer: e.target.value})}
                           placeholder="Ex: WEG, SKF, 3M"
+                          disabled={!!basicInfo.materialId}
                         />
                       </div>
                       <div className="space-y-2">
-                        <div className="flex items-center justify-between h-5">
-                          <Label>Categoria *</Label>
-                          <button 
-                            onClick={() => setIsCategoryModalOpen(true)}
-                            className="text-[10px] font-bold text-indigo-600 hover:text-indigo-700 flex items-center gap-1"
-                          >
-                            <Plus className="h-3 w-3" /> Nova Categoria
-                          </button>
-                        </div>
-                        <select 
-                           value={classification.category} 
-                           onChange={e => setClassification({...classification, category: e.target.value})}
-                           className="flex h-10 w-full rounded-md border border-slate-200 bg-white px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-slate-950 disabled:cursor-not-allowed disabled:opacity-50"
-                        >
-                           <option value="">Selecione...</option>
-                           {availableCategories.map(c => (
-                             <option key={c.id} value={c.id}>{c.name}</option>
-                           ))}
-                        </select>
-                      </div>
-                      <div className="space-y-2">
                         <div className="flex items-center h-5">
-                          <Label>Código Fabricante *</Label>
+                          <Label>Código do Fabricante Global *</Label>
                         </div>
                         <Input 
                           value={basicInfo.manufacturerCode} 
                           onChange={e => setBasicInfo({...basicInfo, manufacturerCode: e.target.value})}
                           placeholder="Ex: W22-100CV"
+                          disabled={!!basicInfo.materialId}
                         />
                       </div>
                     </div>
-                    
-                    {/* Linha 2 */}
+                  </div>
+                </div>
+                
+                {/* Bloco 2 - Dados Internos da Empresa */}
+                <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+                  <div className="bg-slate-50 p-4 border-b border-slate-200">
+                    <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                      <Briefcase className="h-4 w-4" /> 
+                      Dados Internos da Sua Empresa
+                    </h3>
+                    <p className="text-xs text-slate-500 mt-1">
+                      Identificação comercial, logística interna e dados complementares que pertencem exclusivamente à sua empresa.
+                    </p>
+                  </div>
+                  
+                  <div className="p-6 bg-white space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label>Nome do Produto (Descrição Curta) *</Label>
-                        <Input 
-                          value={basicInfo.name} 
-                          onChange={e => setBasicInfo({...basicInfo, name: e.target.value})}
-                          placeholder="Ex: Motor Elétrico Trifásico 15CV"
-                        />
-                      </div>
                       {businessModel !== 'manufacturer' && (
                         <div className="space-y-2">
-                          <Label>Código Comercial da Revenda (SKU) *</Label>
+                          <Label>Código Interno * <span className="text-slate-400 font-normal ml-1">(SKU interno)</span></Label>
+                          <p className="text-[10px] text-slate-500 mb-1">Código utilizado internamente pela sua empresa para identificar este material.</p>
                           <Input 
                             value={basicInfo.sku} 
                             onChange={e => setBasicInfo({...basicInfo, sku: e.target.value})}
@@ -444,7 +426,8 @@ export default function ProductFormPage({
                       )}
                       {businessModel === 'manufacturer' && (
                         <div className="space-y-2">
-                          <Label>SKU / Código Interno (Opcional)</Label>
+                          <Label>Código Interno (Opcional) <span className="text-slate-400 font-normal ml-1">(SKU interno)</span></Label>
+                          <p className="text-[10px] text-slate-500 mb-1">Código utilizado internamente pela sua empresa para identificar este material.</p>
                           <Input 
                             value={basicInfo.sku} 
                             onChange={e => setBasicInfo({...basicInfo, sku: e.target.value})}
@@ -452,14 +435,38 @@ export default function ProductFormPage({
                           />
                         </div>
                       )}
+                      
+                      <div className="bg-slate-50 border border-slate-100 rounded-xl p-3 flex flex-col gap-3">
+                        <Label className="text-xs text-slate-500">Seu papel no fluxo operacional deste material:</Label>
+                        <div className="flex flex-wrap items-center gap-4">
+                          <label className="flex items-center gap-2 cursor-pointer bg-white px-3 h-9 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors shadow-sm">
+                            <input 
+                              type="checkbox" 
+                              checked={basicInfo.availableForPurchase} 
+                              onChange={e => setBasicInfo({...basicInfo, availableForPurchase: e.target.checked})}
+                              className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 w-4 h-4"
+                            />
+                            <span className="text-xs font-medium text-slate-700">Compra</span>
+                          </label>
+                          
+                          <label className="flex items-center gap-2 cursor-pointer bg-white px-3 h-9 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors shadow-sm">
+                            <input 
+                              type="checkbox" 
+                              checked={basicInfo.availableForSale} 
+                              onChange={e => setBasicInfo({...basicInfo, availableForSale: e.target.checked})}
+                              className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 w-4 h-4"
+                            />
+                            <span className="text-xs font-medium text-slate-700">Venda</span>
+                          </label>
+                        </div>
+                      </div>
                     </div>
 
-                    {/* Linha 3 */}
-                    <div className="flex flex-col md:flex-row gap-5">
+                    <div className="flex flex-col md:flex-row gap-5 border-t border-slate-100 pt-5">
                       <div className="w-full md:w-64 shrink-0 space-y-3">
-                        <Label>Foto do Produto *</Label>
+                        <Label>Foto do Produto (Local)</Label>
                         <div 
-                          className="aspect-[4/3] w-full rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50 flex flex-col items-center justify-center text-slate-400 hover:bg-slate-100 hover:border-slate-300 transition-colors cursor-pointer overflow-hidden relative group"
+                          className={`aspect-[4/3] w-full rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50 hover:bg-slate-100 hover:border-slate-300 cursor-pointer flex flex-col items-center justify-center text-slate-400 transition-colors overflow-hidden relative group`}
                           onClick={() => fileInputRef.current?.click()}
                         >
                           {basicInfo.imageUrl ? (
@@ -476,7 +483,7 @@ export default function ProductFormPage({
                           ref={fileInputRef} 
                           className="hidden" 
                           accept="image/*" 
-                          onChange={handleImageUpload} 
+                          onChange={handleImageUpload}
                         />
                         <Input 
                           placeholder="URL da imagem (Opcional)" 
@@ -488,7 +495,7 @@ export default function ProductFormPage({
 
                       <div className="flex-1 flex flex-col gap-4">
                         <div className="space-y-2">
-                          <Label>Descrição Técnica Completa *</Label>
+                          <Label>Descrição Técnica Completa (Local)</Label>
                           <textarea 
                             className="w-full min-h-[80px] max-h-[100px] resize-y p-3 bg-white border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                             placeholder="Detalhes completos, norma técnica, material..."
@@ -502,61 +509,81 @@ export default function ProductFormPage({
                             </span>
                           </div>
                         </div>
-
-                        {/* Evidência Técnica */}
-                        <div className="space-y-2 border-t border-slate-100 pt-3">
-                          <Label>Evidência Técnica</Label>
-                          <div className="flex flex-wrap gap-3">
-                            {['Catálogo', 'Desenho', 'Ficha técnica'].map(type => {
-                              const isAttached = attachmentsList.some(a => a.type === type);
-                              return (
-                                <label key={type} className={`flex items-center gap-2 px-4 py-2 border rounded-xl text-sm font-semibold cursor-pointer transition-colors shadow-sm ${
-                                  isAttached 
-                                    ? 'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100'
-                                    : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
-                                }`}>
-                                  <input 
-                                    type="file" 
-                                    className="hidden" 
-                                    onChange={(e) => {
-                                      if (e.target.files && e.target.files[0]) {
-                                        const file = e.target.files[0];
-                                        const reader = new FileReader();
-                                        reader.onloadend = () => {
-                                          const newAttachment = {
-                                            type,
-                                            filename: file.name,
-                                            base64: reader.result as string,
-                                            uploadedAt: new Date().toISOString(),
-                                            user: 'Usuário Atual' // Isso viria do Auth context
-                                          };
-                                          setAttachmentsList(prev => {
-                                            // Remove anexo antigo do mesmo tipo se houver
-                                            const filtered = prev.filter(a => a.type !== type);
-                                            return [...filtered, newAttachment];
-                                          });
-                                        };
-                                        reader.readAsDataURL(file);
-                                      }
-                                    }}
-                                  />
-                                  <FileText className={`h-4 w-4 ${isAttached ? 'text-emerald-600' : 'text-slate-400'}`} /> 
-                                  {isAttached ? 'Anexo: ' + type : 'Adicionar ' + type}
-                                  <div className="ml-2 relative flex h-2.5 w-2.5">
-                                    {isAttached ? (
-                                      <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75"></span>
-                                    ) : (
-                                      <>
-                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                                        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500"></span>
-                                      </>
-                                    )}
-                                  </div>
-                                </label>
-                              );
-                            })}
+                        
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between h-5">
+                            <Label>Categoria Local *</Label>
+                            <button 
+                              onClick={() => setIsCategoryModalOpen(true)}
+                              className="text-[10px] font-bold text-indigo-600 hover:text-indigo-700 flex items-center gap-1"
+                            >
+                              <Plus className="h-3 w-3" /> Nova Categoria
+                            </button>
                           </div>
+                          <select 
+                             value={classification.category} 
+                             onChange={e => setClassification({...classification, category: e.target.value})}
+                             className="flex h-10 w-full rounded-md border border-slate-200 bg-white px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-slate-950"
+                          >
+                             <option value="">Selecione...</option>
+                             {availableCategories.map(c => (
+                               <option key={c.id} value={c.id}>{c.name}</option>
+                             ))}
+                          </select>
                         </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2 border-t border-slate-100 pt-5">
+                      <Label>Evidência Técnica</Label>
+                      <div className="flex flex-wrap gap-3">
+                        {['Catálogo', 'Desenho', 'Ficha técnica'].map(type => {
+                          const isAttached = attachmentsList.some(a => a.type === type);
+                          return (
+                            <label key={type} className={`flex items-center gap-2 px-4 py-2 border rounded-xl text-sm font-semibold cursor-pointer transition-colors shadow-sm ${
+                              isAttached 
+                                ? 'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100'
+                                : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                            }`}>
+                              <input 
+                                type="file" 
+                                className="hidden" 
+                                onChange={(e) => {
+                                  if (e.target.files && e.target.files[0]) {
+                                    const file = e.target.files[0];
+                                    const reader = new FileReader();
+                                    reader.onloadend = () => {
+                                      const newAttachment = {
+                                        type,
+                                        filename: file.name,
+                                        base64: reader.result as string,
+                                        uploadedAt: new Date().toISOString(),
+                                        user: 'Usuário Atual'
+                                      };
+                                      setAttachmentsList(prev => {
+                                        const filtered = prev.filter(a => a.type !== type);
+                                        return [...filtered, newAttachment];
+                                      });
+                                    };
+                                    reader.readAsDataURL(file);
+                                  }
+                                }}
+                              />
+                              <FileText className={`h-4 w-4 ${isAttached ? 'text-emerald-600' : 'text-slate-400'}`} /> 
+                              {isAttached ? 'Anexo: ' + type : 'Adicionar ' + type}
+                              <div className="ml-2 relative flex h-2.5 w-2.5">
+                                {isAttached ? (
+                                  <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75"></span>
+                                ) : (
+                                  <>
+                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500"></span>
+                                  </>
+                                )}
+                              </div>
+                            </label>
+                          );
+                        })}
                       </div>
                     </div>
                   </div>
