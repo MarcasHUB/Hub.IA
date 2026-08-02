@@ -41,6 +41,7 @@ interface NetworkCompanyModalProps {
   org: NetworkOrg | null;
   isOpen: boolean;
   onClose: () => void;
+  onConnect?: (org: NetworkOrg) => void;
   onConnectSuccess?: (orgId: string) => void;
 }
 
@@ -83,13 +84,8 @@ function RoleLabel({ role }: { role: string | null }) {
   );
 }
 
-export default function NetworkCompanyModal({ org, isOpen, onClose, onConnectSuccess }: NetworkCompanyModalProps) {
+export default function NetworkCompanyModal({ org, isOpen, onClose, onConnect, onConnectSuccess }: NetworkCompanyModalProps) {
   const backdropRef = useRef<HTMLDivElement>(null);
-  
-  // Connection state
-  const [message, setMessage] = useState('');
-  const [isConnecting, setIsConnecting] = useState(false);
-  const [connectError, setConnectError] = useState('');
   
   // Materials state
   const [materials, setMaterials] = useState<any[]>([]);
@@ -106,8 +102,6 @@ export default function NetworkCompanyModal({ org, isOpen, onClose, onConnectSuc
   
   useEffect(() => {
     if (isOpen && org) {
-      setMessage('');
-      setConnectError('');
       loadMaterials(org.id);
     }
   }, [isOpen, org]);
@@ -133,64 +127,6 @@ export default function NetworkCompanyModal({ org, isOpen, onClose, onConnectSuc
       console.error('Erro ao carregar materiais:', err);
     } finally {
       setIsLoadingMaterials(false);
-    }
-  };
-
-  const handleConnect = async () => {
-    if (!org) return;
-    const email = org.business_email || org.email_corporativo;
-    
-    if (!email) {
-      setConnectError('Esta empresa não possui e-mail cadastrado. Não é possível conectar no momento.');
-      return;
-    }
-    
-    setIsConnecting(true);
-    setConnectError('');
-    
-    try {
-      const displayName = org.razao_social || org.nome_fantasia || org.name;
-      const tokenHash = crypto.randomUUID();
-      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
-
-      const { error } = await supabase.from('invitations').insert({
-        organization_id: tenantId,
-        name:        displayName,
-        company:     displayName,
-        email:       email,
-        document:    org.cnpj || '',
-        status:      'pendente',
-        token_hash:  tokenHash,
-        expires_at:  expiresAt,
-        city:        org.city || '',
-        state:       org.state || '',
-        message:     message.trim(),
-        segments:    [],
-      });
-
-      if (error) throw new Error(error.message);
-
-      try {
-        await EmailService.sendTransactionalEmail('supplier_invite', tokenHash);
-      } catch (emailErr) {
-        console.warn('[NetworkModal] E-mail não enviado:', emailErr);
-      }
-
-      addMockNotification({
-        title: 'Convite enviado!',
-        message: `Convite de parceria enviado para ${displayName}.`,
-        type: 'connection_request_received',
-        is_read: false,
-      });
-      
-      if (onConnectSuccess) {
-        onConnectSuccess(org.id);
-      }
-      onClose();
-    } catch (e: any) {
-      setConnectError(e.message || 'Erro ao enviar convite.');
-    } finally {
-      setIsConnecting(false);
     }
   };
 
@@ -389,36 +325,14 @@ export default function NetworkCompanyModal({ org, isOpen, onClose, onConnectSuc
 
         {/* Rodapé: Ação de Conectar */}
         {!org.isPartner && !org.hasPendingInvite && (
-          <div className="bg-white border-t border-slate-200 p-6 sm:px-8 flex-shrink-0">
-            <div className="max-w-4xl mx-auto flex flex-col sm:flex-row items-end gap-4">
-              <div className="flex-1 w-full">
-                <label className="block text-xs font-bold text-slate-700 mb-2">Mensagem para {displayName} (opcional)</label>
-                <textarea
-                  value={message}
-                  onChange={(e) => setMessage(e.target.value)}
-                  placeholder="Olá! Gostaríamos de estabelecer uma parceria comercial com vocês..."
-                  rows={2}
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 resize-none bg-slate-50 focus:bg-white transition-colors"
-                />
-              </div>
-              <button
-                onClick={handleConnect}
-                disabled={isConnecting}
-                className="w-full sm:w-auto font-bold text-[11px] px-4 h-9 flex items-center justify-center transition-all border-none bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed rounded-lg"
-              >
-                {isConnecting ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <>
-                    <Network className="h-4 w-4 mr-2" />
-                    Conectar
-                  </>
-                )}
-              </button>
-            </div>
-            {connectError && (
-              <p className="mt-3 text-sm text-red-600 font-medium text-center">{connectError}</p>
-            )}
+          <div className="bg-white border-t border-slate-200 p-6 sm:px-8 flex-shrink-0 flex justify-end">
+            <button
+              onClick={() => onConnect && onConnect(org)}
+              className="w-full sm:w-auto font-bold text-[11px] px-4 h-9 flex items-center justify-center transition-all border-none bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white rounded-lg"
+            >
+              <Network className="h-4 w-4 mr-2" />
+              Conectar
+            </button>
           </div>
         )}
       </div>

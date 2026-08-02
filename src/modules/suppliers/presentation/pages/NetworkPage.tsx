@@ -525,6 +525,10 @@ export default function NetworkPage() {
         org={selectedOrg}
         isOpen={!!selectedOrg}
         onClose={() => setSelectedOrg(null)}
+        onConnect={(org) => {
+          setSelectedOrg(null);
+          handleConnect(org);
+        }}
         onConnectSuccess={() => {
           loadOrgs();
         }}

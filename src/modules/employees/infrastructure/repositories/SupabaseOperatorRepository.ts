@@ -113,7 +113,7 @@ export class SupabaseOperatorRepository implements IOperatorRepository {
     for (const role of rolesData) {
       const profile = profilesData?.find(p => p.id === role.user_id || p.user_id === role.user_id);
       const email = profile?.contact_email || profile?.email || '';
-      const op = operatorsData?.find(o => o.user_id === role.user_id || (email && o.email === email));
+      const op = operatorsData?.find(o => (email && o.email === email));
 
       if (email) usedEmails.add(email);
       if (op && op.email) usedEmails.add(op.email);

@@ -7,12 +7,12 @@ export class SupabaseProductRepository implements IProductRepository {
         if (tenantId !== '00000000-0000-0000-0000-000000000000') return tenantId;
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return tenantId;
-        const { data } = await supabase.from('user_roles').select('organization_id').eq('user_id', user.id).single();
+        const { data } = await supabase.from('user_roles').select('organization_id').eq('user_id', user.id).limit(1).maybeSingle();
         return data?.organization_id || tenantId;
     }
 
     private async resolveCategoryId(actualTenant: string): Promise<string> {
-        const { data, error } = await supabase.from('categories').select('id').eq('organization_id', actualTenant).limit(1).single();
+        const { data, error } = await supabase.from('categories').select('id').eq('organization_id', actualTenant).limit(1).limit(1).maybeSingle();
         if (data) return data.id;
 
         const newCategoryId = crypto.randomUUID();
@@ -37,7 +37,7 @@ export class SupabaseProductRepository implements IProductRepository {
             .select(`*, categories(name)`)
             .eq('id', id)
             .eq('organization_id', actualTenant)
-            .single();
+            .limit(1).maybeSingle();
             
         if (error || !data) return null;
         

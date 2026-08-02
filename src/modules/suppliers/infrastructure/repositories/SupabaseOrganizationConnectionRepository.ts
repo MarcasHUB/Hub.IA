@@ -8,7 +8,7 @@ export class SupabaseOrganizationConnectionRepository implements IOrganizationCo
         if (tenantId !== '00000000-0000-0000-0000-000000000000') return tenantId;
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return tenantId;
-        const { data } = await supabase.from('user_roles').select('organization_id').eq('user_id', user.id).single();
+        const { data } = await supabase.from('user_roles').select('organization_id').eq('user_id', user.id).limit(1).maybeSingle();
         return data?.organization_id || tenantId;
     }
 

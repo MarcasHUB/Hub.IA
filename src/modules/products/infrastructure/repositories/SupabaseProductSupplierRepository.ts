@@ -9,7 +9,7 @@ export class SupabaseProductSupplierRepository implements IProductSupplierReposi
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) throw new Error("Usuário não autenticado");
 
-        const { data: roleData } = await supabase.from('user_roles').select('organization_id').eq('user_id', user.id).single();
+        const { data: roleData } = await supabase.from('user_roles').select('organization_id').eq('user_id', user.id).limit(1).maybeSingle();
         if (!roleData) throw new Error("Usuário não vinculado a nenhuma organização");
 
         const organizationId = roleData.organization_id;
@@ -35,7 +35,7 @@ export class SupabaseProductSupplierRepository implements IProductSupplierReposi
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) throw new Error("Usuário não autenticado");
 
-        const { data: roleData } = await supabase.from('user_roles').select('organization_id').eq('user_id', user.id).single();
+        const { data: roleData } = await supabase.from('user_roles').select('organization_id').eq('user_id', user.id).limit(1).maybeSingle();
         if (!roleData) return;
 
         const organizationId = roleData.organization_id;
@@ -57,7 +57,7 @@ export class SupabaseProductSupplierRepository implements IProductSupplierReposi
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return [];
 
-        const { data: roleData } = await supabase.from('user_roles').select('organization_id').eq('user_id', user.id).single();
+        const { data: roleData } = await supabase.from('user_roles').select('organization_id').eq('user_id', user.id).limit(1).maybeSingle();
         if (!roleData) return [];
 
         const organizationId = roleData.organization_id;
@@ -77,7 +77,7 @@ export class SupabaseProductSupplierRepository implements IProductSupplierReposi
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return [];
 
-        const { data: roleData } = await supabase.from('user_roles').select('organization_id').eq('user_id', user.id).single();
+        const { data: roleData } = await supabase.from('user_roles').select('organization_id').eq('user_id', user.id).limit(1).maybeSingle();
         if (!roleData) return [];
 
         const organizationId = roleData.organization_id;
@@ -96,7 +96,7 @@ export class SupabaseProductSupplierRepository implements IProductSupplierReposi
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) throw new Error("Usuário não autenticado");
 
-        const { data: roleData } = await supabase.from('user_roles').select('organization_id').eq('user_id', user.id).single();
+        const { data: roleData } = await supabase.from('user_roles').select('organization_id').eq('user_id', user.id).limit(1).maybeSingle();
         if (!roleData) return;
 
         const organizationId = roleData.organization_id;

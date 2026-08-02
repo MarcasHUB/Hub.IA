@@ -58,7 +58,7 @@ export default function ProductFormPage({
   
   const [businessModel, setBusinessModel] = useState<'manufacturer' | 'reseller' | 'both'>('reseller');
   const [classification, setClassification] = useState({
-    category: '', subcategory: '', purchasingGroup: '', ncm: '', baseUom: ''
+    category: '', subcategory: '', purchasingGroup: '', baseUom: ''
   });
   const [commercial, setCommercial] = useState({
     costCenter: '', targetPrice: '', moq: '', multiple: ''
@@ -102,15 +102,37 @@ export default function ProductFormPage({
 
     const timer = setTimeout(async () => {
       try {
-        const products = await repo.findAll(tenantId);
-        // Busca determinística por Código do Fabricante ou Nome
-        const match = products.find(p => 
-          p.manufacturerCode === basicInfo.manufacturerCode ||
-          p.name.toLowerCase() === basicInfo.name.toLowerCase()
-        );
+        const { data: materials, error } = await supabase
+          .from('materials')
+          .select('*')
+          .or(`manufacturer_code.ilike.%${basicInfo.manufacturerCode}%,name.ilike.%${basicInfo.name}%`)
+          .limit(10);
+          
+        if (error) throw error;
         
-        if (match && match.id !== id) {
-          setSimilarProduct(match);
+        // Busca determinística por Código do Fabricante
+        const match = materials?.find(m => m.manufacturer_code === basicInfo.manufacturerCode);
+        
+        if (match && match.id !== basicInfo.materialId) {
+          const matchedProduct = new Product(
+            match.id,
+            tenantId,
+            '', // supplierId
+            '', // categoryId
+            match.name,
+            match.description || '',
+            '', // sku
+            'UN', // unit
+            match.manufacturer || '',
+            0,
+            ProductStatus.ACTIVE,
+            match.id,
+            new Date(),
+            new Date(),
+            undefined,
+            match.manufacturer_code
+          );
+          setSimilarProduct(matchedProduct);
           setIsSimilarModalOpen(true);
         }
       } catch(e) {
@@ -119,7 +141,7 @@ export default function ProductFormPage({
     }, 800);
 
     return () => clearTimeout(timer);
-  }, [basicInfo.manufacturerCode, basicInfo.name, isEditing, id]);
+  }, [basicInfo.manufacturerCode, basicInfo.name, isEditing, basicInfo.materialId]);
 
   // Load existing data if editing
   useEffect(() => {
@@ -615,14 +637,7 @@ export default function ProductFormPage({
                       placeholder="Ex: Materiais Indiretos"
                     />
                   </div>
-                  <div className="space-y-2">
-                    <Label>NCM (Classificação Fiscal)</Label>
-                    <Input 
-                      value={classification.ncm} 
-                      onChange={e => setClassification({...classification, ncm: e.target.value})}
-                      placeholder="Ex: 8205.40.00"
-                    />
-                  </div>
+
                   <div className="space-y-2">
                     <Label>Unidade de Medida Base (UoM)</Label>
                     <Input 
