@@ -168,7 +168,9 @@ export default function ProductFormPage({
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
            const { data: profile } = await supabase.from('profiles').select('is_super_admin').eq('id', user.id).maybeSingle();
-           if (profile?.is_super_admin) {
+           const { data: roles } = await supabase.from('user_roles').select('role').eq('user_id', user.id);
+           const hasGlobalRole = roles?.some(r => r.role === 'super_admin' || r.role === 'platform_admin');
+           if (profile?.is_super_admin || hasGlobalRole) {
               setIsSuperAdmin(true);
            }
         }
@@ -672,11 +674,18 @@ export default function ProductFormPage({
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
                     <Label>Categoria Principal</Label>
-                    <Input 
+                    <select 
                       value={classification.category} 
                       onChange={e => setClassification({...classification, category: e.target.value})}
-                      placeholder="Ex: Ferramentas, EPIs"
-                    />
+                      className="flex h-10 w-full rounded-md border border-slate-200 bg-white px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-slate-950"
+                    >
+                      <option value="">Selecione a categoria...</option>
+                      {availableCategories.map(c => (
+                        <option key={c.id} value={c.id}>
+                           {c.name}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                   <div className="space-y-2">
                     <Label>Grupo de Compras (Purchasing Group)</Label>

@@ -40,7 +40,17 @@ export class SupabaseCategoryRepository implements ICategoryRepository {
             .order('name', { ascending: true });
 
         if (error || !data) return [];
-        return data.map(row => this.mapToDomain(row));
+        
+        const uniqueMap = new Map();
+        for (const row of data) {
+           const normalizedName = (row.name || '').toLowerCase().trim();
+           const key = `${row.organization_id || 'global'}:${normalizedName}`;
+           if (!uniqueMap.has(key)) {
+               uniqueMap.set(key, row);
+           }
+        }
+
+        return Array.from(uniqueMap.values()).map(row => this.mapToDomain(row));
     }
 
     async save(category: Category): Promise<void> {

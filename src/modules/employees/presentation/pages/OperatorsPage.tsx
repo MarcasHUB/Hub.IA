@@ -39,7 +39,7 @@ const PERFIL_CONFIG: Record<OperatorPerfil, { label: string; badge: string; icon
 
 
 function StatusBadge({ status }: { status: OperatorStatus }) {
-  const cfg = STATUS_CONFIG[status];
+  const cfg = STATUS_CONFIG[status] || { label: status || 'Desconhecido', badge: 'bg-slate-100 text-slate-500 border-slate-200', dot: 'bg-slate-400' };
   return (
     <span className={`inline-flex items-center gap-1.5 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full border ${cfg.badge}`}>
       <span className={`h-1.5 w-1.5 rounded-full ${cfg.dot}`} />
@@ -49,7 +49,7 @@ function StatusBadge({ status }: { status: OperatorStatus }) {
 }
 
 function PerfilBadge({ perfil }: { perfil: OperatorPerfil }) {
-  const cfg = PERFIL_CONFIG[perfil];
+  const cfg = PERFIL_CONFIG[perfil] || { label: perfil || 'Desconhecido', badge: 'bg-slate-100 text-slate-500 border-slate-200', icon: Users };
   const Icon = cfg.icon;
   return (
     <span className={`inline-flex items-center gap-1 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full border ${cfg.badge}`}>
@@ -646,7 +646,7 @@ export default function OperatorsPage({ organizationId }: { organizationId?: str
 
   return (
     <div className="space-y-6 font-sans">
-      {showInvite && <InviteModal onClose={() => setShowInvite(false)} onInvite={handleInvite} operators={operators} />}
+      {showInvite && <InviteModal onClose={() => setShowInvite(false)} onInvite={handleInvite} operators={operators} organizationId={orgId} />}
       {editingOperator && (
         <EditOperatorModal 
           operator={editingOperator} 

@@ -90,9 +90,8 @@ export class SupabaseOperatorRepository implements IOperatorRepository {
 
     if (rolesError) throw rolesError;
 
-    if (!rolesData || rolesData.length === 0) return [];
-
-    const userIds = rolesData.map(r => r.user_id).filter(Boolean);
+    const validRoles = rolesData || [];
+    const userIds = validRoles.map(r => r.user_id).filter(Boolean);
 
     // 2. Fetch profiles
     const { data: profilesData, error: profilesError } = await supabase
@@ -110,7 +109,7 @@ export class SupabaseOperatorRepository implements IOperatorRepository {
     const operators: Operator[] = [];
     const usedEmails = new Set<string>();
 
-    for (const role of rolesData) {
+    for (const role of validRoles) {
       const profile = profilesData?.find(p => p.id === role.user_id || p.user_id === role.user_id);
       const email = profile?.contact_email || profile?.email || '';
       const op = operatorsData?.find(o => (email && o.email === email));
