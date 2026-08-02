@@ -46,8 +46,8 @@ export default function ProductsListPage() {
       const { supabase } = await import('@/infrastructure/supabase/client');
       const localTenant = localStorage.getItem('supplyhub_organization_id');
       if (localTenant) {
-        const { data: orgData } = await supabase.from('organizations').select('company_role').eq('id', localTenant).single();
-        if (orgData?.company_role === 'seller' || orgData?.company_role === 'both') {
+        const { data: orgData } = await supabase.from('organizations').select('profile_type').eq('id', localTenant).maybeSingle();
+        if (orgData?.profile_type === 'seller' || orgData?.profile_type === 'both') {
           setIsSupplier(true);
         }
       }

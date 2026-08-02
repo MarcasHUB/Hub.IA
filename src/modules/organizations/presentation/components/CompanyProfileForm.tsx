@@ -99,8 +99,15 @@ export function CompanyProfileForm({
   const [saveError, setSaveError] = useState('');
   const [saved, setSaved] = useState(false);
   const [internalIsSuperAdmin, setInternalIsSuperAdmin] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   const effectiveIsSuperAdmin = isSuperAdmin || internalIsSuperAdmin;
+
+  useEffect(() => {
+    return () => {
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+    };
+  }, [previewUrl]);
 
   useEffect(() => {
     if (initialData && !initialized) {
@@ -241,6 +248,10 @@ export function CompanyProfileForm({
   const handleUploadLogo = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    const objectUrl = URL.createObjectURL(file);
+    setPreviewUrl(objectUrl);
+
     try {
       setIsUploading(true);
       const fileExt = file.name.split('.').pop();
@@ -258,8 +269,13 @@ export function CompanyProfileForm({
       setForm(f => ({ ...f, logo_url: publicUrl }));
       localStorage.setItem('supplyhub_company_logo', publicUrl);
       window.dispatchEvent(new Event('storage'));
+      
+      URL.revokeObjectURL(objectUrl);
+      setPreviewUrl(null);
     } catch (error) {
       console.error('Erro ao enviar logo:', error);
+      URL.revokeObjectURL(objectUrl);
+      setPreviewUrl(null);
     } finally {
       setIsUploading(false);
     }
@@ -301,7 +317,7 @@ export function CompanyProfileForm({
           {activeSubTab === 'gerais' && (
             <>
               <CompanyGeneralDataSection
-                form={form}
+                form={{...form, logo_url: previewUrl || form.logo_url}}
                 onChange={handleChange}
                 isUploading={isUploading}
                 onUploadLogo={handleUploadLogo}

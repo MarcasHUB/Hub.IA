@@ -805,7 +805,7 @@ export default function OperatorsPage({ organizationId }: { organizationId?: str
                         <div className="flex items-center gap-3">
                           <div className="h-9 w-9 rounded-full bg-gradient-to-br from-indigo-500 to-violet-500 flex items-center justify-center shrink-0 shadow-sm">
                             <span className="text-[11px] font-black text-white leading-none">
-                              {op.nome[0]}{op.sobrenome[0] || ''}
+                              {op.nome?.[0] || ''}{op.sobrenome?.[0] || ''}
                             </span>
                           </div>
                           <div>

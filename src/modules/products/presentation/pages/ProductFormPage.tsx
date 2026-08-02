@@ -45,6 +45,8 @@ export default function ProductFormPage({
   const { id: routeId } = useParams();
   const id = productId || routeId;
   const isEditing = Boolean(id);
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  const canEditGlobalMaterial = isSuperAdmin === true;
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -154,12 +156,24 @@ export default function ProductFormPage({
       }
       
       try {
-        const { data: orgData } = await supabase.from('organizations').select('business_model').eq('id', tenantId).single();
+        const { data: orgData } = await supabase.from('organizations').select('business_model').eq('id', tenantId).maybeSingle();
         if (orgData && orgData.business_model) {
            setBusinessModel(orgData.business_model as 'manufacturer' | 'reseller' | 'both');
         }
       } catch(e) {
         console.error("Failed to load organization profile", e);
+      }
+
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+           const { data: profile } = await supabase.from('profiles').select('is_super_admin').eq('id', user.id).maybeSingle();
+           if (profile?.is_super_admin) {
+              setIsSuperAdmin(true);
+           }
+        }
+      } catch(e) {
+        console.error("Failed to load super admin status", e);
       }
 
       if (isEditing && id) {
@@ -264,7 +278,42 @@ export default function ProductFormPage({
         attachmentsList
       );
 
+      // Save to products (tenant data)
       await repo.save(newProduct);
+
+      // Update materials (global catalog) if admin
+      if (canEditGlobalMaterial && basicInfo.materialId) {
+        const { data: oldMaterial } = await supabase.from('materials').select('*').eq('id', basicInfo.materialId).limit(1).maybeSingle();
+        
+        const { error: updateError } = await supabase.from('materials').update({
+          official_name: basicInfo.name,
+          manufacturer_code: basicInfo.manufacturerCode,
+          manufacturer_name: basicInfo.manufacturer,
+          description: basicInfo.description,
+          category_id: classification.category || null,
+          updated_at: new Date().toISOString()
+        }).eq('id', basicInfo.materialId);
+        
+        if (updateError) throw new Error(`Falha ao atualizar Material Global: ${updateError.message}`);
+        
+        const { data: authData } = await supabase.auth.getUser();
+        await supabase.from('audit_logs').insert({
+          action: 'UPDATE',
+          entity_name: 'materials',
+          entity_id: basicInfo.materialId,
+          user_id: authData?.user?.id || null,
+          organization_id: tenantId,
+          old_data: oldMaterial || {},
+          new_data: {
+             official_name: basicInfo.name,
+             manufacturer_code: basicInfo.manufacturerCode,
+             manufacturer_name: basicInfo.manufacturer,
+             description: basicInfo.description,
+             category_id: classification.category
+          },
+          details: 'Edição do Material Master pelo ADM GLOBAL'
+        });
+      }
 
       // Salvar os fornecedores se houver vinculados e o ID já existir
       // Se era um novo produto (não isEditing), o newProduct.id foi gerado e salvo
@@ -392,7 +441,7 @@ export default function ProductFormPage({
                           value={basicInfo.name} 
                           onChange={e => setBasicInfo({...basicInfo, name: e.target.value})}
                           placeholder="Ex: Motor Elétrico Trifásico 15CV"
-                          disabled={!!basicInfo.materialId}
+                          disabled={!!basicInfo.materialId && !canEditGlobalMaterial}
                         />
                       </div>
                       <div className="space-y-2">
@@ -403,7 +452,7 @@ export default function ProductFormPage({
                           value={basicInfo.manufacturer} 
                           onChange={e => setBasicInfo({...basicInfo, manufacturer: e.target.value})}
                           placeholder="Ex: WEG, SKF, 3M"
-                          disabled={!!basicInfo.materialId}
+                          disabled={!!basicInfo.materialId && !canEditGlobalMaterial}
                         />
                       </div>
                       <div className="space-y-2">
@@ -414,7 +463,7 @@ export default function ProductFormPage({
                           value={basicInfo.manufacturerCode} 
                           onChange={e => setBasicInfo({...basicInfo, manufacturerCode: e.target.value})}
                           placeholder="Ex: W22-100CV"
-                          disabled={!!basicInfo.materialId}
+                          disabled={!!basicInfo.materialId && !canEditGlobalMaterial}
                         />
                       </div>
                     </div>

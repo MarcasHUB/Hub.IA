@@ -17,8 +17,8 @@ export function useSaveOrganizationProfile() {
       .from('organizations')
       .update(payload)
       .eq('id', organizationId)
-      .select('id, perfil_comercial, geographic_coverage_type, raio_atendimento_km')
-      .single();
+      .select('id, geographic_coverage_type, raio_atendimento_km')
+      .maybeSingle();
 
     if (orgError) {
       console.error("Falha ao salvar organizations:", orgError);
@@ -48,9 +48,9 @@ export function useSaveOrganizationProfile() {
       if (delCertError) throw new Error(`Falha ao limpar certificações: ${delCertError.message}`);
       
       for (const cName of uniqueCerts) {
-        let { data: certData } = await supabase.from('certifications').select('id').eq('name', cName).single();
+        let { data: certData } = await supabase.from('certifications').select('id').eq('name', cName).limit(1).maybeSingle();
         if (!certData) {
-          const { data: newCert, error: errC } = await supabase.from('certifications').insert({ name: cName }).select('id').single();
+          const { data: newCert, error: errC } = await supabase.from('certifications').insert({ name: cName }).select('id').limit(1).maybeSingle();
           if (errC) throw new Error(`Falha ao criar certificação ${cName}: ${errC.message}`);
           certData = newCert;
         }
@@ -90,9 +90,9 @@ export function useSaveOrganizationProfile() {
       const segments = Array.from(new Set(formData.selectedSegments));
       for (const segName of segments) {
         // Tentamos "nome" ou "name" no select pois o banco pode variar. A tabela usa "nome".
-        let { data: segData } = await supabase.from('segments').select('id').eq('nome', segName).single();
+        let { data: segData } = await supabase.from('segments').select('id').eq('nome', segName).limit(1).maybeSingle();
         if (!segData) {
-           const { data: newSeg, error: errS } = await supabase.from('segments').insert({ nome: segName }).select('id').single();
+           const { data: newSeg, error: errS } = await supabase.from('segments').insert({ nome: segName }).select('id').limit(1).maybeSingle();
            if (errS) {
                // RLS muitas vezes impede a criação de novos segmentos, lançar o erro limpo.
                throw new Error(`Sem permissão ou falha ao criar segmento "${segName}": ${errS.message}`);

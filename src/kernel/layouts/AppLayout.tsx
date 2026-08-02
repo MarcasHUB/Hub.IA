@@ -129,12 +129,12 @@ export function AppLayout() {
         if (activeOrganizationId) {
           const { data: orgData } = await supabase
             .from('organizations')
-            .select('trade_name, name, logo_url')
+            .select('nome_fantasia, name, logo_url')
             .eq('id', activeOrganizationId)
-            .single();
-
+            .maybeSingle();
+          
           if (orgData) {
-            const orgName = orgData.trade_name || orgData.name || 'Empresa';
+            const orgName = orgData.nome_fantasia || orgData.name || 'Empresa';
             if (isMounted) {
               setCompanyName(orgName);
               setCompanyLogo(orgData.logo_url || null);

@@ -2,6 +2,24 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../../../../infrastructure/supabase/client';
 import { GeographicCoverageType } from '../../domain/types/GeographicCoverageType';
 
+export function normalizeStringArray(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value
+      .filter((item): item is string => typeof item === 'string')
+      .map(item => item.trim())
+      .filter(Boolean);
+  }
+
+  if (typeof value === 'string') {
+    return value
+      .split(',')
+      .map(item => item.trim())
+      .filter(Boolean);
+  }
+
+  return [];
+}
+
 export interface OrganizationProfileData {
   id: string;
   name: string;
@@ -101,25 +119,15 @@ export function useOrganizationProfile(organizationId: string | null) {
     profile_completion: data.profile_completion || 50,
   } : null;
 
-  const cnaes = data?.empresa_cnaes 
-    ? data.empresa_cnaes.map((c: any) => c.cnae_code).filter(Boolean) 
-    : [];
+  const cnaes = normalizeStringArray(data?.empresa_cnaes?.map((c: any) => c.cnae_code));
     
-  const secondaryCnaes = data?.empresa_cnaes 
-    ? data.empresa_cnaes.filter((c: any) => c.is_primary === false).map((c: any) => c.cnae_code).filter(Boolean) 
-    : [];
+  const secondaryCnaes = normalizeStringArray(data?.empresa_cnaes?.filter((c: any) => c.is_primary === false).map((c: any) => c.cnae_code));
 
-  const segments = data?.organization_segments 
-    ? data.organization_segments.map((s: any) => s.segments?.nome).filter(Boolean) 
-    : [];
+  const segments = normalizeStringArray(data?.organization_segments?.map((s: any) => s.segments?.nome));
 
-  const certifications = data?.empresa_certificacoes 
-    ? data.empresa_certificacoes.map((c: any) => c.certifications?.name).filter(Boolean) 
-    : [];
+  const certifications = normalizeStringArray(data?.empresa_certificacoes?.map((c: any) => c.certifications?.name));
 
-  const coverageStates = data?.empresa_estados_atendidos 
-    ? data.empresa_estados_atendidos.map((e: any) => e.state_code).filter(Boolean) 
-    : [];
+  const coverageStates = normalizeStringArray(data?.empresa_estados_atendidos?.map((e: any) => e.state_code));
 
   return {
     organization,
