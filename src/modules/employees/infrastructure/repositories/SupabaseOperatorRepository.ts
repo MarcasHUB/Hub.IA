@@ -103,7 +103,8 @@ export class SupabaseOperatorRepository implements IOperatorRepository {
     const { data: operatorsData, error: operatorsError } = await supabase
       .from('operators')
       .select('*, operator_categories(category_id)')
-      .eq('organization_id', organizationId);
+      .eq('organization_id', organizationId)
+      .is('deleted_at', null);
 
     const operators: Operator[] = [];
     const usedEmails = new Set<string>();
@@ -269,9 +270,7 @@ export class SupabaseOperatorRepository implements IOperatorRepository {
 
   async deleteOperator(id: string): Promise<void> {
     const { error } = await supabase
-      .from('operators')
-      .update({ deleted_at: new Date().toISOString(), updated_at: new Date().toISOString() })
-      .eq('id', id);
+      .rpc('delete_operator_permanently', { p_operator_id: id });
 
     if (error) throw error;
   }
