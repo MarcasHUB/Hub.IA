@@ -112,21 +112,32 @@ export class SupabaseOperatorRepository implements IOperatorRepository {
     for (const role of validRoles) {
       const profile = profilesData?.find(p => p.id === role.user_id || p.user_id === role.user_id);
       const email = profile?.contact_email || profile?.email || '';
-      const op = operatorsData?.find(o => (email && o.email === email));
+      // Prioridade 1: Match por ID do usuário (role.user_id === op.id)
+      // Prioridade 2: Fallback por email
+      const op = operatorsData?.find(o => o.id === role.user_id) || operatorsData?.find(o => (email && o.email === email));
 
       if (email) usedEmails.add(email);
       if (op && op.email) usedEmails.add(op.email);
 
       if (!profile && !op && !role.user_id) continue;
 
+      const finalEmail = email || op?.email || '';
+      const displayName = profile?.full_name || op?.nome || finalEmail || 'Operador sem identificação';
+      
+      // Filtrar operador fantasma
+      if (!finalEmail && displayName === 'Operador sem identificação') continue;
+
       operators.push({
         id: op?.id || profile?.id || role.user_id || crypto.randomUUID(),
         organization_id: organizationId,
-        nome: profile?.full_name || op?.nome || 'Usuário Autenticado',
+        nome: displayName,
+        sobrenome: op?.sobrenome || '',
         email: email || op?.email || '',
         telefone: op?.telefone || '',
-        cargo: role.role || op?.cargo || 'Membro',
+        cargo: op?.cargo || role.role || 'Membro',
+        perfil: op?.perfil || 'comprador',
         status: op?.status || 'ativo',
+        gestor_id: op?.gestor_id || undefined,
         created_at: op?.created_at || new Date().toISOString(),
         updated_at: op?.updated_at || new Date().toISOString(),
         categories: op?.operator_categories ? op.operator_categories.map((c: any) => c.category_id) : []

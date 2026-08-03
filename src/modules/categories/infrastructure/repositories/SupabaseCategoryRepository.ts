@@ -44,9 +44,16 @@ export class SupabaseCategoryRepository implements ICategoryRepository {
         const uniqueMap = new Map();
         for (const row of data) {
            const normalizedName = (row.name || '').toLowerCase().trim();
-           const key = `${row.organization_id || 'global'}:${normalizedName}`;
+           const key = normalizedName;
+           
            if (!uniqueMap.has(key)) {
                uniqueMap.set(key, row);
+           } else {
+               // Se já existe, preferir a local sobre a global
+               const existing = uniqueMap.get(key);
+               if (!existing.organization_id && row.organization_id) {
+                   uniqueMap.set(key, row);
+               }
            }
         }
 

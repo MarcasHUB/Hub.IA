@@ -28,13 +28,14 @@ export function EditOperatorModal({ operator, orgId, operators, onClose }: EditO
   const [form, setForm] = useState({
     nome: operator.nome || '',
     sobrenome: operator.sobrenome || '',
+    email: operator.email || '',
     telefone: operator.telefone || '',
     cargo: operator.cargo || '',
+    perfil: operator.perfil || 'comprador',
     macroProfile: initialMacro(),
-    perfil: operator.perfil as OperatorPerfil,
     gestor_id: operator.gestor_id || '',
-    todas_categorias: operator.todas_categorias || false,
-    category_ids: operator.categories || [],
+    todas_categorias: operator.todas_categorias ?? true,
+    category_ids: operator.categories || []
   });
 
   const { data: categoriesList = [] } = useQuery({
@@ -54,45 +55,101 @@ export function EditOperatorModal({ operator, orgId, operators, onClose }: EditO
       setErrorMsg("O nome é obrigatório.");
       return;
     }
+    if (operator.status === 'pendente' && !form.email.trim()) {
+      setErrorMsg("O e-mail é obrigatório para convites pendentes.");
+      return;
+    }
     
     setSaving(true);
     setErrorMsg('');
     try {
       const repo = new SupabaseOperatorRepository();
       
-      const payload: Partial<Operator> = {
-        nome: form.nome,
-        sobrenome: form.sobrenome,
-        email: operator.email,
-        status: operator.status,
-        telefone: form.telefone || undefined,
-        cargo: operator.status === 'pendente' ? MACRO_PROFILES[form.macroProfile].cargo : (form.cargo || undefined),
-        perfil: operator.status === 'pendente' ? MACRO_PROFILES[form.macroProfile].perfil : form.perfil,
-        gestor_id: form.gestor_id || undefined,
-        todas_categorias: form.todas_categorias,
-        categories: form.todas_categorias ? [] : form.category_ids,
-      };
+      let finalOperatorId = operator.id;
 
-      await repo.updateOperator(operator.id, payload as any);
-
-      setSuccess(true);
-      
-      // Atualização otimista no cache e invalidação final
-      queryClient.setQueryData(['operators', orgId], (old: Operator[] | undefined) => {
-        if (!old) return [];
-        return old.map(item => item.id === operator.id ? { 
-          ...item, 
+      if (operator.status === 'pendente' && form.email !== operator.email) {
+        // Cancel old invite
+        await repo.cancelInvite(operator.email, operator.id);
+        
+        // Create new invite with new email
+        const newOpRes = await repo.inviteOperator({
           nome: form.nome,
           sobrenome: form.sobrenome,
-          telefone: form.telefone,
-          cargo: form.cargo,
-          perfil: form.perfil,
+          email: form.email,
+          telefone: form.telefone || undefined,
+          cargo: MACRO_PROFILES[form.macroProfile].cargo,
+          perfil: MACRO_PROFILES[form.macroProfile].perfil,
+          gestor_id: form.gestor_id || undefined,
+          category_ids: form.todas_categorias ? [] : form.category_ids,
+          todas_categorias: form.todas_categorias,
+          organization_id: orgId
+        });
+
+        if (newOpRes.success && newOpRes.token) {
+          const { EmailService } = await import('@/shared/utils/EmailService');
+          const emailRes = await EmailService.sendTransactionalEmail('operator_invite', newOpRes.token);
+          if (emailRes.success) {
+            await repo.updateEmailStatus(newOpRes.token, 'sent');
+          } else {
+            await repo.updateEmailStatus(newOpRes.token, 'failed', emailRes.message);
+          }
+        }
+        
+        if (newOpRes.user && newOpRes.user.id) {
+           finalOperatorId = newOpRes.user.id;
+        }
+
+        // We completely replace the operator in cache
+        queryClient.setQueryData(['operators', orgId], (old: Operator[] | undefined) => {
+          if (!old) return [];
+          const withoutOld = old.filter(item => item.id !== operator.id);
+          const newOpObj: Operator = {
+            id: finalOperatorId,
+            organization_id: orgId,
+            nome: form.nome,
+            sobrenome: form.sobrenome,
+            email: form.email,
+            telefone: form.telefone || '',
+            cargo: MACRO_PROFILES[form.macroProfile].cargo,
+            perfil: MACRO_PROFILES[form.macroProfile].perfil as any,
+            status: 'pendente',
+            gestor_id: form.gestor_id || undefined,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            todas_categorias: form.todas_categorias,
+            categories: form.todas_categorias ? [] : form.category_ids
+          };
+          return [...withoutOld, newOpObj];
+        });
+
+      } else {
+        const payload: Partial<Operator> = {
+          nome: form.nome,
+          sobrenome: form.sobrenome,
+          email: operator.email, // email change only allowed if pending
+          status: operator.status,
+          telefone: form.telefone || undefined,
+          cargo: operator.status === 'pendente' ? MACRO_PROFILES[form.macroProfile].cargo : (form.cargo || undefined),
+          perfil: operator.status === 'pendente' ? MACRO_PROFILES[form.macroProfile].perfil : form.perfil,
           gestor_id: form.gestor_id || undefined,
           todas_categorias: form.todas_categorias,
           categories: form.todas_categorias ? [] : form.category_ids,
-        } : item);
-      });
-      
+        };
+
+        await repo.updateOperator(operator.id, payload as any);
+
+        // Atualização otimista no cache
+        queryClient.setQueryData(['operators', orgId], (old: Operator[] | undefined) => {
+          if (!old) return [];
+          return old.map(item => item.id === operator.id ? { 
+            ...item, 
+            ...payload,
+            telefone: payload.telefone || ''
+          } as Operator : item);
+        });
+      }
+
+      setSuccess(true);
       queryClient.invalidateQueries({ queryKey: ['operators'] });
       
       setTimeout(() => {
@@ -141,10 +198,25 @@ export function EditOperatorModal({ operator, orgId, operators, onClose }: EditO
             )}
 
             <div className="px-6 py-5 space-y-4">
-              {/* Email bloqueado */}
+              {/* Email bloqueado ou editável */}
               <div className="space-y-1">
-                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">E-mail Corporativo (Login) <span className="text-slate-400 font-normal lowercase">- Não editável</span></label>
-                <Input type="email" value={operator.email} readOnly disabled className="h-9 text-sm bg-slate-50 text-slate-500 cursor-not-allowed" />
+                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                  E-mail Corporativo (Login) 
+                  {operator.status !== 'pendente' && <span className="text-slate-400 font-normal lowercase"> - Não editável</span>}
+                </label>
+                {operator.status === 'pendente' ? (
+                   <Input 
+                     type="email" 
+                     value={form.email} 
+                     onChange={e => setForm(f => ({ ...f, email: e.target.value }))} 
+                     className="h-9 text-sm" 
+                   />
+                ) : (
+                   <Input type="email" value={operator.email} readOnly disabled className="h-9 text-sm bg-slate-50 text-slate-500 cursor-not-allowed" />
+                )}
+                {operator.status === 'pendente' && form.email !== operator.email && (
+                  <p className="text-xs text-amber-600 mt-1">Alterar o e-mail invalidará o link anterior e enviará um novo convite.</p>
+                )}
               </div>
 
               {/* Dados pessoais */}

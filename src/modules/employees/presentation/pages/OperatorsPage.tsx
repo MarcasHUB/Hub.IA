@@ -611,7 +611,17 @@ export default function OperatorsPage({ organizationId }: { organizationId?: str
   const handleDeleteOperator = async (op: Operator) => {
     setActiveMenu(null);
     setDetailsOperator(null);
-    if (!window.confirm(`ATENÇÃO: Deseja realmente excluir o operador ${op.nome} ${op.sobrenome}?\n\nEsta ação removerá o operador das listas do sistema, mas manterá o histórico salvo para auditoria.`)) {
+    
+    if (!op.id || !orgId) {
+       alert("Erro técnico: Identificador do operador ou organização não encontrado.");
+       return;
+    }
+
+    const displayName = (op.nome && op.nome !== 'Usuário Autenticado' && op.nome.trim() !== '')
+      ? `${op.nome} ${op.sobrenome || ''}`.trim()
+      : (op.email || 'Operador sem identificação');
+
+    if (!window.confirm(`ATENÇÃO: Deseja realmente excluir o operador ${displayName}?\n\nEsta ação removerá o operador das listas do sistema, mas manterá o histórico salvo para auditoria.`)) {
       return;
     }
     
