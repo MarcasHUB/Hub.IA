@@ -90,7 +90,6 @@ BEGIN
     UPDATE public.operators
     SET
       organization_id = raizen_id,
-      -- ATENÇÃO: 'auditor' não existe no ENUM operator_perfil. Ajustar antes de executar!
       perfil = 'auditor', 
       status = 'ativo',
       updated_at = now()
