@@ -39,18 +39,28 @@ export default function MessagesPage() {
         const { data: convs, error } = await supabase
           .from('conversations')
           .select(`
-            id, organization_a_id, organization_b_id, created_at, updated_at,
-            org_a:organizations!organization_a_id(id, razao_social),
-            org_b:organizations!organization_b_id(id, razao_social)
+            id,
+            company_a_id,
+            company_b_id,
+            updated_at,
+            created_at,
+            org_a:organizations!company_a_id(id, razao_social, nome_fantasia),
+            org_b:organizations!company_b_id(id, razao_social, nome_fantasia),
+            messages!inner(
+              content,
+              created_at,
+              read_at,
+              sender_organization_id
+            )
           `)
-          .or(`organization_a_id.eq.${activeOrgId},organization_b_id.eq.${activeOrgId}`);
+          .or(`company_a_id.eq.${activeOrgId},company_b_id.eq.${activeOrgId}`);
           
         if (error) throw error;
         
         if (convs) {
           const mapped = convs.map(c => {
-            const isA = c.organization_a_id === activeOrgId;
-            const partnerId = isA ? c.organization_b_id : c.organization_a_id;
+            const isA = c.company_a_id === activeOrgId;
+            const partnerId = isA ? c.company_b_id : c.company_a_id;
             const rawPartner = isA ? c.org_b : c.org_a;
             const partnerObj = Array.isArray(rawPartner) ? rawPartner[0] : rawPartner;
             const pName = partnerObj?.razao_social || 'Empresa Parceria';

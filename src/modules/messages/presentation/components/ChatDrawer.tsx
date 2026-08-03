@@ -126,6 +126,12 @@ export function ChatDrawer() {
     const text = textToSend.trim();
     if (!text) return;
 
+    // Check if it's the platform org
+    if (activeOrgId === '00000000-0000-0000-0000-000000000000' || (localStorage.getItem('supplyhub_company_name') || '').toLowerCase().includes('hub.ia')) {
+      setComplianceError('Selecione uma empresa para atuar comercialmente.');
+      return;
+    }
+
     // Compliance Check
     const compliance = checkCompliance(text);
     if (compliance.blocked) {
@@ -133,16 +139,19 @@ export function ChatDrawer() {
       return;
     }
 
-    setComplianceError(null);
-    setInputText('');
-    
     // We update local state optimistically, but real-time covers it
     try {
-      await chatRepository.sendMessage(activeConversationId, activeOrgId, text, userId);
-    } catch (e) {
+      const inserted = await chatRepository.sendMessage(activeConversationId, activeOrgId, text, userId);
+      // Not inserting into local state manually because real-time subscription will trigger
+      // But we could insert if we wanted to avoid delay. The real-time will catch it.
+    } catch (e: any) {
       console.error('Failed to send message', e);
-      setComplianceError('Falha ao enviar mensagem. Tente novamente.');
+      setComplianceError(`Não foi possível enviar a mensagem. Verifique sua organização ativa e tente novamente. Detalhe: ${e?.message || 'Erro interno'}`);
+      return; // Do not clear the input if it fails
     }
+    
+    setComplianceError(null);
+    setInputText('');
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {

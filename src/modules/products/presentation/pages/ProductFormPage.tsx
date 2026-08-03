@@ -60,7 +60,12 @@ export default function ProductFormPage({
   
   const [businessModel, setBusinessModel] = useState<'manufacturer' | 'reseller' | 'both'>('reseller');
   const [classification, setClassification] = useState({
-    category: '', globalCategory: '', subcategory: '', purchasingGroup: '', baseUom: ''
+    category: '',
+    globalCategory: '',
+    subcategory: '',
+    purchasingGroup: '',
+    baseUom: 'UN',
+    description: ''
   });
   const [commercial, setCommercial] = useState({
     costCenter: '', targetPrice: '', moq: '', multiple: ''
@@ -209,10 +214,9 @@ export default function ProductFormPage({
             // Se tiver materialId, buscar dados complementares do Material Global
             if (product.materialId) {
                try {
-                 const { data: matData } = await supabase.from('materials').select('description, category_id').eq('id', product.materialId).maybeSingle();
+                 const { data: matData } = await supabase.from('materials').select('description').eq('id', product.materialId).maybeSingle();
                  if (matData) {
-                   setBasicInfo(prev => ({ ...prev, description: matData.description || '' }));
-                   setClassification(prev => ({ ...prev, globalCategory: matData.category_id || '' }));
+                   setClassification(prev => ({ ...prev, description: matData.description || '' }));
                  }
                } catch (e) { console.error('Erro ao buscar material global', e); }
             }
@@ -302,8 +306,7 @@ export default function ProductFormPage({
           official_name: basicInfo.name,
           manufacturer_code: basicInfo.manufacturerCode,
           manufacturer_name: basicInfo.manufacturer,
-          description: basicInfo.description,
-          category_id: classification.globalCategory || null,
+          description: classification.description,
           updated_at: new Date().toISOString()
         }).eq('id', basicInfo.materialId);
         
@@ -321,8 +324,7 @@ export default function ProductFormPage({
              official_name: basicInfo.name,
              manufacturer_code: basicInfo.manufacturerCode,
              manufacturer_name: basicInfo.manufacturer,
-             description: basicInfo.description,
-             category_id: classification.category
+             description: classification.description
           },
           details: 'Edição do Material Master pelo ADM GLOBAL'
         });
@@ -484,7 +486,7 @@ export default function ProductFormPage({
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                       <div className="space-y-2">
                         <div className="flex items-center justify-between h-5">
-                          <Label>Categoria do Material (Global)</Label>
+                          <Label>Categoria do Material Global</Label>
                         </div>
                         <select 
                            value={classification.globalCategory} 
@@ -502,13 +504,13 @@ export default function ProductFormPage({
                       </div>
 
                       <div className="space-y-2">
-                        <Label>Descrição Global</Label>
+                        <Label>Descrição Completa Global</Label>
                         <textarea 
                           className="w-full min-h-[40px] max-h-[80px] resize-y p-3 bg-white border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 disabled:bg-slate-50"
                           placeholder="Descrição geral do material..."
                           maxLength={500}
-                          value={basicInfo.description}
-                          onChange={e => setBasicInfo({...basicInfo, description: e.target.value})}
+                          value={classification.description}
+                          onChange={e => setClassification({...classification, description: e.target.value})}
                           disabled={!!basicInfo.materialId && !canEditGlobalMaterial}
                         />
                       </div>
@@ -612,7 +614,7 @@ export default function ProductFormPage({
 
                       <div className="flex-1 flex flex-col gap-4">
                         <div className="space-y-2">
-                          <Label>Descrição Técnica Completa (Local)</Label>
+                          <Label>Descrição Técnica Completa</Label>
                           <textarea 
                             className="w-full min-h-[80px] max-h-[100px] resize-y p-3 bg-white border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                             placeholder="Detalhes completos, norma técnica, material..."
@@ -629,7 +631,7 @@ export default function ProductFormPage({
                         
                         <div className="space-y-2">
                           <div className="flex items-center justify-between h-5">
-                            <Label>Categoria do Material (Local) *</Label>
+                            <Label htmlFor="category">Categoria Interna *</Label>
                             <button 
                               onClick={() => setIsCategoryModalOpen(true)}
                               className="text-[10px] font-bold text-indigo-600 hover:text-indigo-700 flex items-center gap-1"

@@ -17,6 +17,8 @@ export function MyProfilePage() {
   const [jobTitle, setJobTitle] = useState('');
   const [department, setDepartment] = useState('');
   const [avatarUrl, setAvatarUrl] = useState('');
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     async function loadProfile() {
@@ -51,6 +53,53 @@ export function MyProfilePage() {
     
     loadProfile();
   }, []);
+
+  const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    try {
+      setUploadingAvatar(true);
+      setError('');
+      
+      if (!event.target.files || event.target.files.length === 0) {
+        throw new Error('Você deve selecionar uma imagem.');
+      }
+      
+      const file = event.target.files[0];
+      const fileExt = file.name.split('.').pop();
+      const allowedExts = ['jpg', 'jpeg', 'png', 'webp'];
+      
+      if (!allowedExts.includes(fileExt?.toLowerCase() || '')) {
+         throw new Error('Formato inválido. Use JPG, PNG ou WEBP.');
+      }
+
+      if (file.size > 2 * 1024 * 1024) {
+         throw new Error('A imagem deve ter no máximo 2MB.');
+      }
+
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Usuário não autenticado');
+
+      const fileName = `${user.id}-${Math.random()}.${fileExt}`;
+      const filePath = `${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, file);
+
+      if (uploadError) {
+         throw uploadError;
+      }
+      
+      const { data: { publicUrl } } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(filePath);
+
+      setAvatarUrl(publicUrl);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -132,23 +181,41 @@ export function MyProfilePage() {
                 
                 {/* Avatar */}
                 <div className="flex items-center gap-6 pb-6 border-b border-slate-100">
-                  {avatarUrl ? (
-                    <img src={avatarUrl} alt="Avatar" className="w-20 h-20 rounded-full object-cover border border-slate-200" />
-                  ) : (
-                    <div className="w-20 h-20 rounded-full bg-slate-100 flex items-center justify-center border border-slate-200">
-                      <UserRound className="h-10 w-10 text-slate-400" />
+                  <div 
+                    className="relative cursor-pointer group rounded-full overflow-hidden" 
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    {avatarUrl ? (
+                      <img src={avatarUrl} alt="Avatar" className="w-20 h-20 rounded-full object-cover border border-slate-200" />
+                    ) : (
+                      <div className="w-20 h-20 rounded-full bg-slate-100 flex items-center justify-center border border-slate-200">
+                        <UserRound className="h-10 w-10 text-slate-400" />
+                      </div>
+                    )}
+                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                      <span className="text-white text-xs font-bold">Alterar</span>
                     </div>
-                  )}
+                  </div>
                   <div className="flex-1">
-                    <label className="block text-sm font-medium text-slate-700 mb-1">URL da Foto de Perfil (Avatar)</label>
-                    <input
-                      type="url"
-                      value={avatarUrl}
-                      onChange={(e) => setAvatarUrl(e.target.value)}
-                      className="w-full h-10 px-3 rounded-lg border border-slate-300 focus:ring-2 focus:ring-indigo-600 focus:border-transparent transition-all"
-                      placeholder="https://exemplo.com/minha-foto.jpg"
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Foto de Perfil (Avatar)</label>
+                    <input 
+                      type="file" 
+                      accept="image/png, image/jpeg, image/jpg, image/webp"
+                      className="hidden" 
+                      ref={fileInputRef}
+                      onChange={handleAvatarUpload}
+                      disabled={uploadingAvatar}
                     />
-                    <p className="text-xs text-slate-500 mt-1">Insira uma URL pública válida de imagem.</p>
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      className="text-xs h-8"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={uploadingAvatar}
+                    >
+                      {uploadingAvatar ? 'Enviando...' : 'Selecionar Nova Foto'}
+                    </Button>
+                    <p className="text-xs text-slate-500 mt-2">Formatos: JPG, PNG, WEBP. Máximo: 2MB.</p>
                   </div>
                 </div>
 

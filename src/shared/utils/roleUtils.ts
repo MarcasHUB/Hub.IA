@@ -3,6 +3,7 @@ export const getRoleLabel = (role: string | null | undefined): string => {
   const r = role.toLowerCase().trim();
   switch (r) {
     case 'auditor':
+    case 'auditor/consulta':
     case 'auditor_consulta':
     case 'viewer':
     case 'consulta':

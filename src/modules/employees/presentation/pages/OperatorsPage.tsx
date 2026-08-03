@@ -779,8 +779,8 @@ export default function OperatorsPage({ organizationId }: { organizationId?: str
 
       <div>
         <Card className="rounded-2xl border-slate-200 shadow-sm overflow-visible">
-          <div className="w-full">
-            <table className="w-full text-sm text-left">
+          <div className="w-full overflow-x-auto">
+            <table className="w-full text-sm text-left whitespace-nowrap min-w-max">
               <thead className="bg-slate-50 text-slate-500 text-[10px] uppercase font-bold border-b border-slate-200">
                 <tr>
                   <th className="px-6 py-3">Operador</th>

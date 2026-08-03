@@ -24,7 +24,7 @@ export class SupabaseChatRepository {
     const { data: convs, error: fetchError } = await supabase
       .from('conversations')
       .select('id')
-      .or(`and(organization_a_id.eq.${orgIdA},organization_b_id.eq.${orgIdB}),and(organization_a_id.eq.${orgIdB},organization_b_id.eq.${orgIdA})`)
+      .or(`and(company_a_id.eq.${orgIdA},company_b_id.eq.${orgIdB}),and(company_a_id.eq.${orgIdB},company_b_id.eq.${orgIdA})`)
       .limit(1);
 
     if (fetchError) {
@@ -40,8 +40,8 @@ export class SupabaseChatRepository {
     const { data: newConv, error: insertError } = await supabase
       .from('conversations')
       .insert({
-        organization_a_id: orgIdA,
-        organization_b_id: orgIdB
+        company_a_id: orgIdA,
+        company_b_id: orgIdB
       })
       .select('id')
       .single();
