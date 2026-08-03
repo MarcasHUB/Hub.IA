@@ -103,8 +103,7 @@ export class SupabaseOperatorRepository implements IOperatorRepository {
     const { data: operatorsData, error: operatorsError } = await supabase
       .from('operators')
       .select('*, operator_categories(category_id)')
-      .eq('organization_id', organizationId)
-      .is('deleted_at', null);
+      .eq('organization_id', organizationId);
 
     const operators: Operator[] = [];
     const usedEmails = new Set<string>();
