@@ -25,6 +25,7 @@ const QuotationResponsePage = React.lazy(() => import('../../modules/quotations/
 const MinhaEmpresaPage = React.lazy(() => import('../../modules/organizations/presentation/pages/MinhaEmpresaPage'));
 const AcceptInvitePage = React.lazy(() => import('../../modules/employees/presentation/pages/AcceptInvitePage'));
 const AppAccessChoicePage = React.lazy(() => import('../../modules/landing/presentation/pages/AppAccessChoicePage'));
+const MyProfilePage = React.lazy(() => import('../../modules/users/presentation/pages/MyProfilePage').then(module => ({ default: module.MyProfilePage })));
 
 class ChunkErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean }> {
   constructor(props: { children: React.ReactNode }) {
@@ -159,6 +160,10 @@ export const router = createBrowserRouter([
       {
         path: '/messages',
         element: <SuspenseWrapper><MessagesPage /></SuspenseWrapper>,
+      },
+      {
+        path: '/meus-dados',
+        element: <SuspenseWrapper><MyProfilePage /></SuspenseWrapper>,
       },
       {
         path: '/admin',

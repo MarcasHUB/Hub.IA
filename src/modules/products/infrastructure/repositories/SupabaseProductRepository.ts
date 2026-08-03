@@ -141,7 +141,7 @@ export class SupabaseProductRepository implements IProductRepository {
             row.material_id || undefined,
             new Date(row.created_at),
             new Date(row.updated_at),
-            row.categories?.name,
+            Array.isArray(row.categories) ? row.categories[0]?.name : row.categories?.name,
             meta.manufacturer_code || '',
             meta.available_for_purchase ?? true,
             meta.available_for_sale ?? false,

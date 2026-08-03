@@ -78,7 +78,7 @@ export function AppLayout() {
         // Verifica dados do profile (nome real e flag de super admin)
         const { data: globalUser } = await supabase
           .from('profiles')
-          .select('full_name, is_super_admin')
+          .select('full_name, display_name, avatar_url, is_super_admin')
           .eq('user_id', user.id)
           .single();
 
@@ -181,8 +181,15 @@ export function AppLayout() {
           setOperatorProfile(currentProfile);
           
           // Nome do operador autenticado (nunca usar nome da empresa aqui)
-          const nameToSet = globalUser?.full_name || opNome || user.email || 'Usuário';
+          const nameToSet = globalUser?.display_name || globalUser?.full_name || opNome || user.email || 'Usuário';
           setOperatorName(nameToSet);
+          
+          // Avatar
+          if (globalUser?.avatar_url) {
+             localStorage.setItem('supplyhub_user_avatar', globalUser.avatar_url);
+          } else {
+             localStorage.removeItem('supplyhub_user_avatar');
+          }
         }
       } catch (err: any) {
         console.error('Erro ao verificar perfil:', err);
@@ -475,11 +482,17 @@ export function AppLayout() {
                 <span className="text-[10px] font-bold text-indigo-600 tracking-wide uppercase">{operatorProfile}</span>
               </div>
               <Link
-                to="/empresa/operadores"
+                to="/meus-dados"
                 className="text-slate-400 hover:text-indigo-600 transition-colors"
-                title="Configurações do Usuário"
+                title="Meus Dados"
               >
-                <Settings className="h-4 w-4" />
+                {localStorage.getItem('supplyhub_user_avatar') ? (
+                  <img src={localStorage.getItem('supplyhub_user_avatar')!} alt="Avatar" className="w-8 h-8 rounded-full object-cover" />
+                ) : (
+                  <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center">
+                    <span className="text-slate-400 font-bold uppercase">{operatorName.charAt(0)}</span>
+                  </div>
+                )}
               </Link>
             </div>
 

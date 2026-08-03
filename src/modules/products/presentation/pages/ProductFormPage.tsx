@@ -484,7 +484,7 @@ export default function ProductFormPage({
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                       <div className="space-y-2">
                         <div className="flex items-center justify-between h-5">
-                          <Label>Categoria Global</Label>
+                          <Label>Categoria do Material (Global)</Label>
                         </div>
                         <select 
                            value={classification.globalCategory} 
@@ -629,7 +629,7 @@ export default function ProductFormPage({
                         
                         <div className="space-y-2">
                           <div className="flex items-center justify-between h-5">
-                            <Label>Categoria Local *</Label>
+                            <Label>Categoria do Material (Local) *</Label>
                             <button 
                               onClick={() => setIsCategoryModalOpen(true)}
                               className="text-[10px] font-bold text-indigo-600 hover:text-indigo-700 flex items-center gap-1"
@@ -717,7 +717,7 @@ export default function ProductFormPage({
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
-                    <Label>Categoria Principal</Label>
+                    <Label>Categoria do Material</Label>
                     <select 
                       value={classification.category} 
                       onChange={e => setClassification({...classification, category: e.target.value})}

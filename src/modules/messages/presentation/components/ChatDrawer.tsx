@@ -25,7 +25,11 @@ interface Partner {
   initials: string;
   gradient: string;
   isOnline: boolean;
+  isConnected: boolean;
 }
+
+import { chatRepository, ChatConversation, ChatMessage } from '../../infrastructure/repositories/SupabaseChatRepository';
+import { supabase } from '@/infrastructure/supabase/client';
 
 // Carrega parceiros e mensagens do localStorage dinamicamente
 const getPartnersMap = (): Record<string, Partner> => {
@@ -39,23 +43,23 @@ const getPartnersMap = (): Record<string, Partner> => {
       segment: p.segment,
       initials: p.name.split(' ').slice(0, 2).map((w: string) => w[0]).join('').toUpperCase(),
       gradient: 'from-indigo-500 to-violet-600',
-      isOnline: true
+      isOnline: true,
+      isConnected: true
     };
   });
   return map;
 };
 
 export function ChatDrawer() {
-  const { isChatOpen, activePartnerId, activePartnerData, closeChat, openChat } = useChatDrawer();
+  const { isChatOpen, activePartnerId, activePartnerData, activeConversationId, closeChat, openChat } = useChatDrawer();
 
-  const [messages, setMessages] = useState<Record<string, Message[]>>(() => {
-    const saved = localStorage.getItem('supplyhub_chat_messages');
-    return saved ? JSON.parse(saved) : {};
-  });
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState('');
   const [complianceError, setComplianceError] = useState<string | null>(null);
   const [isQuotationModalOpen, setIsQuotationModalOpen] = useState(false);
   const [showPartnerSelector, setShowPartnerSelector] = useState(false);
+  const [userId, setUserId] = useState<string | undefined>(undefined);
+  const activeOrgId = localStorage.getItem('supplyhub_organization_id');
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -67,24 +71,59 @@ export function ChatDrawer() {
   if (!partner && activePartnerData) {
     partner = {
       id: activePartnerData.id,
-      name: activePartnerData.name,
+      name: activePartnerData.name || activePartnerData.razao_social || 'Empresa',
       segment: activePartnerData.segment || 'Não definido',
-      initials: activePartnerData.name.split(' ').slice(0, 2).map((w: string) => w[0]).join('').toUpperCase(),
+      initials: (activePartnerData.name || activePartnerData.razao_social || 'Empresa').split(' ').slice(0, 2).map((w: string) => w[0]).join('').toUpperCase(),
       gradient: 'from-indigo-500 to-violet-600',
-      isOnline: true
+      isOnline: true,
+      isConnected: activePartnerData.isConnected !== undefined ? activePartnerData.isConnected : true
     };
   }
   
-  const currentMessages = activePartnerId ? (messages[activePartnerId] ?? []) : [];
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }: any) => {
+      if (user) setUserId(user.id);
+    });
+  }, []);
+
+  useEffect(() => {
+    if (activeConversationId) {
+      chatRepository.getMessages(activeConversationId).then((data: ChatMessage[]) => {
+        setMessages(data);
+      }).catch(console.error);
+
+      // Subscribe to real-time new messages for this conversation
+      const channel = supabase
+        .channel(`chat_${activeConversationId}`)
+        .on('postgres_changes', { 
+            event: 'INSERT', 
+            schema: 'public', 
+            table: 'messages',
+            filter: `conversation_id=eq.${activeConversationId}` 
+          }, 
+          (payload: any) => {
+             setMessages((prev) => [...prev, payload.new as ChatMessage]);
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    } else {
+       setMessages([]);
+    }
+  }, [activeConversationId]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [currentMessages, isChatOpen]);
+  }, [messages, isChatOpen]);
 
   if (!isChatOpen) return null;
 
-  const handleSend = (textToSend = inputText) => {
-    if (!partner) return; const text = textToSend.trim();
+  const handleSend = async (textToSend = inputText) => {
+    if (!partner || !activeConversationId || !activeOrgId) return; 
+    const text = textToSend.trim();
     if (!text) return;
 
     // Compliance Check
@@ -95,22 +134,15 @@ export function ChatDrawer() {
     }
 
     setComplianceError(null);
-
-    const newMsg = {
-      id: `${Date.now()}`,
-      senderId: 'me',
-      text,
-      timestamp: new Date().toISOString(),
-      status: 'sent' as const
-    };
-
-    const saved = localStorage.getItem('supplyhub_chat_messages');
-    const messagesMap = saved ? JSON.parse(saved) : {};
-    messagesMap[partner.id] = [...(messagesMap[partner.id] ?? []), newMsg];
-    localStorage.setItem('supplyhub_chat_messages', JSON.stringify(messagesMap));
-
-    setMessages(messagesMap);
     setInputText('');
+    
+    // We update local state optimistically, but real-time covers it
+    try {
+      await chatRepository.sendMessage(activeConversationId, activeOrgId, text, userId);
+    } catch (e) {
+      console.error('Failed to send message', e);
+      setComplianceError('Falha ao enviar mensagem. Tente novamente.');
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -137,27 +169,7 @@ export function ChatDrawer() {
   // Abre a cotação a mercado ou direta
   const handleCreateQuotation = (data: { type: 'BID' | 'DIRECT'; code: string; productName: string }) => {
     setIsQuotationModalOpen(false);
-
-    // Adiciona cotação como anexo no chat
-    const quoteMsg = {
-      id: `${Date.now()}`,
-      senderId: 'me',
-      text: `Solicitei uma cotação: ${data.productName} (${data.code})`,
-      timestamp: new Date().toISOString(),
-      status: 'sent' as const,
-      attachedQuotation: { id: data.code, title: `${data.type} - ${data.code}` }
-    };
-
-    const saved = localStorage.getItem('supplyhub_chat_messages');
-    const messagesMap = saved ? JSON.parse(saved) : {};
-    
-    if (!partner) return;
-
-    messagesMap[partner.id] = [...(messagesMap[partner.id] ?? []), quoteMsg];
-
-    localStorage.setItem('supplyhub_chat_messages', JSON.stringify(messagesMap));
-
-    setMessages(messagesMap);
+    handleSend(`Solicitei uma cotação: ${data.productName} (${data.code})`);
   };
 
   return (
@@ -243,32 +255,50 @@ export function ChatDrawer() {
               </p>
             </div>
 
-            {/* Corpo de Mensagens */}
-            <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3 bg-slate-50/50">
-              {currentMessages.map((msg) => {
-                const isMe = msg.senderId === 'me';
-                const date = new Date(msg.timestamp);
+            {/* Área de Mensagens */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50/50">
+              
+              {!partner.isConnected && (
+                <div className="flex flex-col items-center justify-center h-full p-4 text-center">
+                   <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mb-4">
+                     <AlertTriangle className="h-8 w-8 text-slate-400" />
+                   </div>
+                   <h3 className="font-bold text-slate-800">Empresa não conectada</h3>
+                   <p className="text-sm text-slate-500 mt-2 max-w-[250px]">
+                     Para trocar mensagens comerciais livremente com esta empresa, envie um convite de parceria.
+                   </p>
+                   <button className="mt-6 px-4 py-2 bg-indigo-600 text-white font-semibold text-sm rounded-lg hover:bg-indigo-700 transition-colors">
+                     Conectar Agora
+                   </button>
+                </div>
+              )}
+              
+              {partner.isConnected && messages.map((msg, idx) => {
+                const isMe = msg.sender_organization_id === activeOrgId;
+                const isSystem = false;
+                
+                if (isSystem) {
+                  return (
+                    <div key={msg.id} className="flex justify-center my-4">
+                      <div className="bg-slate-100 text-slate-500 text-[10px] uppercase font-bold tracking-wider px-3 py-1 rounded-full">
+                        {msg.content}
+                      </div>
+                    </div>
+                  );
+                }
+
                 return (
-                  <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
-                    <div className={`max-w-[80%] rounded-2xl px-3 py-2 shadow-sm text-xs ${
-                      isMe ? 'bg-indigo-600 text-white rounded-br-sm' : 'bg-white text-slate-900 border border-slate-100 rounded-bl-sm'
+                  <div key={msg.id} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} animate-in fade-in slide-in-from-bottom-2 duration-300`}>
+                    <div className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm shadow-sm relative group ${
+                      isMe 
+                        ? 'bg-indigo-600 text-white rounded-tr-sm' 
+                        : 'bg-white border border-slate-200 text-slate-700 rounded-tl-sm'
                     }`}>
-                      {msg.attachedQuotation && (
-                        <div className={`flex items-center gap-1.5 mb-1.5 p-1.5 rounded-lg text-[10px] font-bold ${
-                          isMe ? 'bg-indigo-700/60 text-white' : 'bg-indigo-50 border border-indigo-200 text-indigo-700'
-                        }`}>
-                          <FileText className="h-3.5 w-3.5" />
-                          <span>{msg.attachedQuotation.title}</span>
-                        </div>
-                      )}
-                      <p className="leading-relaxed whitespace-pre-wrap">{msg.text}</p>
-                      <div className="flex items-center justify-end gap-1 mt-1">
-                        <span className={`text-[9px] ${isMe ? 'text-indigo-200' : 'text-slate-400'}`}>
-                          {date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                        </span>
-                        {isMe && (
-                          msg.status === 'read' ? <CheckCheck className="h-3 w-3 text-blue-300" /> : <Check className="h-3 w-3 text-slate-300" />
-                        )}
+                      <p className="leading-relaxed whitespace-pre-wrap">{msg.content}</p>
+
+                      <div className={`flex items-center gap-1.5 mt-1 text-[10px] ${isMe ? 'text-indigo-200 justify-end' : 'text-slate-400'}`}>
+                        {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        {isMe && (msg.read_at ? <CheckCheck className="h-3 w-3 text-indigo-300" /> : <Check className="h-3 w-3 text-indigo-300" />)}
                       </div>
                     </div>
                   </div>

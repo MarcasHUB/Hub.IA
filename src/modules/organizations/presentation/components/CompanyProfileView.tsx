@@ -103,7 +103,7 @@ import { useSaveOrganizationProfile } from '../hooks/useSaveOrganizationProfile'
 import { CompanyProfileForm } from './CompanyProfileForm';
 import { useQueryClient } from '@tanstack/react-query';
 
-function DadosEmpresaTab({ organizationId }: { organizationId: string }) {
+function DadosEmpresaTab({ organizationId, isOrgAdmin, isSuperAdmin }: { organizationId: string; isOrgAdmin: boolean; isSuperAdmin: boolean }) {
   const { 
     organization, 
     cnaes, 
@@ -164,6 +164,8 @@ function DadosEmpresaTab({ organizationId }: { organizationId: string }) {
         initialCertifications={certifications}
         initialCoverageStates={coverageStates}
         onSave={handleSave}
+        readOnly={!isOrgAdmin && !isSuperAdmin}
+        isSuperAdmin={isSuperAdmin}
       />
 
       {/* Card de aviso Hub.IA */}
@@ -190,18 +192,27 @@ function DadosEmpresaTab({ organizationId }: { organizationId: string }) {
 export default function CompanyProfileView({ organizationId }: CompanyProfileViewProps) {
   const location = useLocation();
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  const [isOrgAdmin, setIsOrgAdmin] = useState(false);
   const [companyName, setCompanyName] = useState('SupplyHub B2B');
 
   useEffect(() => {
     const checkAdmin = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        const { data } = await supabase.from('profiles').select('is_super_admin').eq('user_id', user.id).single();
-        setIsSuperAdmin(data?.is_super_admin === true);
+        const { data: profile } = await supabase.from('profiles').select('is_super_admin').eq('user_id', user.id).single();
+        setIsSuperAdmin(profile?.is_super_admin === true);
+        
+        // Also check organization_admin role
+        const { data: userRole } = await supabase.from('user_roles').select('role').eq('user_id', user.id).eq('organization_id', organizationId).maybeSingle();
+        const { data: opData } = await supabase.from('operators').select('perfil').eq('id', user.id).eq('organization_id', organizationId).maybeSingle();
+        
+        if (userRole?.role === 'organization_admin' || opData?.perfil === 'administrador') {
+           setIsOrgAdmin(true);
+        }
       }
     };
     checkAdmin();
-  }, []);
+  }, [organizationId]);
 
   useEffect(() => {
     const fetchOrgName = async () => {
@@ -274,7 +285,7 @@ export default function CompanyProfileView({ organizationId }: CompanyProfileVie
 
           {/* Área de conteúdo */}
           <main className="flex-1 min-w-0">
-            {activeTab === 'dados' && <DadosEmpresaTab organizationId={organizationId} />}
+            {activeTab === 'dados' && <DadosEmpresaTab organizationId={organizationId} isOrgAdmin={isOrgAdmin} isSuperAdmin={isSuperAdmin} />}
             
             {activeTab === 'colaboradores' && <OperatorsPage organizationId={organizationId} />}
             {activeTab === 'solicitantes' && (
