@@ -97,7 +97,7 @@ export class SupabaseOperatorRepository implements IOperatorRepository {
     const { data: profilesData, error: profilesError } = await supabase
       .from('profiles')
       .select('*')
-      .in('id', userIds);
+      .in('user_id', userIds);
 
     // 3. Fetch legacy operators
     const { data: operatorsData, error: operatorsError } = await supabase
