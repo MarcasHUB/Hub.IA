@@ -259,6 +259,7 @@ export default function NetworkPage() {
           empresa_certificacoes(certifications(name))
         `)
         .in('status', ['ativo', 'active'])
+        .or('is_platform_internal.is.null,is_platform_internal.eq.false')
         .neq('id', HUB_IA_ORG_ID)
         .order('razao_social', { ascending: true });
 
@@ -371,6 +372,25 @@ export default function NetworkPage() {
 
   const sendInvite = useCallback(async (targetOrg: NetworkOrg, email: string, message: string) => {
     const displayName = targetOrg.razao_social || targetOrg.nome_fantasia || targetOrg.name;
+
+    const { data: existingInvite } = await supabase
+      .from('invitations')
+      .select('id')
+      .eq('organization_id', tenantId)
+      .eq('email', email)
+      .in('status', ['pendente', 'sent'])
+      .maybeSingle();
+
+    if (existingInvite) {
+      addMockNotification({
+        title: 'Convite já pendente',
+        message: `Já existe um convite aguardando aceite para ${displayName}.`,
+        type: 'warning',
+        is_read: false,
+      });
+      setConnectTarget(null);
+      return;
+    }
 
     const tokenHash = crypto.randomUUID();
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();

@@ -45,7 +45,8 @@ export default function SuppliersListPage() {
               empresa_certificacoes(certifications(name))
             `)
             .in('cnpj', docs)
-            .in('status', ['ativo', 'active']);
+            .in('status', ['ativo', 'active'])
+            .or('is_platform_internal.is.null,is_platform_internal.eq.false');
             
          const mappedInvites = (invs || []).map((inv: any) => {
             const org = (orgs || []).find((o: any) => o.cnpj === inv.document);
