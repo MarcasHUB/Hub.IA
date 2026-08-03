@@ -385,7 +385,7 @@ export default function NetworkPage() {
       addMockNotification({
         title: 'Convite já pendente',
         message: `Já existe um convite aguardando aceite para ${displayName}.`,
-        type: 'warning',
+        type: 'connection_request_received',
         is_read: false,
       });
       setConnectTarget(null);

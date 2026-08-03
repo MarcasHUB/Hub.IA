@@ -10,7 +10,7 @@ DECLARE
     user_everton UUID := 'f45e8c1b-2c50-4cca-86b3-f14cf45b951b';
     user_icloud UUID := '2b8ac705-c356-430d-9788-0e60e7821724';
 BEGIN
-    -- 1. VALIDAÇÃO DE PREEXISTÊNCIA (Assertions Críticas)
+    -- 1. VALIDAÇÃO DE PREEXISTÊNCIA
     IF NOT EXISTS (SELECT 1 FROM public.organizations WHERE id = hub_id) THEN
         RAISE EXCEPTION 'Assertion Falhou: Organização Hub.IA (%) não encontrada.', hub_id;
     END IF;
@@ -37,6 +37,10 @@ BEGIN
       is_platform_internal = true,
       updated_at = now()
     WHERE id = hub_id;
+    
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Assertion Pós-Update Falhou: Hub.IA não foi atualizada.';
+    END IF;
 
     -- 3. ADM GLOBAL (Vinícius Gmail)
     UPDATE public.profiles
@@ -45,6 +49,7 @@ BEGIN
       is_super_admin = true,
       updated_at = now()
     WHERE user_id = user_adm;
+    IF NOT FOUND THEN RAISE EXCEPTION 'Assertion Falhou: profile do ADM GLOBAL não atualizado.'; END IF;
 
     UPDATE public.operators
     SET
@@ -52,7 +57,8 @@ BEGIN
       perfil = 'administrador',
       status = 'ativo',
       updated_at = now()
-    WHERE user_id = user_adm;
+    WHERE id = user_adm;
+    IF NOT FOUND THEN RAISE EXCEPTION 'Assertion Falhou: operator do ADM GLOBAL não atualizado.'; END IF;
 
     -- 4. Administrador Raízen (Everton)
     UPDATE public.profiles
@@ -61,6 +67,7 @@ BEGIN
       is_super_admin = false,
       updated_at = now()
     WHERE user_id = user_everton;
+    IF NOT FOUND THEN RAISE EXCEPTION 'Assertion Falhou: profile do Everton não atualizado.'; END IF;
 
     UPDATE public.operators
     SET
@@ -68,7 +75,8 @@ BEGIN
       perfil = 'administrador',
       status = 'ativo',
       updated_at = now()
-    WHERE user_id = user_everton;
+    WHERE id = user_everton;
+    IF NOT FOUND THEN RAISE EXCEPTION 'Assertion Falhou: operator do Everton não atualizado.'; END IF;
 
     -- 5. Usuário Secundário (Vinícius iCloud)
     UPDATE public.profiles
@@ -77,16 +85,16 @@ BEGIN
       is_super_admin = false,
       updated_at = now()
     WHERE user_id = user_icloud;
+    IF NOT FOUND THEN RAISE EXCEPTION 'Assertion Falhou: profile do usuário iCloud não atualizado.'; END IF;
 
     UPDATE public.operators
     SET
       organization_id = raizen_id,
-      perfil = 'auditor',
+      -- ATENÇÃO: 'auditor' não existe no ENUM operator_perfil. Ajustar antes de executar!
+      perfil = 'auditor', 
       status = 'ativo',
       updated_at = now()
-    WHERE user_id = user_icloud;
+    WHERE id = user_icloud;
+    IF NOT FOUND THEN RAISE EXCEPTION 'Assertion Falhou: operator do usuário iCloud não atualizado.'; END IF;
 
-    -- Opcional: Inserção de log de auditoria
-    -- Deixando comentado caso a tabela audit_logs exija formato complexo, 
-    -- o requisito diz 'registrar alterações' mas não especificou tabela.
 END $$;
