@@ -60,7 +60,7 @@ export default function ProductFormPage({
   
   const [businessModel, setBusinessModel] = useState<'manufacturer' | 'reseller' | 'both'>('reseller');
   const [classification, setClassification] = useState({
-    category: '', subcategory: '', purchasingGroup: '', baseUom: ''
+    category: '', globalCategory: '', subcategory: '', purchasingGroup: '', baseUom: ''
   });
   const [commercial, setCommercial] = useState({
     costCenter: '', targetPrice: '', moq: '', multiple: ''
@@ -167,7 +167,7 @@ export default function ProductFormPage({
       try {
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
-           const { data: profile } = await supabase.from('profiles').select('is_super_admin').eq('id', user.id).maybeSingle();
+           const { data: profile } = await supabase.from('profiles').select('is_super_admin').eq('user_id', user.id).maybeSingle();
            const { data: roles } = await supabase.from('user_roles').select('role').eq('user_id', user.id);
            const hasGlobalRole = roles?.some(r => r.role === 'super_admin' || r.role === 'platform_admin');
            if (profile?.is_super_admin || hasGlobalRole) {
@@ -205,6 +205,17 @@ export default function ProductFormPage({
               ...prev,
               targetPrice: product.price?.toString() || ''
             }));
+            
+            // Se tiver materialId, buscar dados complementares do Material Global
+            if (product.materialId) {
+               try {
+                 const { data: matData } = await supabase.from('materials').select('description, category_id').eq('id', product.materialId).maybeSingle();
+                 if (matData) {
+                   setBasicInfo(prev => ({ ...prev, description: matData.description || '' }));
+                   setClassification(prev => ({ ...prev, globalCategory: matData.category_id || '' }));
+                 }
+               } catch (e) { console.error('Erro ao buscar material global', e); }
+            }
             
             // Mocked supplier mapping
             if (product.supplierId) {
@@ -292,7 +303,7 @@ export default function ProductFormPage({
           manufacturer_code: basicInfo.manufacturerCode,
           manufacturer_name: basicInfo.manufacturer,
           description: basicInfo.description,
-          category_id: classification.category || null,
+          category_id: classification.globalCategory || null,
           updated_at: new Date().toISOString()
         }).eq('id', basicInfo.materialId);
         
@@ -465,6 +476,39 @@ export default function ProductFormPage({
                           value={basicInfo.manufacturerCode} 
                           onChange={e => setBasicInfo({...basicInfo, manufacturerCode: e.target.value})}
                           placeholder="Ex: W22-100CV"
+                          disabled={!!basicInfo.materialId && !canEditGlobalMaterial}
+                        />
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between h-5">
+                          <Label>Categoria Global</Label>
+                        </div>
+                        <select 
+                           value={classification.globalCategory} 
+                           onChange={e => setClassification({...classification, globalCategory: e.target.value})}
+                           className="flex h-10 w-full rounded-md border border-slate-200 bg-white px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-slate-950 disabled:opacity-50 disabled:bg-slate-50"
+                           disabled={!!basicInfo.materialId && !canEditGlobalMaterial}
+                        >
+                          <option value="" disabled>Selecione a categoria global</option>
+                          {availableCategories.map(cat => (
+                            <option key={cat.id} value={cat.id}>
+                              {cat.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>Descrição Global</Label>
+                        <textarea 
+                          className="w-full min-h-[40px] max-h-[80px] resize-y p-3 bg-white border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 disabled:bg-slate-50"
+                          placeholder="Descrição geral do material..."
+                          maxLength={500}
+                          value={basicInfo.description}
+                          onChange={e => setBasicInfo({...basicInfo, description: e.target.value})}
                           disabled={!!basicInfo.materialId && !canEditGlobalMaterial}
                         />
                       </div>

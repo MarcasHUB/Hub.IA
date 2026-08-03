@@ -75,13 +75,6 @@ export function AppLayout() {
         
         if (isMounted) setAuthReady(true);
 
-        // Verifica o perfil do operador
-        const { data: operator } = await supabase
-          .from('operators')
-          .select('perfil, nome, sobrenome')
-          .eq('id', user.id)
-          .single();
-          
         // Verifica dados do profile (nome real e flag de super admin)
         const { data: globalUser } = await supabase
           .from('profiles')
@@ -157,23 +150,38 @@ export function AppLayout() {
 
         if (isMounted) {
           let currentProfile = 'Operador';
+          let opNome = '';
+
+          if (activeOrganizationId) {
+             // Buscar role especifica da organizacao ativa
+             const { data: roleData } = await supabase.from('user_roles').select('role').eq('user_id', user.id).eq('organization_id', activeOrganizationId).maybeSingle();
+             const { data: opData } = await supabase.from('operators').select('perfil, nome, sobrenome').eq('id', user.id).eq('organization_id', activeOrganizationId).maybeSingle();
+             
+             opNome = opData?.nome || '';
+             
+             // Importa e usa a funcao getRoleLabel que criamos
+             const { getRoleLabel } = await import('@/shared/utils/roleUtils');
+             currentProfile = getRoleLabel(roleData?.role || opData?.perfil || 'operator');
+
+             if (roleData?.role === 'organization_admin' || opData?.perfil === 'administrador') {
+               setIsAdmin(true);
+             } else {
+               setIsAdmin(false);
+             }
+          }
+
           if (globalUser?.is_super_admin) {
-            currentProfile = 'Administrador Global';
+            currentProfile = 'ADMINISTRADOR GLOBAL';
             setIsSuperAdmin(true);
             setIsAdmin(true);
-          } else if (operator?.perfil === 'administrador') {
-            currentProfile = 'Administrador';
-            setIsAdmin(true);
-            setIsSuperAdmin(false);
           } else {
-            setIsAdmin(false);
             setIsSuperAdmin(false);
           }
           
           setOperatorProfile(currentProfile);
           
           // Nome do operador autenticado (nunca usar nome da empresa aqui)
-          const nameToSet = globalUser?.full_name || operator?.nome || user.email || 'Usuário';
+          const nameToSet = globalUser?.full_name || opNome || user.email || 'Usuário';
           setOperatorName(nameToSet);
         }
       } catch (err: any) {

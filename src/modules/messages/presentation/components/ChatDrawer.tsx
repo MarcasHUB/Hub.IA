@@ -46,7 +46,7 @@ const getPartnersMap = (): Record<string, Partner> => {
 };
 
 export function ChatDrawer() {
-  const { isChatOpen, activePartnerId, closeChat, openChat } = useChatDrawer();
+  const { isChatOpen, activePartnerId, activePartnerData, closeChat, openChat } = useChatDrawer();
 
   const [messages, setMessages] = useState<Record<string, Message[]>>(() => {
     const saved = localStorage.getItem('supplyhub_chat_messages');
@@ -62,7 +62,19 @@ export function ChatDrawer() {
 
   const partnersMap = getPartnersMap();
   const partnersList = Object.values(partnersMap);
-  const partner = activePartnerId ? partnersMap[activePartnerId] : null;
+  let partner = activePartnerId ? partnersMap[activePartnerId] : null;
+  
+  if (!partner && activePartnerData) {
+    partner = {
+      id: activePartnerData.id,
+      name: activePartnerData.name,
+      segment: activePartnerData.segment || 'Não definido',
+      initials: activePartnerData.name.split(' ').slice(0, 2).map((w: string) => w[0]).join('').toUpperCase(),
+      gradient: 'from-indigo-500 to-violet-600',
+      isOnline: true
+    };
+  }
+  
   const currentMessages = activePartnerId ? (messages[activePartnerId] ?? []) : [];
 
   useEffect(() => {

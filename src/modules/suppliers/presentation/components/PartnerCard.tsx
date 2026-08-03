@@ -233,7 +233,7 @@ export function PartnerCard({
               <Button size="sm" onClick={() => onViewDetails?.(partner)} className="flex-1 bg-slate-100 text-slate-700 hover:bg-slate-200 text-xs h-8">
                 Ver Perfil
               </Button>
-              <Button size="sm" onClick={() => openChat(partner.id)} className="flex-1 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 text-xs h-8">
+              <Button size="sm" onClick={() => openChat(partner.id, partner)} className="flex-1 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 text-xs h-8">
                 Chat/Mensagem
               </Button>
             </div>
