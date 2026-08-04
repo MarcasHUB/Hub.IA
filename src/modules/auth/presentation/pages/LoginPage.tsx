@@ -255,6 +255,35 @@ export default function LoginPage() {
         {errorMsg && (
           <div className="p-3 text-sm font-medium text-red-800 bg-red-100 rounded-md">
             {errorMsg}
+            {errorMsg.toLowerCase().includes('email not confirmed') && (
+              <button 
+                type="button" 
+                disabled={loading}
+                onClick={async () => {
+                  if (!email) return;
+                  setLoading(true);
+                  try {
+                    const { supabase } = await import('@/infrastructure/supabase/client');
+                    const { error } = await supabase.auth.resend({
+                      type: 'signup',
+                      email: email.trim().toLowerCase(),
+                      options: {
+                        emailRedirectTo: `${window.location.origin}/login`
+                      }
+                    });
+                    if (error) throw error;
+                    alert('E-mail de confirmação reenviado com sucesso. Verifique sua caixa de entrada.');
+                  } catch (e: any) {
+                    alert('Erro ao reenviar: ' + e.message);
+                  } finally {
+                    setLoading(false);
+                  }
+                }}
+                className="block mt-2 font-bold underline hover:text-red-900 focus:outline-none disabled:opacity-50"
+              >
+                Reenviar e-mail de confirmação
+              </button>
+            )}
           </div>
         )}
         <div className="space-y-2">

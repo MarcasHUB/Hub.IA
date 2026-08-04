@@ -87,6 +87,29 @@ export class SupabaseChatRepository {
     
     return data;
   }
+
+  async uploadAttachment(conversationId: string, senderOrgId: string, file: File, senderUserId?: string): Promise<ChatMessage> {
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${conversationId}/${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from('messages')
+      .upload(fileName, file);
+
+    if (uploadError) {
+      console.error('Error uploading attachment', uploadError);
+      throw uploadError;
+    }
+
+    const { data: publicUrlData } = supabase.storage
+      .from('messages')
+      .getPublicUrl(fileName);
+
+    const attachmentUrl = publicUrlData.publicUrl;
+    const content = `📁 Anexo: [${file.name}](${attachmentUrl})`;
+
+    return this.sendMessage(conversationId, senderOrgId, content, senderUserId);
+  }
 }
 
 export const chatRepository = new SupabaseChatRepository();

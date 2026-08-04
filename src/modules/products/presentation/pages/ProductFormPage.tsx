@@ -447,10 +447,10 @@ export default function ProductFormPage({
                   </div>
                   
                   <div className="p-6 bg-white space-y-5">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <div className="flex items-center h-5">
-                          <Label>Nome Global do Material *</Label>
+                          <Label>Nome do Material *</Label>
                         </div>
                         <Input 
                           value={basicInfo.name} 
@@ -461,7 +461,7 @@ export default function ProductFormPage({
                       </div>
                       <div className="space-y-2">
                         <div className="flex items-center h-5">
-                          <Label>Fabricante / Marca Global *</Label>
+                          <Label>Fabricante / Marca *</Label>
                         </div>
                         <Input 
                           value={basicInfo.manufacturer} 
@@ -470,9 +470,9 @@ export default function ProductFormPage({
                           disabled={!!basicInfo.materialId && !canEditGlobalMaterial}
                         />
                       </div>
-                      <div className="space-y-2">
+                      <div className="space-y-2 md:col-span-2">
                         <div className="flex items-center h-5">
-                          <Label>Código do Fabricante Global *</Label>
+                          <Label>Código do Fabricante *</Label>
                         </div>
                         <Input 
                           value={basicInfo.manufacturerCode} 
@@ -483,28 +483,9 @@ export default function ProductFormPage({
                       </div>
                     </div>
                     
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                    <div className="grid grid-cols-1 gap-4 mt-4">
                       <div className="space-y-2">
-                        <div className="flex items-center justify-between h-5">
-                          <Label>Categoria do Material Global</Label>
-                        </div>
-                        <select 
-                           value={classification.globalCategory} 
-                           onChange={e => setClassification({...classification, globalCategory: e.target.value})}
-                           className="flex h-10 w-full rounded-md border border-slate-200 bg-white px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-slate-950 disabled:opacity-50 disabled:bg-slate-50"
-                           disabled={!!basicInfo.materialId && !canEditGlobalMaterial}
-                        >
-                          <option value="" disabled>Selecione a categoria global</option>
-                          {availableCategories.map(cat => (
-                            <option key={cat.id} value={cat.id}>
-                              {cat.name}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label>Descrição Completa Global</Label>
+                        <Label>Descrição Completa</Label>
                         <textarea 
                           className="w-full min-h-[40px] max-h-[80px] resize-y p-3 bg-white border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 disabled:bg-slate-50"
                           placeholder="Descrição geral do material..."

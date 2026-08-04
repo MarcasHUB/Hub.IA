@@ -113,7 +113,8 @@ export default function OnboardingWizardPage() {
         email: userEmail,
         password: userPass,
         options: {
-          data: { full_name: userName }
+          data: { full_name: userName },
+          emailRedirectTo: `${window.location.origin}/login`
         }
       });
 

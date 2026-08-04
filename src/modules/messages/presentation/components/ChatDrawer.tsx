@@ -166,12 +166,16 @@ export function ChatDrawer() {
     fileInputRef.current?.click();
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      // Cria uma mensagem mockando o envio do arquivo
-      const fileMessageText = `📁 Anexo enviado: ${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
-      handleSend(fileMessageText);
+    if (file && partner && activeConversationId && activeOrgId) {
+      // Cria uma mensagem mockando o envio do arquivo temporário seria legal, mas vamos enviar direto
+      try {
+        await chatRepository.uploadAttachment(activeConversationId, activeOrgId, file, userId);
+      } catch (err: any) {
+        console.error('Failed to upload file', err);
+        setComplianceError(`Erro ao enviar anexo: ${err?.message || 'Erro interno'}`);
+      }
     }
   };
 
