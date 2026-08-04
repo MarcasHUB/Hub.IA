@@ -139,6 +139,17 @@ export async function onRequestPost(context: any) {
         perms = ['Receber solicitações.', 'Realizar cotações.', 'Comparar fornecedores.', 'Emitir orçamentos.', 'Conduzir processos de compra.', 'Acompanhar negociações.'];
       }
 
+      let categoryList: string[] = [];
+      if (invite.todas_categorias) {
+        categoryList = ['Todas as Categorias'];
+      } else if (invite.category_ids && invite.category_ids.length > 0) {
+        const { data: cats } = await supabase
+          .from('categories')
+          .select('name')
+          .in('id', invite.category_ids);
+        if (cats) categoryList = cats.map((c: any) => c.name);
+      }
+
       const accessChannelsHTML = `
         <ul style="list-style: none; padding-left: 0; margin-top: 4px;">
           <li style="margin-bottom: 4px;">${mobile ? '✅' : '❌'} Aplicativo Mobile</li>
@@ -159,6 +170,13 @@ export async function onRequestPost(context: any) {
         </ul>
       ` : '';
 
+      const categoriesHTML = categoryList.length > 0 ? `
+        <h4 style="margin-top: 16px; margin-bottom: 0; color: #374151;">Categorias Autorizadas</h4>
+        <ul style="padding-left: 20px; margin-top: 4px; color: #444;">
+          ${categoryList.map(c => `<li>${c}</li>`).join('')}
+        </ul>
+      ` : '';
+
       const infoBlockHTML = `
         <div style="background-color: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; margin-top: 24px; margin-bottom: 24px;">
           <h3 style="margin-top: 0; color: #111827; margin-bottom: 4px;">Perfil Liberado</h3>
@@ -171,10 +189,12 @@ export async function onRequestPost(context: any) {
           ${permsHTML}
           
           ${restsHTML}
+
+          ${categoriesHTML}
         </div>
       `;
 
-      const infoBlockText = `\nPerfil Liberado: ${roleName}\nAcessos Disponíveis:\n${mobile ? '✅' : '❌'} Aplicativo Mobile\n${desktop ? '✅' : '❌'} Portal Desktop/Web\n\nPermissões:\n${perms.map(p => `- ${p}`).join('\n')}${rests.length > 0 ? `\n\nRestrições:\n${rests.map(r => `- ${r}`).join('\n')}` : ''}\n`;
+      const infoBlockText = \`\nPerfil Liberado: \${roleName}\nAcessos Disponíveis:\n\${mobile ? '✅' : '❌'} Aplicativo Mobile\n\${desktop ? '✅' : '❌'} Portal Desktop/Web\n\nPermissões:\n\${perms.map(p => \`- \${p}\`).join('\\n')}\${rests.length > 0 ? \`\\n\\nRestrições:\\n\${rests.map(r => \`- \${r}\`).join('\\n')}\` : ''}\${categoryList.length > 0 ? \`\\n\\nCategorias Autorizadas:\\n\${categoryList.map(c => \`- \${c}\`).join('\\n')}\` : ''}\\n\`;
 
       const welcomeText = 'Você foi convidado para acessar a plataforma.';
 

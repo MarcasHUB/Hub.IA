@@ -85,62 +85,17 @@ serve(async (req: Request) => {
       throw passUpdateError;
     }
 
-    const now = new Date().toISOString();
-
-    // 4. Atualizar o operador na tabela operators para status = 'ativo'
-    const { error: operatorUpdateError } = await supabase
-      .from('operators')
-      .update({
-        status: 'ativo',
-        todas_categorias: invite.todas_categorias || false,
-        accepted_at: now,
-        updated_at: now,
-      })
-      .eq('id', userId);
-
-    if (operatorUpdateError) {
-      throw operatorUpdateError;
-    }
-
-    // 4.5. Inserir vínculos de categorias, se aplicável (caso não seja 'todas')
-    if (invite.todas_categorias !== true && invite.category_ids && invite.category_ids.length > 0) {
-      const links = invite.category_ids.map((catId: string) => ({
-        operator_id: userId,
-        category_id: catId
-      }));
-      
-      const { error: categoriesError } = await supabase
-        .from('operator_categories')
-        .insert(links);
-
-      if (categoriesError) {
-        throw categoriesError;
-      }
-    }
-
-    // 5. Atualizar o convite na tabela operator_invitations
-    const { error: inviteUpdateError } = await supabase
-      .from('operator_invitations')
-      .update({
-        status: 'aceito',
-        accepted_at: now,
-        ip_aceite: ip || null,
-        user_agent_aceite: user_agent || null,
-      })
-      .eq('id', invite.id);
-
-    if (inviteUpdateError) {
-      throw inviteUpdateError;
-    }
-
-    // 6. Registrar log operacional do aceite do convite
-    await supabase.from('operation_logs').insert({
-      operator_id: userId,
-      organization_id: invite.organization_id,
-      entidade: 'operator_invitation',
-      acao: 'aceitou',
-      payload_depois: { email: invite.email, ip, user_agent }
+    // 4. Aceite transacional: Atualiza operador, insere categorias, atualiza convite, logs.
+    const { error: acceptRpcError } = await supabase.rpc('accept_operator_invitation_transactional', {
+      p_token: token,
+      p_user_id: userId,
+      p_ip: ip || null,
+      p_user_agent: user_agent || null
     });
+
+    if (acceptRpcError) {
+      throw acceptRpcError;
+    }
 
     // 7. Notificar o gestor responsável enviando sinal Hub.IA
     await supabase.from('hubia_signals').insert({

@@ -75,6 +75,7 @@ function InviteModal({ onClose, onInvite, operators, organizationId }: { onClose
   const [successData, setSuccessData] = useState<{ op: Operator; token: string; expires_at: string; invite_url: string; } | null>(null);
   const [copiedLink, setCopiedLink] = useState(false);
   const [copiedEmail, setCopiedEmail] = useState(false);
+  const [categorySearch, setCategorySearch] = useState('');
 
   const orgId = organizationId || localStorage.getItem('supplyhub_organization_id') || '00000000-0000-0000-0000-000000000000';
   
@@ -367,32 +368,85 @@ function InviteModal({ onClose, onInvite, operators, organizationId }: { onClose
                 <div className="pl-6 pt-1">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-2 block">Inclui:</span>
                   <div className="flex flex-wrap gap-1.5">
-                    {categories.map(cat => (
+                    {categories.slice(0, 10).map(cat => (
                       <span key={cat.id} className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-100">
                         {cat.name}
                       </span>
                     ))}
+                    {categories.length > 10 && (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-500 border border-slate-200">
+                        +{categories.length - 10} categorias
+                      </span>
+                    )}
                   </div>
                 </div>
               ) : (
-                <div className="pl-6 grid grid-cols-2 gap-2">
-                  {categories.map(cat => (
-                    <label key={cat.id} className="flex items-center gap-2 cursor-pointer">
-                      <input 
-                        type="checkbox" 
-                        className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-                        checked={inviteForm.category_ids.includes(cat.id)}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setInviteForm(f => ({ ...f, category_ids: [...f.category_ids, cat.id] }));
-                          } else {
-                            setInviteForm(f => ({ ...f, category_ids: f.category_ids.filter((id: string) => id !== cat.id) }));
-                          }
-                        }}
-                      />
-                      <span className="text-xs font-medium text-slate-600 truncate" title={cat.name}>{cat.name}</span>
-                    </label>
-                  ))}
+                <div className="pl-6 space-y-3">
+                  <div className="relative">
+                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
+                    <Input
+                      type="text"
+                      placeholder="Buscar categorias..."
+                      className="pl-9 h-9 text-sm bg-white"
+                      value={categorySearch}
+                      onChange={e => setCategorySearch(e.target.value)}
+                    />
+                  </div>
+                  
+                  <div className="flex flex-wrap gap-1.5 mb-2">
+                    {inviteForm.category_ids.map(catId => {
+                      const cat = categories.find(c => c.id === catId);
+                      if (!cat) return null;
+                      return (
+                        <span key={cat.id} className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                          {cat.name}
+                          <button
+                            type="button"
+                            onClick={() => setInviteForm(f => ({ ...f, category_ids: f.category_ids.filter(id => id !== cat.id) }))}
+                            className="text-indigo-400 hover:text-indigo-600 focus:outline-none"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </span>
+                      );
+                    })}
+                    {inviteForm.category_ids.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setInviteForm(f => ({ ...f, category_ids: [] }))}
+                        className="inline-flex items-center px-2 py-1 rounded text-xs font-semibold text-slate-500 hover:text-red-600 hover:bg-red-50 focus:outline-none transition-colors"
+                      >
+                        Limpar todas
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="max-h-40 overflow-y-auto border border-slate-200 rounded-lg bg-white p-2 grid grid-cols-1 sm:grid-cols-2 gap-1">
+                    {categories
+                      .filter(cat => cat.name.toLowerCase().includes(categorySearch.toLowerCase()))
+                      .map(cat => (
+                      <label key={cat.id} className="flex items-center gap-2 cursor-pointer p-1.5 hover:bg-slate-50 rounded-md transition-colors">
+                        <input 
+                          type="checkbox" 
+                          className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                          checked={inviteForm.category_ids.includes(cat.id)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setInviteForm(f => ({ ...f, category_ids: [...f.category_ids, cat.id] }));
+                            } else {
+                              setInviteForm(f => ({ ...f, category_ids: f.category_ids.filter(id => id !== cat.id) }));
+                            }
+                          }}
+                        />
+                        <span className="text-xs font-medium text-slate-700 truncate" title={cat.name}>{cat.name}</span>
+                      </label>
+                    ))}
+                    {categories.filter(cat => cat.name.toLowerCase().includes(categorySearch.toLowerCase())).length === 0 && (
+                      <div className="col-span-full py-4 text-center text-xs text-slate-400">
+                        Nenhuma categoria encontrada
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
