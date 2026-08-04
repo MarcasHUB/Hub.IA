@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Bell, X, CheckCheck, ArrowRight, Wifi, TrendingDown, Lightbulb, Handshake, FileText, UserCheck } from 'lucide-react';
+import { Bell, X, CheckCheck, ArrowRight, Wifi, TrendingDown, Lightbulb, Handshake, FileText, UserCheck, MessageSquare } from 'lucide-react';
 import { useNotifications, Notification, NotificationType } from '../context/NotificationContext';
 import { useNavigate } from 'react-router-dom';
 
@@ -16,9 +16,10 @@ function formatRelativeTime(isoDate: string): string {
   return `${days}d atrás`;
 }
 
-function getNotificationIcon(type: NotificationType) {
+function getNotificationIcon(type: NotificationType | 'chat_message') {
   const iconProps = { className: 'h-5 w-5 flex-shrink-0' };
   switch (type) {
+    case 'chat_message':                return <MessageSquare {...iconProps} className="h-5 w-5 flex-shrink-0 text-indigo-500" />;
     case 'connection_request_received': return <Wifi {...iconProps} className="h-5 w-5 flex-shrink-0 text-blue-500" />;
     case 'connection_request_accepted': return <Handshake {...iconProps} className="h-5 w-5 flex-shrink-0 text-green-500" />;
     case 'quotation_received':          return <FileText {...iconProps} className="h-5 w-5 flex-shrink-0 text-violet-500" />;
@@ -31,8 +32,9 @@ function getNotificationIcon(type: NotificationType) {
   }
 }
 
-function getNotificationAccent(type: NotificationType): string {
+function getNotificationAccent(type: NotificationType | 'chat_message'): string {
   switch (type) {
+    case 'chat_message':                return 'border-l-indigo-400 bg-indigo-50/60';
     case 'connection_request_received': return 'border-l-blue-400 bg-blue-50/60';
     case 'connection_request_accepted': return 'border-l-green-400 bg-green-50/60';
     case 'quotation_received':          return 'border-l-violet-400 bg-violet-50/60';
@@ -53,7 +55,11 @@ function NotificationCard({ notification, onAction }: { notification: Notificati
 
   const handleClick = async () => {
     await markAsRead(notification.id);
-    if (notification.action_url) {
+    if ((notification.type as string) === 'chat_message' && notification.metadata?.partnerOrganizationId) {
+      window.dispatchEvent(new CustomEvent('supplyhub:open-chat', { 
+        detail: { partnerOrganizationId: notification.metadata.partnerOrganizationId }
+      }));
+    } else if (notification.action_url) {
       navigate(notification.action_url);
     }
     onAction();

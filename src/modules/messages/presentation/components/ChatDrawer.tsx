@@ -62,31 +62,12 @@ export function ChatDrawer() {
   const [showPartnerSelector, setShowPartnerSelector] = useState(false);
   const [userId, setUserId] = useState<string | undefined>(undefined);
   const activeOrgId = localStorage.getItem('supplyhub_organization_id');
-  const { addMockNotification } = useNotifications();
-
+  
   const [soundEnabled, setSoundEnabled] = useState(localStorage.getItem('hubia_chat_sound_enabled') !== 'false');
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
-  
-  const notificationAudioRef = useRef<HTMLAudioElement | null>(null);
   const notifiedMessageIdsRef = useRef<Set<string>>(new Set());
-  const isChatOpenRef = useRef(isChatOpen);
-  const soundEnabledRef = useRef(soundEnabled);
   
-  useEffect(() => { isChatOpenRef.current = isChatOpen; }, [isChatOpen]);
-  useEffect(() => { soundEnabledRef.current = soundEnabled; }, [soundEnabled]);
-
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    notificationAudioRef.current = new Audio('/sounds/new-message.mp3');
-    notificationAudioRef.current.preload = 'auto';
-    notificationAudioRef.current.volume = 0.35;
-
-    return () => {
-      notificationAudioRef.current = null;
-    };
-  }, []);
 
   const toggleSound = () => {
     const newValue = !soundEnabled;
@@ -144,24 +125,8 @@ export function ChatDrawer() {
 
              const isIncoming = message.sender_organization_id !== activeOrgId;
              if (!isIncoming) return;
-
-             if (soundEnabledRef.current) {
-               notificationAudioRef.current?.play().catch(() => {
-                 // Ignore play errors
-               });
-             }
-
-             if (!isChatOpenRef.current) {
-               const pName = partner?.name || 'Parceiro';
-               addMockNotification({ 
-                 type: 'connection_request_accepted', 
-                 title: 'Nova mensagem', 
-                 message: `Nova mensagem de ${pName}`,
-                 is_read: false
-               });
-               setToastMessage(`Nova mensagem de ${pName}`);
-               setTimeout(() => setToastMessage(null), 4000);
-             }
+             // The sound and toast for incoming messages are now handled globally
+             // by ChatDrawerContext's global subscription.
           }
         )
         .subscribe();
@@ -246,12 +211,6 @@ export function ChatDrawer() {
 
   return (
     <>
-      {toastMessage && (
-        <div className="fixed bottom-4 right-4 bg-slate-800 text-white px-4 py-3 rounded-xl shadow-lg z-50 flex items-center gap-3 animate-in fade-in slide-in-from-bottom-5">
-           <MessageSquare className="h-4 w-4 text-indigo-400" />
-           <p className="text-sm font-semibold">{toastMessage}</p>
-        </div>
-      )}
       {isChatOpen && (
       <div className="fixed right-0 top-0 h-full w-96 bg-white border-l border-slate-200 shadow-2xl z-40 flex flex-col animate-in slide-in-from-right duration-300">
         
