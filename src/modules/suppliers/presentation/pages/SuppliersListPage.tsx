@@ -59,32 +59,35 @@ export default function SuppliersListPage() {
             .or('is_platform_internal.is.null,is_platform_internal.eq.false');
 
          const mappedConnections = (connections || []).map((conn: any) => {
-            const partnerId = conn.requester_company_id === orgId ? conn.target_company_id : conn.requester_company_id;
-            const org = (orgs || []).find((o: any) => o.id === partnerId);
+            const partnerOrganizationId = conn.requester_company_id === orgId 
+               ? conn.target_company_id 
+               : conn.requester_company_id;
+            const org = (orgs || []).find((o: any) => o.id === partnerOrganizationId);
             return {
-              id: conn.id,
-              name: org?.razao_social || org?.nome_fantasia || org?.name || 'Empresa Desconhecida',
-              document: org?.cnpj || '-',
-              segment: org?.segment || 'Não definido',
-              city: org?.city || '-',
-              state: org?.state || '-',
-              status: 'accepted' as const,
-              connectionId: conn.id,
-              employeesRange: '-',
-              rating: 0,
-              responseTime: '-',
-              quotationsCount: 0,
-              products: [],
-              email: org?.email_corporativo || org?.business_email,
-              contact_name: undefined,
-              message: undefined,
-              perfil_comercial: org?.perfil_comercial || org?.business_model,
-              tipo_empresa: org?.tipo_empresa,
-              certifications: org?.empresa_certificacoes ? org.empresa_certificacoes.map((ec: any) => ec?.certifications?.name).filter(Boolean).join(', ') : undefined,
-              raio_atendimento_km: org?.raio_atendimento_km,
-              score_hubia: undefined,
-              phone: org?.telefone || org?.phone,
-              website: org?.website
+               id: partnerOrganizationId,
+               organizationId: partnerOrganizationId,
+               connectionId: conn.id,
+               name: org?.razao_social || org?.nome_fantasia || org?.name || 'Empresa Desconhecida',
+               document: org?.cnpj || '-',
+               segment: org?.segment || 'Não definido',
+               city: org?.city || '-',
+               state: org?.state || '-',
+               status: 'accepted' as const,
+               employeesRange: '-',
+               rating: 0,
+               responseTime: '-',
+               quotationsCount: 0,
+               products: [],
+               email: org?.email_corporativo || org?.business_email,
+               contact_name: undefined,
+               message: undefined,
+               perfil_comercial: org?.perfil_comercial || org?.business_model,
+               tipo_empresa: org?.tipo_empresa,
+               certifications: org?.empresa_certificacoes ? org.empresa_certificacoes.map((ec: any) => ec?.certifications?.name).filter(Boolean).join(', ') : undefined,
+               raio_atendimento_km: org?.raio_atendimento_km,
+               score_hubia: undefined,
+               phone: org?.telefone || org?.phone,
+               website: org?.website
             };
          });
          

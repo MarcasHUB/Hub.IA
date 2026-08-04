@@ -6,7 +6,9 @@ import { useChatDrawer } from '@/modules/messages/presentation/context/ChatDrawe
 import { formatCNPJ } from '@/shared/utils/formatters';
 
 export interface Partner {
-  id: string;
+  id: string; // organization.id
+  organizationId: string;
+  connectionId: string;
   name: string;
   document: string;
   segment: string;
@@ -14,7 +16,6 @@ export interface Partner {
   state: string;
   status: 'accepted' | 'pending_sent' | 'pending_received';
   since?: string;
-  connectionId: string;
   phone?: string;
   email?: string;
   website?: string;
@@ -233,11 +234,11 @@ export function PartnerCard({
               <Button size="sm" onClick={() => onViewDetails?.(partner)} className="flex-1 bg-slate-100 text-slate-700 hover:bg-slate-200 text-xs h-8">
                 Ver Perfil
               </Button>
-              <Button size="sm" onClick={() => openChat(partner.id, partner)} className="flex-1 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 text-xs h-8">
+              <Button size="sm" onClick={() => openChat(partner.organizationId || partner.id, partner)} className="flex-1 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 text-xs h-8">
                 Chat/Mensagem
               </Button>
             </div>
-            <Button size="sm" variant="outline" onClick={() => onRemove(partner.id)} className="w-full border-red-300 text-red-600 hover:bg-red-50 text-xs h-8 mt-1">
+            <Button size="sm" variant="outline" onClick={() => onRemove(partner.connectionId || partner.id)} className="w-full border-red-300 text-red-600 hover:bg-red-50 text-xs h-8 mt-1">
               Desfazer Parceria
             </Button>
           </div>
