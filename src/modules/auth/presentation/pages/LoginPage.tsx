@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/shared/components/ui/Button';
 import { Input } from '@/shared/components/ui/Input';
 import { Label } from '@/shared/components/ui/Label';
@@ -12,8 +12,19 @@ export default function LoginPage() {
 
   const [email, setEmail] = React.useState('');
   const [password, setPassword] = React.useState('');
-  const [loading, setLoading] = React.useState(false);
-  const [errorMsg, setErrorMsg] = React.useState('');
+  const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
+  const [cooldown, setCooldown] = useState(0);
+
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (cooldown > 0) {
+      timer = setInterval(() => {
+        setCooldown(prev => prev - 1);
+      }, 1000);
+    }
+    return () => clearInterval(timer);
+  }, [cooldown]);
 
   const logRepo = new SupabaseLogRepository();
 
@@ -258,9 +269,9 @@ export default function LoginPage() {
             {errorMsg.toLowerCase().includes('email not confirmed') && (
               <button 
                 type="button" 
-                disabled={loading}
+                disabled={loading || cooldown > 0}
                 onClick={async () => {
-                  if (!email) return;
+                  if (!email || cooldown > 0) return;
                   setLoading(true);
                   try {
                     const { supabase } = await import('@/infrastructure/supabase/client');
@@ -271,7 +282,21 @@ export default function LoginPage() {
                         emailRedirectTo: `${window.location.origin}/login`
                       }
                     });
-                    if (error) throw error;
+                    
+                    if (error) {
+                      if (error.status === 429 || error.message?.toLowerCase().includes('rate limit') || error.message?.toLowerCase().includes('too many requests')) {
+                        console.error('AUTH_RESEND_ERROR', {
+                          code: error.status === 429 ? 'over_email_send_rate_limit' : (error as any).code,
+                          status: error.status,
+                          message: error.message,
+                        });
+                        setCooldown(60);
+                        throw new Error('O limite temporário de envio de e-mails foi atingido. Aguarde antes de solicitar um novo envio.');
+                      }
+                      throw error;
+                    }
+                    
+                    setCooldown(60);
                     alert('E-mail de confirmação reenviado com sucesso. Verifique sua caixa de entrada.');
                   } catch (e: any) {
                     alert('Erro ao reenviar: ' + e.message);
@@ -279,9 +304,9 @@ export default function LoginPage() {
                     setLoading(false);
                   }
                 }}
-                className="block mt-2 font-bold underline hover:text-red-900 focus:outline-none disabled:opacity-50"
+                className="block mt-2 font-bold underline hover:text-red-900 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Reenviar e-mail de confirmação
+                {cooldown > 0 ? `Reenviar novamente em ${cooldown}s` : 'Reenviar e-mail de confirmação'}
               </button>
             )}
           </div>
