@@ -1,9 +1,11 @@
 import { useState, useRef, useEffect } from 'react';
 import {
   Send, X, Paperclip, FileText, ShieldAlert,
-  AlertTriangle, Maximize2, Check, CheckCheck
+  AlertTriangle, Maximize2, Check, CheckCheck,
+  Bell, BellOff, MessageSquare
 } from 'lucide-react';
 import { useChatDrawer } from '../context/ChatDrawerContext';
+import { useNotifications } from '@/modules/notifications/presentation/context/NotificationContext';
 import { checkCompliance } from '../../domain/compliance/ComplianceFilter';
 import { QuotationTypeModal } from '@/modules/quotations/presentation/components/QuotationTypeModal';
 
@@ -60,9 +62,37 @@ export function ChatDrawer() {
   const [showPartnerSelector, setShowPartnerSelector] = useState(false);
   const [userId, setUserId] = useState<string | undefined>(undefined);
   const activeOrgId = localStorage.getItem('supplyhub_organization_id');
+  const { addMockNotification } = useNotifications();
+
+  const [soundEnabled, setSoundEnabled] = useState(localStorage.getItem('hubia_chat_sound_enabled') !== 'false');
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  
+  const notificationAudioRef = useRef<HTMLAudioElement | null>(null);
+  const notifiedMessageIdsRef = useRef<Set<string>>(new Set());
+  const isChatOpenRef = useRef(isChatOpen);
+  const soundEnabledRef = useRef(soundEnabled);
+  
+  useEffect(() => { isChatOpenRef.current = isChatOpen; }, [isChatOpen]);
+  useEffect(() => { soundEnabledRef.current = soundEnabled; }, [soundEnabled]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    notificationAudioRef.current = new Audio('/sounds/new-message.mp3');
+    notificationAudioRef.current.preload = 'auto';
+    notificationAudioRef.current.volume = 0.35;
+
+    return () => {
+      notificationAudioRef.current = null;
+    };
+  }, []);
+
+  const toggleSound = () => {
+    const newValue = !soundEnabled;
+    setSoundEnabled(newValue);
+    localStorage.setItem('hubia_chat_sound_enabled', String(newValue));
+  };
 
   const partnersMap = getPartnersMap();
   const partnersList = Object.values(partnersMap);
@@ -102,7 +132,36 @@ export function ChatDrawer() {
             filter: `conversation_id=eq.${activeConversationId}` 
           }, 
           (payload: any) => {
-             setMessages((prev) => [...prev, payload.new as ChatMessage]);
+             const message = payload.new as ChatMessage;
+             
+             if (notifiedMessageIdsRef.current.has(message.id)) return;
+             notifiedMessageIdsRef.current.add(message.id);
+
+             setMessages((prev) => {
+               if (prev.some(item => item.id === message.id)) return prev;
+               return [...prev, message];
+             });
+
+             const isIncoming = message.sender_organization_id !== activeOrgId;
+             if (!isIncoming) return;
+
+             if (soundEnabledRef.current) {
+               notificationAudioRef.current?.play().catch(() => {
+                 // Ignore play errors
+               });
+             }
+
+             if (!isChatOpenRef.current) {
+               const pName = partner?.name || 'Parceiro';
+               addMockNotification({ 
+                 type: 'connection_request_accepted', 
+                 title: 'Nova mensagem', 
+                 message: `Nova mensagem de ${pName}`,
+                 is_read: false
+               });
+               setToastMessage(`Nova mensagem de ${pName}`);
+               setTimeout(() => setToastMessage(null), 4000);
+             }
           }
         )
         .subscribe();
@@ -119,7 +178,7 @@ export function ChatDrawer() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isChatOpen]);
 
-  if (!isChatOpen) return null;
+
 
   const handleSend = async (textToSend = inputText) => {
     if (!partner || !activeConversationId || !activeOrgId) return; 
@@ -187,6 +246,13 @@ export function ChatDrawer() {
 
   return (
     <>
+      {toastMessage && (
+        <div className="fixed bottom-4 right-4 bg-slate-800 text-white px-4 py-3 rounded-xl shadow-lg z-50 flex items-center gap-3 animate-in fade-in slide-in-from-bottom-5">
+           <MessageSquare className="h-4 w-4 text-indigo-400" />
+           <p className="text-sm font-semibold">{toastMessage}</p>
+        </div>
+      )}
+      {isChatOpen && (
       <div className="fixed right-0 top-0 h-full w-96 bg-white border-l border-slate-200 shadow-2xl z-40 flex flex-col animate-in slide-in-from-right duration-300">
         
         {partner ? (
@@ -243,6 +309,13 @@ export function ChatDrawer() {
               )}
 
               <div className="flex items-center gap-1 shrink-0">
+                <button
+                  onClick={toggleSound}
+                  className="p-1.5 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100 transition-colors"
+                  title={soundEnabled ? 'Som ativado' : 'Som desativado'}
+                >
+                  {soundEnabled ? <Bell className="h-4 w-4" /> : <BellOff className="h-4 w-4" />}
+                </button>
                 <button
                   onClick={() => { window.open('/messages', '_blank'); }}
                   className="p-1.5 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100 transition-colors"
@@ -391,6 +464,7 @@ export function ChatDrawer() {
         )}
 
       </div>
+      )}
 
       <QuotationTypeModal 
         isOpen={isQuotationModalOpen} 
