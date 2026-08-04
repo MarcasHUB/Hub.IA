@@ -95,6 +95,7 @@ export default function SuppliersListPage() {
             const org = (orgs || []).find((o: any) => o.cnpj === inv.document);
             return {
               id: inv.id,
+              organizationId: org?.id || '',
               name: org?.razao_social || org?.nome_fantasia || org?.name || inv.company || inv.name,
               document: inv.document,
               segment: org?.segment || ((inv.segments && inv.segments.length > 0) ? inv.segments.join(', ') : 'Não definido'),
@@ -215,17 +216,20 @@ export default function SuppliersListPage() {
          .or('is_platform_internal.is.null,is_platform_internal.eq.false');
          
       const mappedConnections = (connections || []).map((conn: any) => {
-         const partnerId = conn.requester_company_id === orgId ? conn.target_company_id : conn.requester_company_id;
-         const org = (orgs || []).find((o: any) => o.id === partnerId);
+         const partnerOrganizationId = conn.requester_company_id === orgId 
+            ? conn.target_company_id 
+            : conn.requester_company_id;
+         const org = (orgs || []).find((o: any) => o.id === partnerOrganizationId);
          return {
-           id: conn.id,
+           id: partnerOrganizationId,
+           organizationId: partnerOrganizationId,
+           connectionId: conn.id,
            name: org?.razao_social || org?.nome_fantasia || org?.name || 'Empresa Desconhecida',
            document: org?.cnpj || '-',
            segment: org?.segment || 'Não definido',
            city: org?.city || '-',
            state: org?.state || '-',
            status: 'accepted' as const,
-           connectionId: conn.id,
            employeesRange: '-',
            rating: 0,
            responseTime: '-',
@@ -248,6 +252,7 @@ export default function SuppliersListPage() {
          const org = (orgs || []).find((o: any) => o.cnpj === inv.document);
          return {
            id: inv.id,
+           organizationId: org?.id || '',
            name: org?.razao_social || org?.nome_fantasia || org?.name || inv.company || inv.name,
            document: inv.document,
            segment: org?.segment || ((inv.segments && inv.segments.length > 0) ? inv.segments.join(', ') : 'Não definido'),
