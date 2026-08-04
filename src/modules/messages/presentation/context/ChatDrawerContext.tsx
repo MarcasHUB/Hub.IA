@@ -143,17 +143,6 @@ export function ChatDrawerProvider({ children }: { children: React.ReactNode }) 
     };
   }, [activeOrgId, addMockNotification]);
 
-  useEffect(() => {
-    const handleOpenChatEvent = (e: Event) => {
-      const customEvent = e as CustomEvent;
-      if (customEvent.detail?.partnerOrganizationId) {
-        openChat(customEvent.detail.partnerOrganizationId, { name: customEvent.detail.partnerName });
-      }
-    };
-    window.addEventListener('supplyhub:open-chat', handleOpenChatEvent);
-    return () => window.removeEventListener('supplyhub:open-chat', handleOpenChatEvent);
-  }, [openChat]);
-
   const openChat = useCallback(async (partnerId: string, partnerData?: any) => {
     setActivePartnerId(partnerId);
     if (partnerData) setActivePartnerData(partnerData);
@@ -179,6 +168,19 @@ export function ChatDrawerProvider({ children }: { children: React.ReactNode }) 
       console.error('Failed to init conversation:', e);
     }
   }, []);
+
+  useEffect(() => {
+    const handleOpenChatEvent = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      if (customEvent.detail?.partnerOrganizationId) {
+        openChat(customEvent.detail.partnerOrganizationId, { name: customEvent.detail.partnerName });
+      }
+    };
+    window.addEventListener('supplyhub:open-chat', handleOpenChatEvent);
+    return () => window.removeEventListener('supplyhub:open-chat', handleOpenChatEvent);
+  }, [openChat]);
+
+
 
   const openInbox = useCallback(() => {
     setIsChatOpen(true);
