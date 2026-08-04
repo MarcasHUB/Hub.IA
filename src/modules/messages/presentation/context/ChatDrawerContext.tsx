@@ -27,6 +27,14 @@ export function ChatDrawerProvider({ children }: { children: React.ReactNode }) 
     // Attempt to get or create conversation in the background
     try {
       const activeOrgId = localStorage.getItem('supplyhub_organization_id');
+      
+      console.group('--- DEBUG C1.3 CHAT ---');
+      console.log('currentOrganizationId:', activeOrgId);
+      console.log('partnerOrganizationId:', partnerId);
+      console.log('authenticatedUserId:', 'not_available_in_context_directly');
+      console.log('partner:', partnerData);
+      console.groupEnd();
+
       if (activeOrgId && partnerId) {
         const convId = await chatRepository.getOrCreateConversation(activeOrgId, partnerId);
         setActiveConversationId(convId);

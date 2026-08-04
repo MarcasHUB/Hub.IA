@@ -20,45 +20,26 @@ export interface ChatMessage {
 
 export class SupabaseChatRepository {
   async getOrCreateConversation(orgIdA: string, orgIdB: string): Promise<string> {
-    // Sort IDs to match unique index canonical form
-    const [minId, maxId] = orgIdA < orgIdB ? [orgIdA, orgIdB] : [orgIdB, orgIdA];
+    const partnerOrgId = orgIdB; // O frontend chama getOrCreateConversation(activeOrgId, partnerId)
+    
+    console.log('CHAT_CONVERSATION_LOOKUP_RPC', {
+      currentOrganizationId: orgIdA,
+      partnerOrganizationId: orgIdB,
+    });
 
-    // Tenta encontrar uma conversa existente entre as duas orgs
-    const { data: convs, error: fetchError } = await supabase
-      .from('conversations')
-      .select('id')
-      .eq('company_a_id', minId)
-      .eq('company_b_id', maxId)
-      .limit(1);
+    const { data: convId, error: rpcError } = await supabase
+      .rpc('get_or_create_partner_conversation', {
+        p_partner_organization_id: partnerOrgId
+      });
 
-    if (fetchError) {
-      console.error('Error fetching conversation', fetchError);
-      throw fetchError;
+    console.log('CHAT_CONVERSATION_RPC_RESULT', { data: convId, error: rpcError });
+
+    if (rpcError) {
+      console.error('Error creating/fetching conversation via RPC', rpcError);
+      throw rpcError;
     }
 
-    if (convs && convs.length > 0) {
-      return convs[0].id;
-    }
-
-    // Se não existir, cria uma nova
-    const { data: newConv, error: insertError } = await supabase
-      .from('conversations')
-      .insert({
-        company_a_id: minId,
-        company_b_id: maxId,
-        organization_a_id: minId,
-        organization_b_id: maxId,
-        status: 'ativo'
-      })
-      .select('id')
-      .single();
-
-    if (insertError) {
-      console.error('Error creating conversation', insertError);
-      throw insertError;
-    }
-
-    return newConv.id;
+    return convId;
   }
 
   async getMessages(conversationId: string): Promise<ChatMessage[]> {
@@ -76,23 +57,36 @@ export class SupabaseChatRepository {
   }
 
   async sendMessage(conversationId: string, senderOrgId: string, content: string, senderUserId?: string): Promise<ChatMessage> {
-    const { data, error } = await supabase
-      .from('messages')
-      .insert({
-        conversation_id: conversationId,
-        sender_organization_id: senderOrgId,
-        sender_id: senderUserId,
-        content: content
-      })
-      .select('*')
-      .single();
+    console.log('CHAT_MESSAGE_INSERT_RPC', {
+      conversationId,
+      senderId: senderUserId,
+      senderOrganizationId: senderOrgId,
+      contentLength: content?.length,
+    });
 
-    if (error) {
-      console.error('Error sending message', error);
-      throw error;
+    const { data: msgId, error: rpcError } = await supabase
+      .rpc('send_partner_message', {
+        p_conversation_id: conversationId,
+        p_content: content
+      });
+
+    console.log('CHAT_MESSAGE_RPC_RESULT', { data: msgId, error: rpcError });
+
+    if (rpcError) {
+      console.error('Error sending message via RPC', rpcError);
+      throw rpcError;
     }
     
-    return data;
+    // As the RPC returns a UUID, we mock a ChatMessage structure to not break the frontend that expects the created object back.
+    // In a real app we might want the RPC to return the full record, or fetch it.
+    return {
+      id: msgId,
+      conversation_id: conversationId,
+      sender_id: senderUserId,
+      sender_organization_id: senderOrgId,
+      content: content,
+      created_at: new Date().toISOString()
+    };
   }
 
   async uploadAttachment(conversationId: string, senderOrgId: string, file: File, senderUserId?: string): Promise<ChatMessage> {
