@@ -35,7 +35,7 @@ export function AppLayout() {
   const location = useLocation();
   const navigate  = useNavigate();
   const { items, isCartOpen, setCartOpen, removeItem, updateQuantity, updateNotes, clearCart } = useQuotationCart();
-  const { isChatOpen, openChat } = useChatDrawer();
+  const { isChatOpen, openInbox } = useChatDrawer();
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
 
   const [companyLogo, setCompanyLogo] = useState<string | null>(
@@ -501,7 +501,7 @@ export function AppLayout() {
             {/* Ações (Chats, Carrinho, Notificações) */}
             <div className="flex items-center gap-4">
               <button
-                onClick={() => openChat('')}
+                onClick={() => openInbox()}
                 className={cn(
                   "flex items-center gap-1.5 text-sm font-medium transition-colors",
                   isChatOpen ? "text-indigo-700" : "text-slate-500 hover:text-indigo-600"

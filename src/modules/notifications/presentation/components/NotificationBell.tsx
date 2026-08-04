@@ -57,7 +57,12 @@ function NotificationCard({ notification, onAction }: { notification: Notificati
     await markAsRead(notification.id);
     if ((notification.type as string) === 'chat_message' && notification.metadata?.partnerOrganizationId) {
       window.dispatchEvent(new CustomEvent('supplyhub:open-chat', { 
-        detail: { partnerOrganizationId: notification.metadata.partnerOrganizationId }
+        detail: {
+          conversationId: notification.metadata.conversationId,
+          partnerOrganizationId: notification.metadata.partnerOrganizationId,
+          partnerName: notification.metadata.partnerName,
+          messageId: notification.metadata.messageId,
+        }
       }));
     } else if (notification.action_url) {
       navigate(notification.action_url);

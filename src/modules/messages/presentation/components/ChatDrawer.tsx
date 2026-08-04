@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import {
   Send, X, Paperclip, FileText, ShieldAlert,
   AlertTriangle, Maximize2, Check, CheckCheck,
-  Bell, BellOff, MessageSquare
+  Bell, BellOff, MessageSquare, ArrowLeft, Search
 } from 'lucide-react';
 import { useChatDrawer } from '../context/ChatDrawerContext';
 import { useNotifications } from '@/modules/notifications/presentation/context/NotificationContext';
@@ -53,10 +53,11 @@ const getPartnersMap = (): Record<string, Partner> => {
 };
 
 export function ChatDrawer() {
-  const { isChatOpen, activePartnerId, activePartnerData, activeConversationId, closeChat, openChat } = useChatDrawer();
+  const { isChatOpen, activePartnerId, activePartnerData, activeConversationId, viewMode, openChat, backToInbox, closeChat, conversations, unlockAudio } = useChatDrawer();
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState('');
+  const [searchInbox, setSearchInbox] = useState('');
   const [complianceError, setComplianceError] = useState<string | null>(null);
   const [isQuotationModalOpen, setIsQuotationModalOpen] = useState(false);
   const [showPartnerSelector, setShowPartnerSelector] = useState(false);
@@ -137,7 +138,13 @@ export function ChatDrawer() {
     } else {
        setMessages([]);
     }
-  }, [activeConversationId]);
+  }, [activeConversationId, activeOrgId]);
+
+  useEffect(() => {
+    if (activeConversationId && activeOrgId) {
+      chatRepository.markAsRead(activeConversationId, activeOrgId).catch(console.error);
+    }
+  }, [activeConversationId, activeOrgId, messages]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -209,63 +216,134 @@ export function ChatDrawer() {
     handleSend(`Solicitei uma cotação: ${data.productName} (${data.code})`);
   };
 
+  const filteredConversations = (conversations || []).filter(c =>
+    c.partnerName.toLowerCase().includes(searchInbox.toLowerCase()) || 
+    (c.lastMessage && c.lastMessage.toLowerCase().includes(searchInbox.toLowerCase()))
+  );
+
   return (
     <>
       {isChatOpen && (
-      <div className="fixed right-0 top-0 h-full w-96 bg-white border-l border-slate-200 shadow-2xl z-40 flex flex-col animate-in slide-in-from-right duration-300">
+      <div 
+        className="fixed right-0 top-0 h-full w-96 bg-white border-l border-slate-200 shadow-2xl z-40 flex flex-col animate-in slide-in-from-right duration-300"
+        onPointerDown={unlockAudio}
+        onClick={unlockAudio}
+      >
         
-        {partner ? (
+        {viewMode === 'inbox' ? (
+          <div className="flex-1 flex flex-col h-full bg-white">
+            <div className="h-16 px-4 border-b border-slate-200 flex items-center justify-between bg-slate-50 shrink-0">
+              <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
+                Conversas
+              </h3>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={toggleSound}
+                  className="p-1.5 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100 transition-colors"
+                  title={soundEnabled ? 'Som ativado' : 'Som desativado'}
+                >
+                  {soundEnabled ? <Bell className="h-4 w-4" /> : <BellOff className="h-4 w-4" />}
+                </button>
+                <button onClick={closeChat} className="p-1.5 hover:bg-slate-200 rounded-full text-slate-500">
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+            </div>
+            <div className="p-4 border-b border-slate-100 shrink-0">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Pesquisar..."
+                  value={searchInbox}
+                  onChange={e => setSearchInbox(e.target.value)}
+                  className="w-full pl-9 h-10 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-indigo-500"
+                />
+              </div>
+            </div>
+            <div className="flex-1 overflow-y-auto">
+              {filteredConversations.length === 0 ? (
+                <div className="flex-1 flex flex-col items-center justify-center text-center p-8 mt-10">
+                  <div className="h-16 w-16 bg-slate-100 rounded-full flex items-center justify-center mb-4 border border-slate-200">
+                    <MessageSquare className="h-8 w-8 text-slate-400" />
+                  </div>
+                  <h4 className="text-sm font-bold text-slate-900 mb-2">Nenhum resultado</h4>
+                  <p className="text-xs text-slate-500 mb-6">
+                    {searchInbox ? 'Sua busca não retornou resultados.' : 'Você ainda não possui conversas comerciais.'}
+                  </p>
+                  {!searchInbox && (
+                    <a href="/suppliers/network" className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold h-10 px-6 rounded-xl flex items-center justify-center shadow-md">
+                      Iniciar nova conversa
+                    </a>
+                  )}
+                </div>
+              ) : (
+                <div className="divide-y divide-slate-100">
+                  {filteredConversations.map(conv => {
+                    const displayLastMessage = conv.lastMessageSenderOrganizationId === activeOrgId 
+                      ? `Você: ${conv.lastMessage}` 
+                      : conv.lastMessage;
+                    return (
+                    <button
+                      key={conv.conversationId}
+                      onClick={() => openChat(conv.partnerOrganizationId, { name: conv.partnerName })}
+                      className="w-full text-left p-4 hover:bg-slate-50 transition-colors flex items-start gap-4"
+                    >
+                      <div className="relative flex-shrink-0 mt-0.5">
+                        <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white font-bold text-xs">
+                          {conv.partnerInitials}
+                        </div>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex justify-between items-center mb-1">
+                          <p className="font-bold text-sm text-slate-900 truncate pr-2">{conv.partnerName}</p>
+                          <span className="text-[10px] font-medium text-slate-400 shrink-0">
+                            {new Date(conv.lastMessageAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <p className="text-xs text-slate-500 truncate pr-4">{displayLastMessage || 'Conversa iniciada'}</p>
+                          {conv.unreadCount > 0 && (
+                            <span className="h-4 min-w-[1rem] px-1.5 rounded-full bg-indigo-600 text-white flex items-center justify-center text-[10px] font-bold shrink-0">
+                              {conv.unreadCount}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </button>
+                  )})}
+                </div>
+              )}
+            </div>
+          </div>
+        ) : partner ? (
           <>
             {/* Header do Chat */}
             <div className="h-16 px-4 border-b border-slate-200 flex items-center justify-between bg-slate-50 shrink-0 relative">
-              <button
-                onClick={() => setShowPartnerSelector(prev => !prev)}
-                className="flex items-center gap-3 hover:bg-slate-100 px-2 py-1 rounded-xl transition-colors group flex-1 min-w-0 text-left"
-                title="Trocar conversa"
-              >
-                <div className={`h-9 w-9 rounded-xl bg-gradient-to-br ${partner.gradient} flex items-center justify-center text-white font-bold text-xs shrink-0`}>
-                  {partner.initials}
+              <div className="flex items-center flex-1 min-w-0">
+                <button onClick={backToInbox} className="p-1.5 hover:bg-slate-200 rounded-full text-slate-500 mr-1 shrink-0" title="Voltar para Inbox">
+                  <ArrowLeft className="h-5 w-5" />
+                </button>
+                <div className="flex items-center gap-3 px-2 py-1 flex-1 min-w-0 text-left">
+                  <div className={`h-9 w-9 rounded-xl bg-gradient-to-br ${partner.gradient} flex items-center justify-center text-white font-bold text-xs shrink-0`}>
+                    {partner.initials}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-bold text-slate-900 text-xs leading-none truncate">
+                      {partner.name}
+                    </p>
+                    <p className="text-[10px] text-slate-500 mt-1 flex items-center gap-1">
+                      {partner.isOnline
+                        ? <><span className="h-1.5 w-1.5 rounded-full bg-green-500 inline-block" />Online</>
+                        : 'Offline'
+                      }
+                      · {partner.segment}
+                    </p>
+                  </div>
                 </div>
-                <div className="min-w-0">
-                  <p className="font-bold text-slate-900 text-xs leading-none flex items-center gap-1">
-                    {partner.name}
-                    <span className={`text-slate-400 text-[10px] transition-transform ${showPartnerSelector ? 'rotate-180' : ''}`}>▼</span>
-                  </p>
-                  <p className="text-[10px] text-slate-500 mt-1 flex items-center gap-1">
-                    {partner.isOnline
-                      ? <><span className="h-1.5 w-1.5 rounded-full bg-green-500 inline-block" />Online</>
-                      : 'Offline'
-                    }
-                    · {partner.segment}
-                  </p>
-                </div>
-              </button>
+              </div>
 
-              {/* Dropdown Seletor de Parceiros */}
-              {showPartnerSelector && (
-                <div className="absolute top-16 left-0 right-0 bg-white border-b border-slate-200 shadow-md z-50">
-                  <p className="px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">Conversas</p>
-                  {partnersList.map(p => (
-                    <button
-                      key={p.id}
-                      onClick={() => {
-                        openChat(p.id);
-                        setShowPartnerSelector(false);
-                      }}
-                      className={`w-full flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 transition-colors text-left ${p.id === activePartnerId ? 'bg-indigo-50' : ''}`}
-                    >
-                      <div className={`h-8 w-8 rounded-lg bg-gradient-to-br ${p.gradient} flex items-center justify-center text-white font-bold text-[10px] shrink-0`}>
-                        {p.initials}
-                      </div>
-                      <div className="min-w-0">
-                        <p className={`text-xs font-bold truncate ${p.id === activePartnerId ? 'text-indigo-700' : 'text-slate-900'}`}>{p.name}</p>
-                        <p className="text-[10px] text-slate-400">{p.segment}</p>
-                      </div>
-                      {p.isOnline && <span className="ml-auto h-2 w-2 rounded-full bg-green-500 shrink-0" />}
-                    </button>
-                  ))}
-                </div>
-              )}
+              {/* Dropdown Seletor de Parceiros Removido - Inbox substitui isso */}
 
               <div className="flex items-center gap-1 shrink-0">
                 <button
@@ -398,27 +476,8 @@ export function ChatDrawer() {
             </div>
           </>
         ) : (
-          <div className="flex-1 flex flex-col">
-            <div className="h-16 px-4 border-b border-slate-200 flex items-center justify-between bg-slate-50 shrink-0 relative">
-              <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
-                Conversas
-              </h3>
-              <button onClick={closeChat} className="p-1.5 hover:bg-slate-200 rounded-full text-slate-500">
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            <div className="flex-1 flex flex-col items-center justify-center text-center p-8 bg-slate-50/50">
-              <div className="h-16 w-16 bg-slate-100 border border-slate-200 rounded-full flex items-center justify-center mb-4">
-                <FileText className="h-8 w-8 text-slate-400" />
-              </div>
-              <h4 className="text-sm font-bold text-slate-900 mb-2">Deseja iniciar novo chat?</h4>
-              <p className="text-xs text-slate-500 mb-6">
-                Você ainda não selecionou nenhuma empresa para conversar.
-              </p>
-              <a href="/suppliers/network" className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold h-10 px-6 rounded-xl flex items-center shadow-md">
-                Iniciar nova conversa
-              </a>
-            </div>
+          <div className="flex-1 flex flex-col justify-center items-center bg-slate-50 text-center p-8">
+            <h3 className="font-bold text-slate-800">Carregando conversa...</h3>
           </div>
         )}
 

@@ -9,8 +9,14 @@ interface ChatDrawerContextType {
   activePartnerId: string | null;
   activePartnerData: any | null;
   activeConversationId: string | null;
+  viewMode: 'inbox' | 'chat';
   openChat: (partnerId: string, partnerData?: any) => void;
+  openInbox: () => void;
+  backToInbox: () => void;
   closeChat: () => void;
+  conversations: any[];
+  unreadChatCount: number;
+  unlockAudio: () => void;
 }
 
 const ChatDrawerContext = createContext<ChatDrawerContextType | undefined>(undefined);
@@ -20,8 +26,12 @@ export function ChatDrawerProvider({ children }: { children: React.ReactNode }) 
   const [activePartnerId, setActivePartnerId] = useState<string | null>(null);
   const [activePartnerData, setActivePartnerData] = useState<any | null>(null);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<'inbox' | 'chat'>('inbox');
+  const [conversations, setConversations] = useState<any[]>([]);
   const { addMockNotification } = useNotifications();
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const unreadChatCount = conversations.reduce((acc, conv) => acc + (conv.unreadCount || 0), 0);
 
   const notifiedMessageIdsRef = useRef<Set<string>>(new Set());
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -39,6 +49,47 @@ export function ChatDrawerProvider({ children }: { children: React.ReactNode }) 
     audioRef.current.volume = 0.35;
     return () => { audioRef.current = null; };
   }, []);
+
+  const audioUnlockedRef = useRef(false);
+
+  const unlockAudio = useCallback(async () => {
+    if (audioUnlockedRef.current || !audioRef.current) return;
+    const originalVolume = audioRef.current.volume;
+    try {
+      audioRef.current.volume = 0;
+      console.log('CHAT_AUDIO_PLAY_ATTEMPT');
+      await audioRef.current.play();
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+      audioUnlockedRef.current = true;
+      const soundEnabled = localStorage.getItem('hubia_chat_sound_enabled') !== 'false';
+      console.log('CHAT_AUDIO_UNLOCK', {
+        unlocked: true,
+        enabled: soundEnabled,
+      });
+    } catch (error: any) {
+      console.warn('CHAT_AUDIO_PLAY_BLOCKED', {
+        name: error?.name,
+        message: error?.message,
+      });
+    } finally {
+      audioRef.current.volume = originalVolume;
+    }
+  }, []);
+
+  const loadConversations = useCallback(async () => {
+    if (!activeOrgId) return;
+    try {
+      const list = await chatRepository.listConversationsForCurrentOrganization(activeOrgId);
+      setConversations(list);
+    } catch (e) {
+      console.error('Failed to load conversations inbox', e);
+    }
+  }, [activeOrgId]);
+
+  useEffect(() => {
+    loadConversations();
+  }, [loadConversations]);
 
   useEffect(() => {
     if (!activeOrgId) return;
@@ -64,6 +115,7 @@ export function ChatDrawerProvider({ children }: { children: React.ReactNode }) 
           }
           
           if (!isDrawerOpenHere) {
+             const partnerName = message.sender_organization_id; // Will update after reload
              addMockNotification({
                type: 'chat_message' as any,
                title: 'Nova mensagem',
@@ -79,6 +131,9 @@ export function ChatDrawerProvider({ children }: { children: React.ReactNode }) 
              setToastMessage(`Nova mensagem recebida`);
              setTimeout(() => setToastMessage(null), 4000);
           }
+          
+          // Reload conversations to update inbox order and unread counts
+          loadConversations();
         }
       )
       .subscribe();
@@ -92,17 +147,18 @@ export function ChatDrawerProvider({ children }: { children: React.ReactNode }) 
     const handleOpenChatEvent = (e: Event) => {
       const customEvent = e as CustomEvent;
       if (customEvent.detail?.partnerOrganizationId) {
-        openChat(customEvent.detail.partnerOrganizationId);
+        openChat(customEvent.detail.partnerOrganizationId, { name: customEvent.detail.partnerName });
       }
     };
     window.addEventListener('supplyhub:open-chat', handleOpenChatEvent);
     return () => window.removeEventListener('supplyhub:open-chat', handleOpenChatEvent);
-  }, []);
+  }, [openChat]);
 
   const openChat = useCallback(async (partnerId: string, partnerData?: any) => {
     setActivePartnerId(partnerId);
     if (partnerData) setActivePartnerData(partnerData);
     setIsChatOpen(true);
+    setViewMode('chat');
     
     // Attempt to get or create conversation in the background
     try {
@@ -124,15 +180,32 @@ export function ChatDrawerProvider({ children }: { children: React.ReactNode }) 
     }
   }, []);
 
+  const openInbox = useCallback(() => {
+    setIsChatOpen(true);
+    setViewMode('inbox');
+    loadConversations();
+  }, [loadConversations]);
+
+  const backToInbox = useCallback(() => {
+    setViewMode('inbox');
+    setActiveConversationId(null);
+    loadConversations();
+  }, [loadConversations]);
+
   const closeChat = useCallback(() => {
     setIsChatOpen(false);
     setActivePartnerId(null);
     setActivePartnerData(null);
     setActiveConversationId(null);
+    setViewMode('inbox');
   }, []);
 
   return (
-    <ChatDrawerContext.Provider value={{ isChatOpen, activePartnerId, activePartnerData, activeConversationId, openChat, closeChat }}>
+    <ChatDrawerContext.Provider value={{ 
+      isChatOpen, activePartnerId, activePartnerData, activeConversationId, viewMode, 
+      openChat, openInbox, backToInbox, closeChat, 
+      conversations, unreadChatCount, unlockAudio 
+    }}>
       {children}
       {toastMessage && (
         <div className="fixed bottom-4 right-4 bg-slate-800 text-white px-4 py-3 rounded-xl shadow-lg z-50 flex items-center gap-3 animate-in fade-in slide-in-from-bottom-5">
