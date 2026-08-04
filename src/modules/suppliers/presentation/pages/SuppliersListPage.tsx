@@ -35,7 +35,18 @@ export default function SuppliersListPage() {
             .from('invitations')
             .select('*')
             .eq('organization_id', orgId)
-            .in('status', ['pendente', 'aceito']);
+            .in('status', ['pendente']);
+            
+         // Busca conexões bidirecionais
+         const { data: connections } = await supabase
+            .from('connection_requests')
+            .select('*')
+            .or(`requester_company_id.eq.${orgId},target_company_id.eq.${orgId}`)
+            .eq('status', 'accepted');
+            
+         const partnerIds = (connections || []).map((c: any) => 
+            c.requester_company_id === orgId ? c.target_company_id : c.requester_company_id
+         );
             
          const docs = (invs || []).map((i: any) => i.document).filter(Boolean);
          const { data: orgs } = await supabase
@@ -44,10 +55,40 @@ export default function SuppliersListPage() {
               *,
               empresa_certificacoes(certifications(name))
             `)
-            .in('cnpj', docs)
+            .or(`cnpj.in.(${docs.length > 0 ? docs.map(d=>`"${d}"`).join(',') : '""'}),id.in.(${partnerIds.length > 0 ? partnerIds.map(p=>`"${p}"`).join(',') : '""'})`)
             .in('status', ['ativo', 'active'])
             .or('is_platform_internal.is.null,is_platform_internal.eq.false');
             
+         const mappedConnections = (connections || []).map((conn: any) => {
+            const partnerId = conn.requester_company_id === orgId ? conn.target_company_id : conn.requester_company_id;
+            const org = (orgs || []).find((o: any) => o.id === partnerId);
+            return {
+              id: conn.id,
+              name: org?.razao_social || org?.nome_fantasia || org?.name || 'Empresa Desconhecida',
+              document: org?.cnpj || '-',
+              segment: org?.segment || 'Não definido',
+              city: org?.city || '-',
+              state: org?.state || '-',
+              status: 'accepted' as const,
+              connectionId: conn.id,
+              employeesRange: '-',
+              rating: 0,
+              responseTime: '-',
+              quotationsCount: 0,
+              products: [],
+              email: org?.email_corporativo || org?.business_email,
+              contact_name: undefined,
+              message: undefined,
+              perfil_comercial: org?.perfil_comercial || org?.business_model,
+              tipo_empresa: org?.tipo_empresa,
+              certifications: org?.empresa_certificacoes ? org.empresa_certificacoes.map((ec: any) => ec?.certifications?.name).filter(Boolean).join(', ') : undefined,
+              raio_atendimento_km: org?.raio_atendimento_km,
+              score_hubia: undefined,
+              phone: org?.telefone || org?.phone,
+              website: org?.website
+            };
+         });
+         
          const mappedInvites = (invs || []).map((inv: any) => {
             const org = (orgs || []).find((o: any) => o.cnpj === inv.document);
             return {
@@ -57,7 +98,7 @@ export default function SuppliersListPage() {
               segment: org?.segment || ((inv.segments && inv.segments.length > 0) ? inv.segments.join(', ') : 'Não definido'),
               city: org?.city || inv.city || '-',
               state: org?.state || inv.state || '-',
-              status: inv.status === 'pendente' ? 'pending_sent' as const : (inv.status === 'aceito' ? 'accepted' as const : inv.status as any),
+              status: inv.status === 'pendente' ? 'pending_sent' as const : (inv.status as any),
               connectionId: '',
               employeesRange: '-',
               rating: 0,
@@ -77,7 +118,7 @@ export default function SuppliersListPage() {
             };
          });
 
-         setPartners([...mappedInvites]);
+         setPartners([...mappedConnections, ...mappedInvites]);
        } catch(e) {
          console.error('Erro ao carregar parceiros:', e);
        }

@@ -20,11 +20,15 @@ export interface ChatMessage {
 
 export class SupabaseChatRepository {
   async getOrCreateConversation(orgIdA: string, orgIdB: string): Promise<string> {
+    // Sort IDs to match unique index canonical form
+    const [minId, maxId] = orgIdA < orgIdB ? [orgIdA, orgIdB] : [orgIdB, orgIdA];
+
     // Tenta encontrar uma conversa existente entre as duas orgs
     const { data: convs, error: fetchError } = await supabase
       .from('conversations')
       .select('id')
-      .or(`and(company_a_id.eq.${orgIdA},company_b_id.eq.${orgIdB}),and(company_a_id.eq.${orgIdB},company_b_id.eq.${orgIdA})`)
+      .eq('company_a_id', minId)
+      .eq('company_b_id', maxId)
       .limit(1);
 
     if (fetchError) {
@@ -40,8 +44,11 @@ export class SupabaseChatRepository {
     const { data: newConv, error: insertError } = await supabase
       .from('conversations')
       .insert({
-        company_a_id: orgIdA,
-        company_b_id: orgIdB
+        company_a_id: minId,
+        company_b_id: maxId,
+        organization_a_id: minId,
+        organization_b_id: maxId,
+        status: 'ativo'
       })
       .select('id')
       .single();

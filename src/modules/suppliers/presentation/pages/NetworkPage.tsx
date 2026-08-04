@@ -279,25 +279,25 @@ export default function NetworkPage() {
         };
       });
 
-      // Busca convites existentes (pendentes + aceitos) para marcar status de relacionamento
+      // Busca conexões aceitas bidirecionais
       let partnerIds = new Set<string>();
       let pendingIds = new Set<string>();
 
       if (tenantId && tenantId !== '00000000-0000-0000-0000-000000000000') {
-        const { data: sentInvites } = await supabase
-          .from('invitations')
-          .select('company, status')
-          .eq('organization_id', tenantId)
-          .in('status', ['pendente', 'aceito']);
+        const { data: connections } = await supabase
+          .from('connection_requests')
+          .select('requester_company_id, target_company_id, status')
+          .or(`requester_company_id.eq.${tenantId},target_company_id.eq.${tenantId}`);
 
-        (sentInvites || []).forEach(inv => {
-          // Tenta encontrar a org pelo nome da empresa no convite
-          const matched = allOrgs.find(o =>
-            (o.razao_social || o.name || '').toLowerCase() === (inv.company || '').toLowerCase()
-          );
-          if (matched) {
-            if (inv.status === 'aceito') partnerIds.add(matched.id);
-            if (inv.status === 'pendente') pendingIds.add(matched.id);
+        (connections || []).forEach(conn => {
+          const partnerId = conn.requester_company_id === tenantId 
+            ? conn.target_company_id 
+            : conn.requester_company_id;
+            
+          if (conn.status === 'accepted') {
+            partnerIds.add(partnerId);
+          } else if (conn.status === 'pending') {
+            pendingIds.add(partnerId);
           }
         });
       }
