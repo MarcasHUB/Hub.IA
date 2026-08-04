@@ -30,6 +30,27 @@ export default function SuppliersListPage() {
          setTenantId(orgId);
          
          const { supabase } = await import('@/infrastructure/supabase/client');
+
+         console.group('--- DEBUG C1.2.7 QUERY AUDIT ---');
+         
+         const q1 = await supabase.from('connection_requests').select('*');
+         console.log('1. SEM FILTROS:', q1.data, q1.error);
+         
+         const q2 = await supabase.from('connection_requests').select('*').eq('status', 'accepted');
+         console.log('2. COM STATUS:', q2.data, q2.error);
+         
+         const q3 = await supabase.from('connection_requests').select('*').or(`requester_company_id.eq.${orgId},target_company_id.eq.${orgId}`);
+         console.log('3. COM OR:', q3.data, q3.error);
+         
+         const q4 = await supabase.from('connection_requests').select('*').or(`requester_company_id.eq.${orgId},target_company_id.eq.${orgId}`).eq('status','accepted');
+         console.log('4. COM OR + STATUS:', q4.data, q4.error);
+         
+         // @ts-ignore
+         console.log('SUPABASE URL/KEY:', supabase.supabaseUrl, supabase.supabaseKey?.substring(0,20));
+         console.groupEnd();
+         
+         // Early return for diagnosis
+         return;
          
          const { data: invs } = await supabase
             .from('invitations')
