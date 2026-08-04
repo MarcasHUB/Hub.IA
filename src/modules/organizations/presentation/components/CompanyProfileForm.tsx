@@ -70,7 +70,6 @@ export function CompanyProfileForm({
     coverageRadius: '',
     area_cobertura_estados: '',
     geographicCoverageType: null as GeographicCoverageType | null,
-    certificacoes: '',
     cnae_principal: '',
     cnaes_secundarios: [] as string[],
     razao_social: '',
@@ -93,6 +92,8 @@ export function CompanyProfileForm({
   const [initialized, setInitialized] = useState(false);
   const [selectedSegments, setSelectedSegments] = useState<string[]>([]);
   const [availableSegments, setAvailableSegments] = useState<{id: string, nome: string}[]>([]);
+  const [selectedCertifications, setSelectedCertifications] = useState<string[]>([]);
+  const [availableCertifications, setAvailableCertifications] = useState<{id: string, name: string}[]>([]);
   const [sugestoesHubIA, setSugestoesHubIA] = useState<string[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -133,12 +134,12 @@ export function CompanyProfileForm({
         geographicCoverageType: initialData.geographic_coverage_type || null,
         coverageRadius: initialData.raio_atendimento_km?.toString() || '',
         area_cobertura_estados: initialCoverageStates.join(', '),
-        certificacoes: initialCertifications.join(', '),
         cnae_principal: initialData.cnae_principal || '',
         cnaes_secundarios: initialSecondaryCnaes,
         commercialProfile: initialData.commercialProfile || '',
       });
       setSelectedSegments(initialSegments);
+      setSelectedCertifications(initialCertifications);
       setInitialized(true);
     }
   }, [initialData, initialized, initialCoverageStates, initialCertifications, initialSecondaryCnaes, initialSegments]);
@@ -154,6 +155,12 @@ export function CompanyProfileForm({
           console.error('[CompanyProfileForm] RLS Error on segments:', err);
         });
     });
+
+    supabase.from('certifications').select('id, name')
+      .then(({ data }) => {
+        if (data) setAvailableCertifications(data);
+      })
+      .catch(err => console.error('[CompanyProfileForm] Error fetching certifications', err));
 
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (user) {
@@ -285,7 +292,7 @@ export function CompanyProfileForm({
     setIsSaving(true);
     setSaveError('');
     try {
-      await onSave({ ...form, selectedSegments });
+      await onSave({ ...form, selectedSegments, selectedCertifications });
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     } catch (error: any) {
@@ -338,10 +345,14 @@ export function CompanyProfileForm({
               selectedSegments={selectedSegments}
               availableSegments={availableSegments}
               sugestoesHubIA={sugestoesHubIA}
+              selectedCertifications={selectedCertifications}
+              availableCertifications={availableCertifications}
               readOnly={readOnly}
               isSuperAdmin={effectiveIsSuperAdmin}
               onAddSegment={seg => setSelectedSegments(prev => prev.includes(seg) ? prev : [...prev, seg])}
               onRemoveSegment={seg => setSelectedSegments(prev => prev.filter(s => s !== seg))}
+              onAddCertification={cert => setSelectedCertifications(prev => prev.includes(cert) ? prev : [...prev, cert])}
+              onRemoveCertification={cert => setSelectedCertifications(prev => prev.filter(c => c !== cert))}
               onAcceptSuggestions={() => setSelectedSegments(prev => Array.from(new Set([...prev, ...sugestoesHubIA])))}
               onOpenNewSegmentModal={() => {}}
             />

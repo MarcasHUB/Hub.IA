@@ -40,7 +40,6 @@ export interface CompanyCommercialDataSectionProps {
     coverageRadius: string;
     area_cobertura_estados: string;
     geographicCoverageType: GeographicCoverageType | null;
-    certificacoes: string;
     cnae_principal: string;
     cnaes_secundarios: string[];
   };
@@ -48,8 +47,12 @@ export interface CompanyCommercialDataSectionProps {
   selectedSegments: string[];
   availableSegments: { id: string; nome: string }[];
   sugestoesHubIA: string[];
+  selectedCertifications: string[];
+  availableCertifications: { id: string; name: string }[];
   onAddSegment: (segment: string) => void;
   onRemoveSegment: (segment: string) => void;
+  onAddCertification: (cert: string) => void;
+  onRemoveCertification: (cert: string) => void;
   onAcceptSuggestions: () => void;
   onOpenNewSegmentModal: () => void;
   readOnly?: boolean;
@@ -62,8 +65,12 @@ export function CompanyCommercialDataSection({
   selectedSegments,
   availableSegments,
   sugestoesHubIA,
+  selectedCertifications,
+  availableCertifications,
   onAddSegment,
   onRemoveSegment,
+  onAddCertification,
+  onRemoveCertification,
   onAcceptSuggestions,
   onOpenNewSegmentModal,
   readOnly,
@@ -137,14 +144,39 @@ export function CompanyCommercialDataSection({
         />
       </div>
 
-      <Field 
-        label="Certificações" 
-        icon={Shield} 
-        value={form.certificacoes} 
-        onChange={v => onChange('certificacoes', v)} 
-        placeholder="Ex: ISO 9001, ISO 14001" 
-        readOnly={readOnly}
-      />
+      <div className="space-y-3 mt-4">
+        <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1">
+          <Shield className="h-3 w-3" /> Certificações
+        </label>
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-wrap gap-2">
+            {selectedCertifications.map(cert => (
+              <span key={cert} className="px-3 py-1.5 bg-emerald-50 text-emerald-700 text-xs font-bold rounded-lg border border-emerald-100 flex items-center gap-1">
+                {cert}
+                <button onClick={() => onRemoveCertification(cert)} className="hover:text-emerald-900">&times;</button>
+              </span>
+            ))}
+          </div>
+          <div className="flex items-center gap-2">
+            <select
+              className="h-9 px-3 pr-8 text-sm border border-slate-200 rounded-lg appearance-none bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 min-w-[200px]"
+              onChange={(e) => {
+                const val = e.target.value;
+                if (val) {
+                  onAddCertification(val);
+                }
+                e.target.value = '';
+              }}
+              disabled={readOnly}
+            >
+              <option value="">Adicionar certificação...</option>
+              {availableCertifications.map(c => (
+                <option key={c.id} value={c.name}>{c.name}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+      </div>
       
       <hr className="border-slate-100" />
       

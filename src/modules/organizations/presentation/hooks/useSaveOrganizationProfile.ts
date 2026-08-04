@@ -24,7 +24,7 @@ export function useSaveOrganizationProfile() {
     // 1. CARREGAR E VALIDAR TUDO (Catálogos) ANTES DE APAGAR QUALQUER COISA
     const validationErrors: string[] = [];
     
-    const rawCerts = formData.certificacoes ? String(formData.certificacoes).split(',').map(c => c.trim()).filter(Boolean) : [];
+    const rawCerts = formData.selectedCertifications ? Array.from(new Set(formData.selectedCertifications as string[])) : [];
     const uniqueCerts = Array.from(new Set(rawCerts));
     const resolvedCertifications: any[] = [];
     
@@ -94,7 +94,7 @@ export function useSaveOrganizationProfile() {
     const partialErrors: string[] = [];
 
     // Certificações
-    if (formData.certificacoes !== undefined) {
+    if (formData.selectedCertifications !== undefined) {
       const { error: delCertError } = await supabase.from('empresa_certificacoes').delete().eq('organization_id', organizationId);
       if (delCertError) {
         partialErrors.push('Não foi possível limpar certificações antigas.');
