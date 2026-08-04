@@ -78,8 +78,8 @@ export function MyProfilePage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Usuário não autenticado');
 
-      const fileName = `${user.id}-${Math.random()}.${fileExt}`;
-      const filePath = `${fileName}`;
+      const fileName = `${user.id}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+      const filePath = `${user.id}/${fileName}`;
 
       const { error: uploadError } = await supabase.storage
         .from('avatars')
@@ -112,17 +112,14 @@ export function MyProfilePage() {
       if (!user) throw new Error('Usuário não autenticado');
 
       const { error } = await supabase
-        .from('profiles')
-        .update({
-          full_name: fullName,
-          display_name: displayName,
-          phone,
-          job_title: jobTitle,
-          department,
-          avatar_url: avatarUrl,
-          updated_at: new Date().toISOString()
-        })
-        .eq('user_id', user.id);
+        .rpc('update_my_profile', {
+          p_full_name: fullName,
+          p_display_name: displayName,
+          p_phone: phone,
+          p_job_title: jobTitle,
+          p_department: department,
+          p_avatar_url: avatarUrl
+        });
 
       if (error) throw error;
 

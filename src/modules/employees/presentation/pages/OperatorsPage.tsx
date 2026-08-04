@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Users, UserPlus, Shield, UserCheck, Search,
@@ -17,6 +17,8 @@ import { SupabaseCategoryRepository } from '@/modules/categories/infrastructure/
 import { SupabaseDelegationRepository } from '../../infrastructure/repositories/SupabaseDelegationRepository';
 import { EditOperatorModal } from '../components/EditOperatorModal';
 import { OperatorDetailsModal } from '../components/OperatorDetailsModal';
+
+import { supabase } from '@/infrastructure/supabase/client';
 
 // ─── Badges ───────────────────────────────────────────────────────────────────
 const STATUS_CONFIG: Record<OperatorStatus, { label: string; dot: string; badge: string }> = {
@@ -482,6 +484,26 @@ function InviteModal({ onClose, onInvite, operators, organizationId }: { onClose
 export default function OperatorsPage({ organizationId }: { organizationId?: string }) {
   const queryClient = useQueryClient();
   const orgId = organizationId || localStorage.getItem('supplyhub_organization_id') || '00000000-0000-0000-0000-000000000000';
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  const [remoteLoggedOperator, setRemoteLoggedOperator] = useState<Operator | null>(null);
+
+  useEffect(() => {
+    async function checkPermissions() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      
+      // Fetch is_super_admin from remote
+      const { data: profile } = await supabase.from('profiles').select('is_super_admin').eq('user_id', user.id).maybeSingle();
+      if (profile?.is_super_admin) {
+        setIsSuperAdmin(true);
+      }
+      
+      // Fetch operator remote details
+      const { data: opData } = await supabase.from('operators').select('*').eq('id', user.id).maybeSingle();
+      if (opData) setRemoteLoggedOperator(opData as unknown as Operator);
+    }
+    checkPermissions();
+  }, []);
 
   const { data: operators = [], isLoading: isLoadingOps } = useQuery({
     queryKey: ['operators', orgId],
@@ -962,7 +984,7 @@ export default function OperatorsPage({ organizationId }: { organizationId?: str
                                       <button onClick={() => handleUpdateStatus(op, 'ativo')} className="w-full text-left px-4 py-2 text-xs text-green-600 hover:bg-green-50 font-medium">Reativar Operador</button>
                                     </>
                                   )}
-                                  {op.status !== 'cancelado' && (
+                                  {op.status !== 'cancelado' && (isSuperAdmin || (remoteLoggedOperator?.perfil === 'administrador' && remoteLoggedOperator?.status === 'ativo' && remoteLoggedOperator?.organization_id === op.organization_id)) && (
                                     <div className="border-t border-slate-100 mt-1 py-1">
                                       <button onClick={() => handleDeleteOperator(op)} className="w-full text-left px-4 py-2 text-xs text-red-600 hover:bg-red-50 font-medium">Excluir Operador</button>
                                     </div>
