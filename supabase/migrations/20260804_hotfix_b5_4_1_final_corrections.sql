@@ -34,7 +34,7 @@ BEGIN
         job_title = p_job_title,
         department = p_department,
         avatar_url = p_avatar_url,
-        updated_at = now()
+        updated_at = pg_catalog.now()
     WHERE user_id = v_user_id
     RETURNING * INTO v_updated_profile;
 

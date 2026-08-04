@@ -16,7 +16,7 @@ CREATE OR REPLACE FUNCTION public.delete_operator_permanently(p_operator_id uuid
 RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public, auth
+SET search_path = ''
 AS $$
 DECLARE
     v_caller_id uuid;
@@ -109,7 +109,7 @@ BEGIN
     -- Limpar Auth (Usuário da Plataforma)
     DELETE FROM auth.users WHERE id = p_operator_id;
 
-    RETURN jsonb_build_object(
+    RETURN pg_catalog.jsonb_build_object(
         'success', true,
         'message', 'Operador excluído definitivamente.',
         'operator_id', p_operator_id

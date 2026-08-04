@@ -3,8 +3,9 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Users, UserPlus, Shield, UserCheck, Search,
   Mail, MoreVertical, XCircle, Layers, CheckCircle2, Copy,
-  Smartphone, Monitor, Check, X
+  Smartphone, Monitor, Check, X, Trash2, AlertCircle
 } from 'lucide-react';
+import { Dialog } from '@/shared/components/ui/Dialog';
 import { EmailService } from '@/shared/utils/EmailService';
 import { Button } from '@/shared/components/ui/Button';
 import { Input } from '@/shared/components/ui/Input';
@@ -486,6 +487,8 @@ export default function OperatorsPage({ organizationId }: { organizationId?: str
   const orgId = organizationId || localStorage.getItem('supplyhub_organization_id') || '00000000-0000-0000-0000-000000000000';
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [remoteLoggedOperator, setRemoteLoggedOperator] = useState<Operator | null>(null);
+  const [operatorToDelete, setOperatorToDelete] = useState<Operator | null>(null);
+  const [deleteConfirmationText, setDeleteConfirmationText] = useState('');
 
   useEffect(() => {
     async function checkPermissions() {
@@ -687,33 +690,36 @@ export default function OperatorsPage({ organizationId }: { organizationId?: str
   const handleDeleteOperator = async (op: Operator) => {
     setActiveMenu(null);
     setDetailsOperator(null);
-    
-    if (!op.id || !orgId) {
+    setOperatorToDelete(op);
+    setDeleteConfirmationText('');
+  };
+
+  const confirmDeleteOperator = async () => {
+    if (!operatorToDelete || !operatorToDelete.id || !orgId) {
        alert("Erro técnico: Identificador do operador ou organização não encontrado.");
        return;
     }
-
-    const displayName = (op.nome && op.nome !== 'Usuário Autenticado' && op.nome.trim() !== '')
-      ? `${op.nome} ${op.sobrenome || ''}`.trim()
-      : (op.email || 'Operador sem identificação');
-
-    if (!window.confirm(`ATENÇÃO: Deseja realmente excluir o operador ${displayName}?\n\nEsta ação removerá o operador das listas do sistema, mas manterá o histórico salvo para auditoria.`)) {
+    
+    if (deleteConfirmationText !== 'EXCLUIR') {
+      alert('Digite EXCLUIR para confirmar a exclusão.');
       return;
     }
-    
+
     const previousOperators = queryClient.getQueryData<Operator[]>(['operators', orgId]);
     
     queryClient.setQueryData(['operators', orgId], (old: Operator[] | undefined) => {
       if (!old) return [];
-      return old.filter(item => item.id !== op.id);
+      return old.filter(item => item.id !== operatorToDelete.id);
     });
 
     try {
       const repo = new SupabaseOperatorRepository();
-      await repo.deleteOperator(op.id);
+      await repo.deleteOperator(operatorToDelete.id);
+      setOperatorToDelete(null);
+      setDeleteConfirmationText('');
     } catch (err: any) {
       console.error(err);
-      alert('Erro ao excluir o operador.');
+      alert('Erro ao excluir o operador: ' + (err.message || 'Falha desconhecida.'));
       if (previousOperators) {
         queryClient.setQueryData(['operators', orgId], previousOperators);
       }
@@ -1003,6 +1009,59 @@ export default function OperatorsPage({ organizationId }: { organizationId?: str
           </div>
         </Card>
       </div>
+      {/* Delete Confirmation Modal */}
+      <Dialog open={!!operatorToDelete} onOpenChange={() => { setOperatorToDelete(null); setDeleteConfirmationText(''); }}>
+        <div className="p-6">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center shrink-0">
+              <AlertCircle className="w-5 h-5 text-red-600" />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-slate-900">Excluir conta definitivamente</h3>
+              <p className="text-sm text-slate-500">Esta ação é irreversível.</p>
+            </div>
+          </div>
+          
+          <div className="bg-red-50 border border-red-100 rounded-lg p-4 mb-6">
+            <p className="text-sm text-red-800 font-medium mb-2">Atenção, Administrador:</p>
+            <ul className="text-sm text-red-700 list-disc pl-5 space-y-1">
+              <li>Apaga o login, profile e operador.</li>
+              <li>A ação não pode ser desfeita.</li>
+              <li>Dados históricos relacionados serão preservados somente conforme as FKs e regras de auditoria.</li>
+            </ul>
+          </div>
+
+          <div className="mb-6">
+            <label className="block text-sm font-medium text-slate-700 mb-2">
+              Para confirmar, digite <span className="font-bold text-slate-900">EXCLUIR</span> no campo abaixo:
+            </label>
+            <input
+              type="text"
+              value={deleteConfirmationText}
+              onChange={(e) => setDeleteConfirmationText(e.target.value)}
+              placeholder="EXCLUIR"
+              className="w-full h-10 px-3 border border-slate-200 rounded-lg focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 text-sm font-medium"
+            />
+          </div>
+
+          <div className="flex items-center gap-3 justify-end mt-8">
+            <button
+              onClick={() => { setOperatorToDelete(null); setDeleteConfirmationText(''); }}
+              className="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 bg-white border border-slate-200 hover:bg-slate-50 rounded-lg transition-colors"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={confirmDeleteOperator}
+              disabled={deleteConfirmationText !== 'EXCLUIR'}
+              className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors flex items-center gap-2"
+            >
+              <Trash2 className="w-4 h-4" />
+              Excluir conta definitivamente
+            </button>
+          </div>
+        </div>
+      </Dialog>
     </div>
   );
 }
