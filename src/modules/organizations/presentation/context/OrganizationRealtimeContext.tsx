@@ -19,6 +19,7 @@ export function useOrganizationRealtime() {
 export function OrganizationRealtimeProvider({ children }: { children: React.ReactNode }) {
   const queryClient = useQueryClient();
   const channelRef = useRef<any>(null);
+  const knownStatusesRef = useRef<Map<string, string>>(new Map());
   
   useEffect(() => {
     // 1. Obtém o ID da organização ativa no momento da montagem/re-render
@@ -40,8 +41,17 @@ export function OrganizationRealtimeProvider({ children }: { children: React.Rea
           
           const isActive = newOrg.status === 'ativo';
           const orgId = newOrg.id;
+          const nextStatus = newOrg.status;
+          
+          const previousStatus = knownStatusesRef.current.get(orgId);
+          knownStatusesRef.current.set(orgId, nextStatus);
 
-          console.log(`[Realtime] Organization ${orgId} status updated to ${newOrg.status} (isActive: ${isActive})`);
+          if (previousStatus === undefined || previousStatus === nextStatus) {
+            // Se for a primeira vez vendo ou não houve mudança de status real, ignora.
+            return;
+          }
+
+          console.log(`[Realtime] Organization ${orgId} status changed from ${previousStatus} to ${nextStatus}`);
 
           // 3. Verifica se inativou a PRÓPRIA organização da sessão
           if (activeOrgId === orgId && !isActive) {

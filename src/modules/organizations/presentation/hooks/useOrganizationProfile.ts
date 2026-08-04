@@ -20,6 +20,14 @@ export function normalizeStringArray(value: unknown): string[] {
   return [];
 }
 
+export function parseLegacyRadius(value: any): number | null {
+  if (value === null || value === undefined) return null;
+  const normalized = String(value).replace(/\D/g, '');
+  if (!normalized) return null;
+  const parsed = parseInt(normalized, 10);
+  return Number.isSafeInteger(parsed) && parsed >= 0 ? parsed : null;
+}
+
 export interface OrganizationProfileData {
   id: string;
   name: string;
@@ -59,10 +67,10 @@ export function useOrganizationProfile(organizationId: string | null) {
         .from('organizations')
         .select(`
           *,
-          empresa_certificacoes(certifications(name)),
+          empresa_certificacoes(certification_id, certifications(id, name)),
           empresa_cnaes(cnae_code, is_primary),
           empresa_estados_atendidos(state_code),
-          organization_segments(segments(nome))
+          organization_segments(segment_id, segments(id, nome))
         `)
         .eq('id', organizationId!)
         .single();
@@ -112,8 +120,8 @@ export function useOrganizationProfile(organizationId: string | null) {
     latitude: data.latitude,
     longitude: data.longitude,
     tipo_empresa: data.tipo_empresa || '',
-    geographic_coverage_type: data.geographic_coverage_type as GeographicCoverageType | null,
-    raio_atendimento_km: data.raio_atendimento_km,
+    geographic_coverage_type: (data.geographic_coverage_type ?? data.tipo_cobertura ?? null) as GeographicCoverageType | null,
+    raio_atendimento_km: data.raio_atendimento_km ?? parseLegacyRadius(data.service_radius) ?? null,
     cnae_principal: data.cnae_principal || '',
     commercialProfile: data.perfil_comercial || '',
     profile_completion: data.profile_completion || 50,
