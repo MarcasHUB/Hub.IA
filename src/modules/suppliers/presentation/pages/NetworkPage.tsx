@@ -218,13 +218,29 @@ function CompanyCard({
           >
             Ver Perfil
           </button>
-          <button 
-            onClick={(e) => { e.stopPropagation(); onConnect(org); }}
-            className="w-full bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white font-bold text-[11px] px-2 h-9 flex items-center justify-center transition-all rounded-lg border-none"
-          >
-            <Network className="h-3.5 w-3.5 mr-1.5" />
-            Conectar
-          </button>
+          {org.isPendingSent ? (
+            <button 
+              disabled
+              className="w-full bg-slate-100 text-slate-500 font-bold text-[11px] px-2 h-9 flex items-center justify-center rounded-lg border border-slate-200 cursor-not-allowed"
+            >
+              Convite enviado
+            </button>
+          ) : org.isPendingReceived ? (
+            <button 
+              onClick={(e) => { e.stopPropagation(); window.location.href = '/suppliers/list'; }}
+              className="w-full bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white font-bold text-[11px] px-2 h-9 flex items-center justify-center transition-all rounded-lg border-none"
+            >
+              Responder convite
+            </button>
+          ) : (
+            <button 
+              onClick={(e) => { e.stopPropagation(); onConnect(org); }}
+              className="w-full bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white font-bold text-[11px] px-2 h-9 flex items-center justify-center transition-all rounded-lg border-none"
+            >
+              <Network className="h-3.5 w-3.5 mr-1.5" />
+              Conectar
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -281,7 +297,8 @@ export default function NetworkPage() {
 
       // Busca conexões aceitas bidirecionais
       let partnerIds = new Set<string>();
-      let pendingIds = new Set<string>();
+      let pendingSentIds = new Set<string>();
+      let pendingReceivedIds = new Set<string>();
 
       if (tenantId && tenantId !== '00000000-0000-0000-0000-000000000000') {
         const { data: connections, error: connectionsError } = await supabase
@@ -289,22 +306,20 @@ export default function NetworkPage() {
           .select('requester_company_id, target_company_id, status')
           .or(`requester_company_id.eq.${tenantId},target_company_id.eq.${tenantId}`);
 
-        console.log('--- DEBUG C1.2.6 ---');
-        console.log('tenantId', tenantId);
-        console.log('connection_requests', connections);
-        console.log('error', connectionsError);
-        console.log('organizations carregadas', orgs);
-        console.log('--------------------');
-
         (connections || []).forEach(conn => {
-          const partnerId = conn.requester_company_id === tenantId 
+          const isRequester = conn.requester_company_id === tenantId;
+          const partnerId = isRequester 
             ? conn.target_company_id 
             : conn.requester_company_id;
             
           if (conn.status === 'accepted') {
             partnerIds.add(partnerId);
           } else if (conn.status === 'pending') {
-            pendingIds.add(partnerId);
+            if (isRequester) {
+              pendingSentIds.add(partnerId);
+            } else {
+              pendingReceivedIds.add(partnerId);
+            }
           }
         });
       }
@@ -327,7 +342,8 @@ export default function NetworkPage() {
         return {
           ...o,
           isPartner: partnerIds.has(o.id),
-          hasPendingInvite: pendingIds.has(o.id),
+          isPendingSent: pendingSentIds.has(o.id),
+          isPendingReceived: pendingReceivedIds.has(o.id),
           materials_count: matCounts[o.id] || 0,
           segments_count: segCount,
         };
@@ -341,11 +357,30 @@ export default function NetworkPage() {
     }
   }, [tenantId]);
 
-  useEffect(() => { loadOrgs(); }, [loadOrgs]);
+  useEffect(() => {
+    loadOrgs();
+  }, [loadOrgs]);
 
-  // Filtra: remove parceiros e convites pendentes (eles ficam em "Meus Parceiros")
+  useEffect(() => {
+    const handleStatusChanged = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      const { organizationId, isActive } = customEvent.detail;
+      
+      if (!isActive) {
+        setOrgs(current => current.filter(org => org.id !== organizationId));
+      } else {
+        loadOrgs();
+      }
+    };
+    
+    window.addEventListener('hubia:organization-status-changed', handleStatusChanged);
+    return () => window.removeEventListener('hubia:organization-status-changed', handleStatusChanged);
+  }, [loadOrgs]);
+
+  // Filtra: remove apenas parceiros aceitos (isPartner) e oculta quem está com convite mas logado não é nem admin.
+  // Pending ficam na lista, o CompanyCard mostra "Convite enviado"
   const networkOrgs = useMemo(() =>
-    orgs.filter(o => !o.isPartner && !o.hasPendingInvite),
+    orgs.filter(o => !o.isPartner),
     [orgs]
   );
 

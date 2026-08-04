@@ -31,6 +31,8 @@ export default function LoginPage() {
   React.useEffect(() => {
     if (reason === 'session_terminated') {
       setErrorMsg('Sua sessão foi encerrada porque esta conta foi conectada em outro dispositivo.');
+    } else if (reason === 'tenant_inactive') {
+      setErrorMsg('Sua empresa foi inativada pelo administrador da plataforma. Entre em contato com o suporte da Hub.IA.');
     }
   }, [reason]);
 

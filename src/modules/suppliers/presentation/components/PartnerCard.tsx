@@ -31,6 +31,7 @@ export interface Partner {
   raio_atendimento_km?: number | null;
   certifications?: string;
   score_hubia?: number;
+  isInactive?: boolean;
 }
 
 const GRADIENTS: Record<string, string> = {
@@ -150,6 +151,12 @@ export function PartnerCard({
               </span>
             )}
             
+            {partner.isInactive && (
+              <span className="flex items-center gap-1.5 font-bold text-red-600 bg-red-50 border border-red-200 px-2 py-0.5 rounded-md text-[10px] w-fit">
+                Empresa Inativa
+              </span>
+            )}
+            
             {partner.raio_atendimento_km && (
               <span className="flex items-center gap-1.5 text-slate-500">
                 <Globe className="h-3.5 w-3.5 text-slate-400" /> Atende até {partner.raio_atendimento_km} km
@@ -234,7 +241,7 @@ export function PartnerCard({
               <Button size="sm" onClick={() => onViewDetails?.(partner)} className="flex-1 bg-slate-100 text-slate-700 hover:bg-slate-200 text-xs h-8">
                 Ver Perfil
               </Button>
-              <Button size="sm" onClick={() => openChat(partner.organizationId || partner.id, partner)} className="flex-1 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 text-xs h-8">
+              <Button disabled={partner.isInactive} size="sm" onClick={() => openChat(partner.organizationId || partner.id, partner)} className="flex-1 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 text-xs h-8">
                 Chat/Mensagem
               </Button>
             </div>
@@ -245,7 +252,7 @@ export function PartnerCard({
         )}
         {partner.status === 'pending_received' && (
           <div className="flex gap-2">
-            <Button size="sm" onClick={() => onAccept(partner.id)} className="flex-1 bg-green-600 hover:bg-green-700 text-white text-xs h-8">
+            <Button disabled={partner.isInactive} size="sm" onClick={() => onAccept(partner.id)} className="flex-1 bg-green-600 hover:bg-green-700 text-white text-xs h-8">
               <CheckCircle2 className="h-3.5 w-3.5 mr-1" />Aceitar
             </Button>
             <Button size="sm" variant="outline" onClick={() => onReject(partner.id)} className="flex-1 border-red-300 text-red-600 hover:bg-red-50 text-xs h-8">

@@ -129,6 +129,23 @@ export default function SuppliersListPage() {
     load();
   }, []);
 
+  useEffect(() => {
+    const handleStatusChanged = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      const { organizationId, isActive } = customEvent.detail;
+      setPartners(current => 
+        current.map(p => 
+          p.organizationId === organizationId || p.id === organizationId 
+            ? { ...p, isInactive: !isActive }
+            : p
+        )
+      );
+    };
+    
+    window.addEventListener('hubia:organization-status-changed', handleStatusChanged);
+    return () => window.removeEventListener('hubia:organization-status-changed', handleStatusChanged);
+  }, []);
+
   const [search, setSearch]             = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('Todos');
 

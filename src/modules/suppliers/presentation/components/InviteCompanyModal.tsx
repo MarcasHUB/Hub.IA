@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Building2, X, Loader2, CheckCircle2 } from 'lucide-react';
 import { Input } from '@/shared/components/ui/Input';
 import { Button } from '@/shared/components/ui/Button';
@@ -32,7 +32,21 @@ export function InviteCompanyModal({ isOpen, onClose, onSuccess }: InviteCompany
   const [newCompMessage, setNewCompMessage] = useState('');
   const [isFetchingCnpj, setIsFetchingCnpj] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isExistingOrg, setIsExistingOrg] = useState(false);
+  const [existingOrgId, setExistingOrgId] = useState<string | null>(null);
+  const [isInactive, setIsInactive] = useState(false);
   const [successData, setSuccessData] = useState<{name: string, email: string} | null>(null);
+
+  useEffect(() => {
+    const handleStatusChanged = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      if (existingOrgId && customEvent.detail.organizationId === existingOrgId) {
+        setIsInactive(!customEvent.detail.isActive);
+      }
+    };
+    window.addEventListener('hubia:organization-status-changed', handleStatusChanged);
+    return () => window.removeEventListener('hubia:organization-status-changed', handleStatusChanged);
+  }, [existingOrgId]);
 
   if (!isOpen) return null;
 
@@ -75,23 +89,48 @@ export function InviteCompanyModal({ isOpen, onClose, onSuccess }: InviteCompany
     if (cleanCnpj.length !== 14) return;
     setIsFetchingCnpj(true);
     try {
-      const response = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${cleanCnpj}`);
-      if (response.ok) {
-        const data = await response.json();
-        setNewCompName(data.razao_social || data.nome_fantasia || '');
-        setNewCompCity(data.municipio || '');
-        setNewCompState(data.uf || '');
-        if (data.cnae_fiscal_descricao) {
-          const suggested = matchSegments(data.cnae_fiscal_descricao);
-          if (suggested.length > 0) {
-            setNewCompSeg(suggested.join(', '));
-          } else {
-            setNewCompSeg(data.cnae_fiscal_descricao.substring(0, 80));
+      const { data: existingOrg } = await supabase
+        .from('organizations')
+        .select('*')
+        .eq('cnpj', cleanCnpj)
+        .maybeSingle();
+
+      if (existingOrg) {
+        setIsExistingOrg(true);
+        setExistingOrgId(existingOrg.id);
+        setIsInactive(existingOrg.status === 'inativo');
+        setNewCompName(existingOrg.razao_social || existingOrg.nome_fantasia || existingOrg.name || '');
+        setNewCompCity(existingOrg.city || '');
+        setNewCompState(existingOrg.state || '');
+        // Segmentos (no BD o campo é segment)
+        setNewCompSeg(existingOrg.segment || '');
+        
+        // E-mail corporativo (só preenche se não houver um digitado)
+        if (existingOrg.email_corporativo || existingOrg.business_email) {
+            setNewCompEmail(existingOrg.email_corporativo || existingOrg.business_email || '');
+        }
+      } else {
+        setIsExistingOrg(false);
+        setExistingOrgId(null);
+        setIsInactive(false);
+        const response = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${cleanCnpj}`);
+        if (response.ok) {
+          const data = await response.json();
+          setNewCompName(data.razao_social || data.nome_fantasia || '');
+          setNewCompCity(data.municipio || '');
+          setNewCompState(data.uf || '');
+          if (data.cnae_fiscal_descricao) {
+            const suggested = matchSegments(data.cnae_fiscal_descricao);
+            if (suggested.length > 0) {
+              setNewCompSeg(suggested.join(', '));
+            } else {
+              setNewCompSeg(data.cnae_fiscal_descricao.substring(0, 80));
+            }
           }
         }
       }
     } catch (e) {
-      console.error("Falha ao buscar CNPJ na BrasilAPI", e);
+      console.error("Falha ao buscar CNPJ", e);
     } finally {
       setIsFetchingCnpj(false);
     }
@@ -102,6 +141,12 @@ export function InviteCompanyModal({ isOpen, onClose, onSuccess }: InviteCompany
     if (!newCompName.trim() || !newCompDoc.trim() || !newCompEmail.trim() || !newCompContact.trim()) return;
     
     setIsSubmitting(true);
+
+    if (isInactive) {
+      alert('Esta empresa encontra-se inativa na plataforma. Não é possível enviar convite.');
+      setIsSubmitting(false);
+      return;
+    }
 
     try {
       // Validação de Duplicidade (Documento ou E-mail)
@@ -121,6 +166,26 @@ export function InviteCompanyModal({ isOpen, onClose, onSuccess }: InviteCompany
         }
         setIsSubmitting(false);
         return;
+      }
+
+      // Validação em connection_requests se a organização já existir no BD
+      if (existingOrgId) {
+        const { data: existingConnection } = await supabase
+          .from('connection_requests')
+          .select('id, status')
+          .or(`and(requester_company_id.eq.${tenantId},target_company_id.eq.${existingOrgId}),and(requester_company_id.eq.${existingOrgId},target_company_id.eq.${tenantId})`)
+          .in('status', ['accepted', 'pending'])
+          .maybeSingle();
+
+        if (existingConnection) {
+          if (existingConnection.status === 'pending') {
+            alert('Já existe uma solicitação de conexão pendente com esta empresa.');
+          } else {
+            alert('Esta empresa já está conectada na sua rede de negócios.');
+          }
+          setIsSubmitting(false);
+          return;
+        }
       }
 
       // 1. Gera token rastreável para o fornecedor
@@ -205,6 +270,9 @@ export function InviteCompanyModal({ isOpen, onClose, onSuccess }: InviteCompany
     setNewCompContact('');
     setNewCompMessage('');
     setSuccessData(null);
+    setIsExistingOrg(false);
+    setExistingOrgId(null);
+    setIsInactive(false);
     onClose();
   };
 
@@ -278,10 +346,12 @@ export function InviteCompanyModal({ isOpen, onClose, onSuccess }: InviteCompany
                   <Input placeholder="Ex: 00.000.000/0001-00" value={newCompDoc} onChange={e => setNewCompDoc(maskCNPJ(e.target.value))} onBlur={handleCnpjBlur} required />
                   {isFetchingCnpj && <Loader2 className="absolute right-3 top-2.5 h-4 w-4 animate-spin text-slate-400" />}
                 </div>
+                {isExistingOrg && !isInactive && <p className="text-[10px] text-indigo-600 font-medium">Dados carregados da Rede Hub.IA</p>}
+                {isInactive && <p className="text-[10px] text-red-600 font-medium">Empresa inativada pelo administrador.</p>}
               </div>
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-slate-700">Razão Social / Nome Fantasia *</label>
-                <Input placeholder="Ex: Metalúrgica Norte" value={newCompName} onChange={e => setNewCompName(e.target.value)} required />
+                <Input placeholder="Ex: Metalúrgica Norte" value={newCompName} onChange={e => setNewCompName(e.target.value)} required readOnly={isExistingOrg} className={isExistingOrg ? "bg-slate-50 text-slate-500 cursor-not-allowed" : ""} />
               </div>
             </div>
 
@@ -299,18 +369,18 @@ export function InviteCompanyModal({ isOpen, onClose, onSuccess }: InviteCompany
             <div className="grid grid-cols-1 gap-5">
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-slate-700">Segmentos (Separados por vírgula)</label>
-                <Input placeholder="Ex: Material Elétrico, EPIs" value={newCompSeg} onChange={e => setNewCompSeg(e.target.value)} />
+                <Input placeholder="Ex: Material Elétrico, EPIs" value={newCompSeg} onChange={e => setNewCompSeg(e.target.value)} readOnly={isExistingOrg} className={isExistingOrg ? "bg-slate-50 text-slate-500 cursor-not-allowed" : ""} />
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-5">
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-slate-700">Cidade</label>
-                <Input placeholder="Ex: São Paulo" value={newCompCity} onChange={e => setNewCompCity(e.target.value)} />
+                <Input placeholder="Ex: São Paulo" value={newCompCity} onChange={e => setNewCompCity(e.target.value)} readOnly={isExistingOrg} className={isExistingOrg ? "bg-slate-50 text-slate-500 cursor-not-allowed" : ""} />
               </div>
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-slate-700">Estado (UF)</label>
-                <Input placeholder="Ex: SP" value={newCompState} onChange={e => setNewCompState(e.target.value)} maxLength={2} />
+                <Input placeholder="Ex: SP" value={newCompState} onChange={e => setNewCompState(e.target.value)} maxLength={2} readOnly={isExistingOrg} className={isExistingOrg ? "bg-slate-50 text-slate-500 cursor-not-allowed" : ""} />
               </div>
             </div>
 
@@ -328,9 +398,18 @@ export function InviteCompanyModal({ isOpen, onClose, onSuccess }: InviteCompany
 
         <div className="flex justify-end gap-3 px-6 py-4 border-t border-slate-100 bg-slate-50 shrink-0">
           <Button type="button" variant="outline" onClick={resetAndClose} className="h-10 text-sm font-semibold">Cancelar</Button>
-          <Button form="inviteForm" type="submit" disabled={isFetchingCnpj || isSubmitting} className="bg-indigo-600 hover:bg-indigo-700 text-white h-10 text-sm font-bold shadow-sm min-w-[160px]">
-            {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Convidar para a Rede'}
-          </Button>
+          <button 
+            type="submit" 
+            form="inviteForm"
+            disabled={isSubmitting || isInactive}
+            className={`flex-1 h-11 rounded-xl text-white text-sm font-bold transition-colors flex items-center justify-center gap-2 ${
+              isInactive 
+                ? 'bg-slate-300 cursor-not-allowed' 
+                : 'bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60'
+            }`}
+          >
+            {isSubmitting ? <><Loader2 className="h-4 w-4 animate-spin" /> Enviando...</> : 'Enviar Convite'}
+          </button>
         </div>
       </div>
     </div>

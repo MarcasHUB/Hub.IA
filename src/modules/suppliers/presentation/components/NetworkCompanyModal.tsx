@@ -32,7 +32,8 @@ export interface NetworkOrg {
   certifications: string | null;
   score_hubia: number | null;
   isPartner?: boolean;
-  hasPendingInvite?: boolean;
+  isPendingSent?: boolean;
+  isPendingReceived?: boolean;
   segments_count?: number;
   materials_count?: number;
 }
@@ -90,7 +91,25 @@ export default function NetworkCompanyModal({ org, isOpen, onClose, onConnect, o
   // Materials state
   const [materials, setMaterials] = useState<any[]>([]);
   const [isLoadingMaterials, setIsLoadingMaterials] = useState(false);
-  
+  const [isInactive, setIsInactive] = useState(false);
+
+  useEffect(() => {
+    if (org) {
+      setIsInactive(org.status === 'inativo');
+    }
+  }, [org]);
+
+  useEffect(() => {
+    const handleStatusChanged = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      if (org && customEvent.detail.organizationId === org.id) {
+        setIsInactive(!customEvent.detail.isActive);
+      }
+    };
+    window.addEventListener('hubia:organization-status-changed', handleStatusChanged);
+    return () => window.removeEventListener('hubia:organization-status-changed', handleStatusChanged);
+  }, [org]);
+
   const { addMockNotification } = useNotifications();
   const tenantId = localStorage.getItem('supplyhub_organization_id') || '';
 
@@ -163,7 +182,10 @@ export default function NetworkCompanyModal({ org, isOpen, onClose, onConnect, o
               </div>
             )}
             <div className="min-w-0">
-              <h2 className="text-xl sm:text-2xl font-extrabold leading-tight">{displayName}</h2>
+              <h2 className="text-xl sm:text-2xl font-extrabold leading-tight">
+                {displayName}
+                {isInactive && <span className="ml-2 text-xs font-bold text-red-500 bg-red-100 border border-red-200 rounded-lg px-2 py-1 align-middle">Inativa</span>}
+              </h2>
               {tradeName && <p className="text-slate-400 text-sm mt-1">{tradeName}</p>}
               <div className="flex flex-wrap items-center gap-3 mt-3">
                 <RoleLabel role={org.perfil_comercial || org.tipo_empresa || org.business_model} />
@@ -173,9 +195,14 @@ export default function NetworkCompanyModal({ org, isOpen, onClose, onConnect, o
                     <CheckCircle2 className="h-3.5 w-3.5" /> Parceiro Ativo
                   </span>
                 )}
-                {org.hasPendingInvite && !org.isPartner && (
+                {org.isPendingSent && !org.isPartner && (
                   <span className="inline-flex items-center gap-1 text-xs font-bold text-amber-400 bg-amber-900/40 border border-amber-700/50 rounded-lg px-2.5 py-1">
-                    <Clock className="h-3.5 w-3.5" /> Convite Pendente
+                    <Clock className="h-3.5 w-3.5" /> Convite Enviado
+                  </span>
+                )}
+                {org.isPendingReceived && !org.isPartner && (
+                  <span className="inline-flex items-center gap-1 text-xs font-bold text-amber-400 bg-amber-900/40 border border-amber-700/50 rounded-lg px-2.5 py-1">
+                    <Clock className="h-3.5 w-3.5" /> Convite Recebido
                   </span>
                 )}
               </div>
@@ -188,6 +215,11 @@ export default function NetworkCompanyModal({ org, isOpen, onClose, onConnect, o
 
         {/* Corpo do Modal (Grid 2 colunas) */}
         <div className="flex-1 overflow-y-auto bg-slate-50 p-8">
+          {isInactive && (
+            <div className="mb-6 p-4 bg-red-50 border border-red-200 text-red-700 text-sm font-semibold rounded-xl">
+              Esta empresa foi inativada pelo administrador e não está disponível para novas operações.
+            </div>
+          )}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             
             {/* Coluna Esquerda: Informações e Contatos */}
@@ -324,14 +356,19 @@ export default function NetworkCompanyModal({ org, isOpen, onClose, onConnect, o
         </div>
 
         {/* Rodapé: Ação de Conectar */}
-        {!org.isPartner && !org.hasPendingInvite && (
+        {!org.isPartner && !org.isPendingSent && !org.isPendingReceived && (
           <div className="bg-white border-t border-slate-200 p-6 sm:px-8 flex-shrink-0 flex justify-end">
             <button
+              disabled={isInactive}
               onClick={() => onConnect && onConnect(org)}
-              className="w-full sm:w-auto font-bold text-[11px] px-4 h-9 flex items-center justify-center transition-all border-none bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white rounded-lg"
+              className={`w-full sm:w-auto font-bold text-[11px] px-4 h-9 flex items-center justify-center transition-all border-none rounded-lg ${
+                isInactive 
+                  ? 'bg-slate-100 text-slate-400 cursor-not-allowed' 
+                  : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white'
+              }`}
             >
               <Network className="h-4 w-4 mr-2" />
-              Conectar
+              {isInactive ? 'Conexão Bloqueada' : 'Conectar'}
             </button>
           </div>
         )}
