@@ -37,22 +37,33 @@ serve(async (req: Request) => {
     const origin = req.headers.get('origin') || 'http://localhost:5173';
     const redirectUrl = `${origin}/aceitar-convite?token=${token}`;
 
-    // 2. Verificar se o operador já existe nesta organização (ex: foi soft-deleted ou está inativo)
-    const { data: existingOp } = await supabase
+    // 2. Verificar se o operador já existe globalmente pelo e-mail
+    const { data: globalOp } = await supabase
       .from('operators')
-      .select('id')
-      .eq('email', email)
-      .eq('organization_id', organization_id)
+      .select('id, organization_id, status, deleted_at')
+      .ilike('email', email.trim())
+      .limit(1)
       .maybeSingle();
 
     let userId = '';
 
-    if (existingOp) {
-      userId = existingOp.id;
-      // Atualiza o operador existente para pendente e limpa o deleted_at
+    if (globalOp) {
+      if (globalOp.status === 'ativo' && globalOp.deleted_at === null) {
+        if (globalOp.organization_id === organization_id) {
+          return new Response(JSON.stringify({ error: 'Este usuário já é colaborador ativo desta empresa.', code: 'ALREADY_ACTIVE_SAME_ORG' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        } else {
+          return new Response(JSON.stringify({ error: 'Este e-mail já está vinculado a outra empresa na plataforma.', code: 'ALREADY_ACTIVE_OTHER_ORG' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        }
+      }
+
+      // Se não for ativo ou estiver deletado, permite reutilizar o ID, 
+      // mas precisamos garantir que o organization_id seja atualizado na reativação
+      userId = globalOp.id;
+      
       const { error: updateOpError } = await supabase
         .from('operators')
         .update({
+          organization_id, // Atualiza para a org do novo convite (caso estivesse em outra e deletado)
           nome,
           sobrenome,
           cargo,
