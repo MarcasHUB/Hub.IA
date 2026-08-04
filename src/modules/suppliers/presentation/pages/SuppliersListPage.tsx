@@ -31,27 +31,6 @@ export default function SuppliersListPage() {
          
          const { supabase } = await import('@/infrastructure/supabase/client');
 
-         console.group('--- DEBUG C1.2.7 QUERY AUDIT ---');
-         
-         const q1 = await supabase.from('connection_requests').select('*');
-         console.log('1. SEM FILTROS:', q1.data, q1.error);
-         
-         const q2 = await supabase.from('connection_requests').select('*').eq('status', 'accepted');
-         console.log('2. COM STATUS:', q2.data, q2.error);
-         
-         const q3 = await supabase.from('connection_requests').select('*').or(`requester_company_id.eq.${orgId},target_company_id.eq.${orgId}`);
-         console.log('3. COM OR:', q3.data, q3.error);
-         
-         const q4 = await supabase.from('connection_requests').select('*').or(`requester_company_id.eq.${orgId},target_company_id.eq.${orgId}`).eq('status','accepted');
-         console.log('4. COM OR + STATUS:', q4.data, q4.error);
-         
-         // @ts-ignore
-         console.log('SUPABASE URL/KEY:', supabase.supabaseUrl, supabase.supabaseKey?.substring(0,20));
-         console.groupEnd();
-         
-         // Early return for diagnosis
-         return;
-         
          const { data: invs } = await supabase
             .from('invitations')
             .select('*')
@@ -77,19 +56,8 @@ export default function SuppliersListPage() {
               empresa_certificacoes(certifications(name))
             `)
             .or(`cnpj.in.(${docs.length > 0 ? docs.map(d=>`"${d}"`).join(',') : '""'}),id.in.(${partnerIds.length > 0 ? partnerIds.map(p=>`"${p}"`).join(',') : '""'})`)
-            .in('status', ['ativo', 'active'])
             .or('is_platform_internal.is.null,is_platform_internal.eq.false');
 
-         console.group('--- DEBUG C1.2.6 SUPPLIERS LIST ---');
-         console.log('route:', window.location.pathname);
-         console.log('orgId:', orgId);
-         console.log('connection_requests data:', connections);
-         console.log('connection_requests error:', connectionsError);
-         console.log('partner organization ids:', partnerIds);
-         console.log('organizations data:', orgs);
-         console.log('organizations error:', organizationsError);
-         console.groupEnd();
-            
          const mappedConnections = (connections || []).map((conn: any) => {
             const partnerId = conn.requester_company_id === orgId ? conn.target_company_id : conn.requester_company_id;
             const org = (orgs || []).find((o: any) => o.id === partnerId);
@@ -119,9 +87,6 @@ export default function SuppliersListPage() {
               website: org?.website
             };
          });
-         console.log('--- DEBUG C1.2.6 MAPPED ---');
-         console.log('partners mapped:', mappedConnections);
-         console.log('---------------------------');
          
          const mappedInvites = (invs || []).map((inv: any) => {
             const org = (orgs || []).find((o: any) => o.cnpj === inv.document);
