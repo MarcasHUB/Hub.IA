@@ -166,13 +166,127 @@ export default function SuppliersListPage() {
       console.error('Erro ao desfazer parceria:', e);
     }
   };
-  const handleAccept = (id: string) => {
-    const updated = partners.map(p => p.id === id ? { ...p, status: 'accepted' as const, since: new Date().toLocaleDateString('pt-BR') } : p);
-    setPartners(updated);
+  const handleAccept = async (id: string) => {
+    try {
+      // Impede duplo clique e mostra loading indireto usando a interface
+      const originalPartners = [...partners];
+      setPartners(partners.map(p => p.id === id ? { ...p, status: 'accepted' as const, since: 'Processando...' } : p));
+      
+      const { supabase } = await import('@/infrastructure/supabase/client');
+      const { data, error } = await supabase.rpc('accept_company_invitation', {
+        p_invitation_id: id
+      });
+
+      if (error) {
+        console.error('Erro ao aceitar convite:', error);
+        alert('Falha ao aceitar convite: ' + error.message);
+        setPartners(originalPartners); // rollback UI
+        return;
+      }
+      
+      // Recarrega tudo para sincronizar invitations e connection_requests
+      const orgId = localStorage.getItem('supplyhub_organization_id') || '00000000-0000-0000-0000-000000000000';
+      setTenantId(orgId);
+      
+      const { data: invs } = await supabase
+         .from('invitations')
+         .select('*')
+         .eq('organization_id', orgId)
+         .in('status', ['pendente']);
+         
+      const { data: connections } = await supabase
+         .from('connection_requests')
+         .select('*')
+         .or(`requester_company_id.eq.${orgId},target_company_id.eq.${orgId}`)
+         .eq('status', 'accepted');
+         
+      const partnerIds = (connections || []).map((c: any) => 
+         c.requester_company_id === orgId ? c.target_company_id : c.requester_company_id
+      );
+         
+      const docs = (invs || []).map((i: any) => i.document).filter(Boolean);
+      const { data: orgs } = await supabase
+         .from('organizations')
+         .select(`*, empresa_certificacoes(certifications(name))`)
+         .or(`cnpj.in.(${docs.length > 0 ? docs.map(d=>`"${d}"`).join(',') : '""'}),id.in.(${partnerIds.length > 0 ? partnerIds.map(p=>`"${p}"`).join(',') : '""'})`)
+         .in('status', ['ativo', 'active'])
+         .or('is_platform_internal.is.null,is_platform_internal.eq.false');
+         
+      const mappedConnections = (connections || []).map((conn: any) => {
+         const partnerId = conn.requester_company_id === orgId ? conn.target_company_id : conn.requester_company_id;
+         const org = (orgs || []).find((o: any) => o.id === partnerId);
+         return {
+           id: conn.id,
+           name: org?.razao_social || org?.nome_fantasia || org?.name || 'Empresa Desconhecida',
+           document: org?.cnpj || '-',
+           segment: org?.segment || 'Não definido',
+           city: org?.city || '-',
+           state: org?.state || '-',
+           status: 'accepted' as const,
+           connectionId: conn.id,
+           employeesRange: '-',
+           rating: 0,
+           responseTime: '-',
+           quotationsCount: 0,
+           products: [],
+           email: org?.email_corporativo || org?.business_email,
+           contact_name: undefined,
+           message: undefined,
+           perfil_comercial: org?.perfil_comercial || org?.business_model,
+           tipo_empresa: org?.tipo_empresa,
+           certifications: org?.empresa_certificacoes ? org.empresa_certificacoes.map((ec: any) => ec?.certifications?.name).filter(Boolean).join(', ') : undefined,
+           raio_atendimento_km: org?.raio_atendimento_km,
+           score_hubia: undefined,
+           phone: org?.telefone || org?.phone,
+           website: org?.website
+         };
+      });
+      
+      const mappedInvites = (invs || []).map((inv: any) => {
+         const org = (orgs || []).find((o: any) => o.cnpj === inv.document);
+         return {
+           id: inv.id,
+           name: org?.razao_social || org?.nome_fantasia || org?.name || inv.company || inv.name,
+           document: inv.document,
+           segment: org?.segment || ((inv.segments && inv.segments.length > 0) ? inv.segments.join(', ') : 'Não definido'),
+           city: org?.city || inv.city || '-',
+           state: org?.state || inv.state || '-',
+           status: inv.status === 'pendente' ? 'pending_sent' as const : (inv.status as any),
+           connectionId: '',
+           employeesRange: '-',
+           rating: 0,
+           responseTime: '-',
+           quotationsCount: 0,
+           products: [],
+           email: org?.email_corporativo || org?.business_email || inv.email,
+           contact_name: inv.contact_name,
+           message: inv.message,
+           perfil_comercial: org?.perfil_comercial || org?.business_model,
+           tipo_empresa: org?.tipo_empresa,
+           certifications: org?.empresa_certificacoes ? org.empresa_certificacoes.map((ec: any) => ec?.certifications?.name).filter(Boolean).join(', ') : undefined,
+           raio_atendimento_km: org?.raio_atendimento_km,
+           score_hubia: undefined,
+           phone: org?.telefone || org?.phone,
+           website: org?.website
+         };
+      });
+
+      setPartners([...mappedConnections, ...mappedInvites]);
+    } catch (e: any) {
+      console.error('Erro de execução no aceite:', e);
+      alert('Falha ao processar aceite: ' + e.message);
+    }
   };
-  const handleReject = (id: string) => {
-    const updated = partners.filter(p => p.id !== id);
-    setPartners(updated);
+
+  const handleReject = async (id: string) => {
+    try {
+      const { supabase } = await import('@/infrastructure/supabase/client');
+      await supabase.from('invitations').update({ status: 'recusado' }).eq('id', id);
+      const updated = partners.filter(p => p.id !== id);
+      setPartners(updated);
+    } catch (e) {
+      console.error('Erro ao recusar convite:', e);
+    }
   };
   const handleCancel = async (id: string) => {
     try {
