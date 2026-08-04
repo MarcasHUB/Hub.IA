@@ -1,65 +1,30 @@
--- Migration HOTFIX B5.3
--- Objetivo: Garantir integridade de tenant no fluxo de convite e aceite.
+-- Migration HOTFIX B5.3.1
+-- Objetivo: Garantir integridade de tenant no fluxo de convite e aceite (Sem transferências automáticas)
 
 BEGIN;
 
--- 1. Saneamento do conflito cruzado (Hub.IA vs Raízen) para viniciuscordebello@hotmail.com
-DO $$
-DECLARE
-  v_email text := 'viniciuscordebello@hotmail.com';
-  v_hubia_org uuid := '68a2f0b2-80f7-4868-bbb9-30b531c12db2';
-  v_raizen_org uuid := '9e2e4d9c-9a9b-42cb-81cb-b2c861335af1';
-  v_user_id uuid;
-BEGIN
-  -- Identifica o usuário pelo e-mail
-  SELECT id INTO v_user_id
-  FROM auth.users
-  WHERE email = v_email
-  LIMIT 1;
-
-  IF FOUND THEN
-    -- Cancelar qualquer outro convite pendente para este usuário que não seja da Hub.IA
-    UPDATE public.operator_invitations
-    SET status = 'cancelado', updated_at = now()
-    WHERE email = v_email AND organization_id != v_hubia_org;
-
-    -- O convite relatado no incidente era da Hub.IA. Vamos garantir que o profile e operator 
-    -- estejam apontando para a Hub.IA corretamente, conforme as regras do modelo de single-tenant.
-    UPDATE public.profiles
-    SET organization_id = v_hubia_org
-    WHERE user_id = v_user_id;
-
-    UPDATE public.operators
-    SET organization_id = v_hubia_org
-    WHERE id = v_user_id;
-  END IF;
-END;
-$$;
-
--- 2. Limpeza de duplicidades antes de criar a constraint
+-- 1. Verificar duplicidades ativas antes de criar a constraint
 -- Garantir que não existam e-mails duplicados na mesma organização para registros não deletados.
 DO $$
 BEGIN
-  DELETE FROM public.operators a USING (
-    SELECT MIN(ctid) as ctid, organization_id, LOWER(TRIM(email))
+  IF EXISTS (
+    SELECT 1
     FROM public.operators
     WHERE deleted_at IS NULL
     GROUP BY organization_id, LOWER(TRIM(email))
     HAVING COUNT(*) > 1
-  ) b
-  WHERE a.organization_id = b.organization_id 
-    AND LOWER(TRIM(a.email)) = b.lower 
-    AND a.deleted_at IS NULL
-    AND a.ctid <> b.ctid;
+  ) THEN
+    RAISE EXCEPTION 'Existem operadores ativos duplicados. Saneamento manual necessário antes de criar o índice.';
+  END IF;
 END;
 $$;
 
--- 3. Criar constraint de unicidade de e-mail por organização
+-- 2. Criar constraint de unicidade de e-mail por organização
 CREATE UNIQUE INDEX IF NOT EXISTS unique_operator_email_org 
 ON public.operators (organization_id, LOWER(TRIM(email))) 
 WHERE deleted_at IS NULL;
 
--- 4. Atualizar a RPC transacional de aceite para usar o tenant do convite
+-- 3. Atualizar a RPC transacional de aceite para bloquear acessos indevidos cross-tenant
 CREATE OR REPLACE FUNCTION public.accept_operator_invitation_transactional(
   p_token text,
   p_user_id uuid,
@@ -106,21 +71,20 @@ BEGIN
   WHERE user_id = p_user_id;
 
   IF FOUND AND v_existing_profile_org IS NOT NULL AND v_existing_profile_org != v_invite.organization_id THEN
-    -- Opcional: Se ele tiver um perfil ativo em outra organização (e o operator também).
-    -- Como a regra atual é single tenant principal, bloqueamos o aceite.
-    RAISE EXCEPTION 'Esta conta já está vinculada a outra empresa. Entre com outro e-mail ou solicite uma transferência administrativa.';
+    -- Bloqueio obrigatório de cross-tenant para usuários que já pertencem a outra org
+    RAISE EXCEPTION 'ALREADY_ACTIVE_OTHER_ORG';
   END IF;
 
-  -- 1. Atualizar ou garantir que o profile aponte para a organização do convite
+  -- 1. Atualizar o profile (Apenas se for o mesmo tenant ou se estiver nulo - nunca transfere!)
   UPDATE public.profiles
   SET organization_id = v_invite.organization_id,
       updated_at = v_now
-  WHERE user_id = p_user_id;
+  WHERE user_id = p_user_id AND (organization_id IS NULL OR organization_id = v_invite.organization_id);
 
-  -- 2. Atualizar o operador com o organization_id do convite
+  -- 2. Atualizar o operador
+  -- Apenas ativa e atualiza os dados, nunca transfere de organização.
   UPDATE public.operators
   SET status = 'ativo',
-      organization_id = v_invite.organization_id,
       todas_categorias = COALESCE(v_invite.todas_categorias, false),
       accepted_at = v_now,
       updated_at = v_now
@@ -159,7 +123,7 @@ BEGIN
 END;
 $$;
 
--- 5. Assertions de integridade obrigatórias (Blindagem B5.3)
+-- 4. Assertions de integridade obrigatórias (Blindagem B5.3.1)
 DO $$
 DECLARE
   v_hubia_org uuid := '68a2f0b2-80f7-4868-bbb9-30b531c12db2';
