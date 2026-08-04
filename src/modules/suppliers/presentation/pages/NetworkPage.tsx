@@ -284,10 +284,17 @@ export default function NetworkPage() {
       let pendingIds = new Set<string>();
 
       if (tenantId && tenantId !== '00000000-0000-0000-0000-000000000000') {
-        const { data: connections } = await supabase
+        const { data: connections, error: connectionsError } = await supabase
           .from('connection_requests')
           .select('requester_company_id, target_company_id, status')
           .or(`requester_company_id.eq.${tenantId},target_company_id.eq.${tenantId}`);
+
+        console.log('--- DEBUG C1.2.6 ---');
+        console.log('tenantId', tenantId);
+        console.log('connection_requests', connections);
+        console.log('error', connectionsError);
+        console.log('organizations carregadas', orgs);
+        console.log('--------------------');
 
         (connections || []).forEach(conn => {
           const partnerId = conn.requester_company_id === tenantId 
