@@ -779,17 +779,17 @@ export default function OperatorsPage({ organizationId }: { organizationId?: str
 
       <div>
         <Card className="rounded-2xl border-slate-200 shadow-sm overflow-visible">
-          <div className="w-full overflow-x-auto">
-            <table className="w-full text-sm text-left whitespace-nowrap min-w-max">
+          <div className="w-full overflow-x-auto relative">
+            <table className="w-full text-sm text-left whitespace-nowrap xl:whitespace-normal min-w-[900px] xl:min-w-0">
               <thead className="bg-slate-50 text-slate-500 text-[10px] uppercase font-bold border-b border-slate-200">
                 <tr>
-                  <th className="px-6 py-3">Operador</th>
-                  <th className="px-6 py-3">Tipo de Acesso</th>
-                  <th className="px-6 py-3">Perfil</th>
-                  <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Categorias</th>
-                  <th className="px-6 py-3">Status</th>
-                  <th className="px-6 py-3">Último Acesso</th>
-                  <th className="px-6 py-3 text-center">Ações</th>
+                  <th className="px-6 py-3 w-[25%]">Operador</th>
+                  <th className="px-6 py-3 w-[15%]">Tipo de Acesso</th>
+                  <th className="px-6 py-3 w-[15%]">Perfil</th>
+                  <th className="px-6 py-3 w-[15%] text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Categorias</th>
+                  <th className="px-6 py-3 w-[10%]">Status</th>
+                  <th className="px-6 py-3 w-[10%]">Último Acesso</th>
+                  <th className="px-6 py-3 w-[10%] text-center sticky right-0 bg-slate-50 z-10 shadow-[-4px_0_8px_rgba(0,0,0,0.05)]">Ações</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -810,7 +810,7 @@ export default function OperatorsPage({ organizationId }: { organizationId?: str
                   </tr>
                 ) : (
                   filtered.filter(op => op.status !== 'pendente').map(op => (
-                    <tr key={op.id} className={`transition-colors ${op.status === 'cancelado' ? 'bg-slate-50/50 opacity-60 grayscale' : 'hover:bg-slate-50/50'}`}>
+                    <tr key={op.id} className={`group transition-colors ${op.status === 'cancelado' ? 'bg-slate-50/50 opacity-60 grayscale' : 'hover:bg-slate-50/50 bg-white'}`}>
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
                           <div className="h-9 w-9 rounded-full bg-gradient-to-br from-indigo-500 to-violet-500 flex items-center justify-center shrink-0 shadow-sm">
@@ -822,8 +822,8 @@ export default function OperatorsPage({ organizationId }: { organizationId?: str
                             <button onClick={() => setDetailsOperator(op)} className="font-bold text-slate-900 text-left hover:text-indigo-600 transition-colors">
                               {operatorFullName(op)}
                             </button>
-                            <p className="text-[10px] text-slate-400 flex items-center gap-1">
-                              <Mail className="h-3 w-3" /> {op.email}
+                            <p className="text-[10px] text-slate-400 flex items-center gap-1 truncate max-w-[150px] sm:max-w-[200px] lg:max-w-xs" title={op.email}>
+                              <Mail className="h-3 w-3 shrink-0" /> <span className="truncate">{op.email}</span>
                             </p>
                           </div>
                         </div>
@@ -873,11 +873,11 @@ export default function OperatorsPage({ organizationId }: { organizationId?: str
                           ? new Date(op.last_login_at).toLocaleDateString('pt-BR')
                           : op.status === 'pendente' ? 'Aguardando aceite' : '—'}
                       </td>
-                      <td className="px-6 py-4 text-center">
+                      <td className="px-6 py-4 text-center sticky right-0 bg-white group-hover:bg-slate-50 transition-colors z-10 shadow-[-4px_0_8px_rgba(0,0,0,0.02)]">
                         <div className="relative inline-block text-left">
                           <button 
                             onClick={() => setActiveMenu(activeMenu === op.id ? null : op.id)}
-                            className="p-1.5 hover:bg-slate-100 rounded-full text-slate-400 hover:text-slate-600 transition-colors"
+                            className="p-1.5 hover:bg-slate-200 rounded-full text-slate-400 hover:text-slate-700 transition-colors"
                           >
                             <MoreVertical className="h-4 w-4" />
                           </button>
