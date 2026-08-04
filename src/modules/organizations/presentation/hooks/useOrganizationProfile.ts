@@ -119,7 +119,7 @@ export function useOrganizationProfile(organizationId: string | null) {
     address_state: data.address_state || data.state || '',
     latitude: data.latitude,
     longitude: data.longitude,
-    tipo_empresa: data.tipo_empresa || '',
+    tipo_empresa: data.tipo_empresa || data.profile_type || '',
     geographic_coverage_type: (data.geographic_coverage_type ?? data.tipo_cobertura ?? null) as GeographicCoverageType | null,
     raio_atendimento_km: data.raio_atendimento_km ?? parseLegacyRadius(data.service_radius) ?? null,
     cnae_principal: data.cnae_principal || '',

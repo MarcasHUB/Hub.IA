@@ -159,8 +159,7 @@ export function CompanyProfileForm({
     supabase.from('certifications').select('id, name')
       .then(({ data }) => {
         if (data) setAvailableCertifications(data);
-      })
-      .catch(err => console.error('[CompanyProfileForm] Error fetching certifications', err));
+      });
 
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (user) {
@@ -262,10 +261,10 @@ export function CompanyProfileForm({
     try {
       setIsUploading(true);
       const fileExt = file.name.split('.').pop();
-      const fileName = `${organizationId}-${Math.random()}.${fileExt}`;
+      const fileName = `organizations/${organizationId}/logo.${fileExt}`;
       const { error: uploadError } = await supabase.storage
         .from('companies')
-        .upload(fileName, file);
+        .upload(fileName, file, { upsert: true });
 
       if (uploadError) throw uploadError;
 
@@ -273,7 +272,7 @@ export function CompanyProfileForm({
         .from('companies')
         .getPublicUrl(fileName);
 
-      setForm(f => ({ ...f, logo_url: publicUrl }));
+      setForm(f => ({ ...f, logo_url: fileName }));
       localStorage.setItem('supplyhub_company_logo', publicUrl);
       window.dispatchEvent(new Event('storage'));
       
@@ -324,7 +323,10 @@ export function CompanyProfileForm({
           {activeSubTab === 'gerais' && (
             <>
               <CompanyGeneralDataSection
-                form={{...form, logo_url: previewUrl || form.logo_url}}
+                form={{
+                  ...form, 
+                  logo_url: previewUrl || (form.logo_url ? (form.logo_url.startsWith('http') || form.logo_url.startsWith('blob:') ? form.logo_url : supabase.storage.from('companies').getPublicUrl(form.logo_url).data.publicUrl) : '')
+                }}
                 onChange={handleChange}
                 isUploading={isUploading}
                 onUploadLogo={handleUploadLogo}
