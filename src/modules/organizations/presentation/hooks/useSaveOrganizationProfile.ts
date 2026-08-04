@@ -1,5 +1,6 @@
 import { supabase } from '../../../../infrastructure/supabase/client';
 import { mapOrganizationProfileToUpdate, normalizeCoverageRadius } from '../../application/mappers/mapOrganizationProfileToUpdate';
+import { calculateOrganizationProfileCompletion, OrganizationProfileCompletionInput } from '../../application/utils/profileCompletion';
 
 export function normalizeCatalogValue(value: string): string {
   return value
@@ -159,6 +160,42 @@ export function useSaveOrganizationProfile() {
 
     if (partialErrors.length > 0) {
       throw new Error(`Dados principais salvos, porém: ${partialErrors.join(' ')}`);
+    }
+
+    // 4. CALCULAR E ATUALIZAR PERCENTUAL DE COMPLETUDE
+    const completionInput: OrganizationProfileCompletionInput = {
+      razaoSocial: formData.razao_social,
+      nomeFantasia: formData.nome_fantasia,
+      cnpj: formData.cnpj,
+      emailCorporativo: formData.email_corporativo,
+      telefone: formData.telefone,
+      whatsapp: formData.whatsapp,
+      addressZipCode: formData.cep,
+      addressStreet: formData.endereco,
+      addressNumber: formData.numero,
+      addressNeighborhood: formData.bairro,
+      city: formData.cidade,
+      state: formData.uf,
+      logoUrl: formData.logo_url,
+      website: formData.site,
+      tipoEmpresa: formData.tipo_empresa,
+      perfilComercial: formData.commercialProfile,
+      cnaePrincipal: formData.cnae_principal,
+      geographicCoverageType: formData.geographicCoverageType,
+      raioAtendimentoKm: formData.coverageRadius,
+      estadosAtendidos: formData.area_cobertura_estados ? String(formData.area_cobertura_estados).split(',').map((s: string) => s.trim().toUpperCase()).filter(Boolean) : [],
+      segmentIds: resolvedSegments.map(s => s.id)
+    };
+
+    const completionScore = calculateOrganizationProfileCompletion(completionInput);
+
+    const { error: compError } = await supabase
+      .from('organizations')
+      .update({ profile_completion: completionScore })
+      .eq('id', organizationId);
+
+    if (compError) {
+      console.warn('Falha ao atualizar percentual de completude:', compError);
     }
   };
 

@@ -43,7 +43,7 @@ export interface OrganizationUpdatePayload {
   address_neighborhood: string;
   city: string;
   state: string;
-  profile_completion: number;
+  profile_completion?: number;
   latitude: number | null;
   longitude: number | null;
   tipo_empresa: string;
@@ -82,13 +82,6 @@ export function normalizeCoverageRadius(value: string | number | null | undefine
  * É uma função pura e não injeta efeitos colaterais.
  */
 export function mapOrganizationProfileToUpdate(formData: OrganizationProfileFormData): OrganizationUpdatePayload {
-  let comp = 50;
-  if (formData.logo_url) comp += 20;
-  if (formData.site) comp += 10;
-  if (formData.whatsapp) comp += 10;
-  if (formData.endereco) comp += 10;
-
-  return {
     name: formData.razao_social,
     razao_social: formData.razao_social,
     nome_fantasia: formData.nome_fantasia,
@@ -106,7 +99,6 @@ export function mapOrganizationProfileToUpdate(formData: OrganizationProfileForm
     address_neighborhood: formData.bairro,
     city: formData.cidade,
     state: formData.uf,
-    profile_completion: comp,
     latitude: formData.latitude ? parseFloat(formData.latitude) : null,
     longitude: formData.longitude ? parseFloat(formData.longitude) : null,
     tipo_empresa: formData.tipo_empresa,
