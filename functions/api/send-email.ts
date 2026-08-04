@@ -194,7 +194,15 @@ export async function onRequestPost(context: any) {
         </div>
       `;
 
-      const infoBlockText = \`\nPerfil Liberado: \${roleName}\nAcessos Disponíveis:\n\${mobile ? '✅' : '❌'} Aplicativo Mobile\n\${desktop ? '✅' : '❌'} Portal Desktop/Web\n\nPermissões:\n\${perms.map(p => \`- \${p}\`).join('\\n')}\${rests.length > 0 ? \`\\n\\nRestrições:\\n\${rests.map(r => \`- \${r}\`).join('\\n')}\` : ''}\${categoryList.length > 0 ? \`\\n\\nCategorias Autorizadas:\\n\${categoryList.map(c => \`- \${c}\`).join('\\n')}\` : ''}\\n\`;
+      const infoBlockText = `
+Perfil Liberado: ${roleName}
+Acessos Disponíveis:
+${mobile ? '✅' : '❌'} Aplicativo Mobile
+${desktop ? '✅' : '❌'} Portal Desktop/Web
+
+Permissões:
+${perms.map(p => `- ${p}`).join('\n')}${rests.length > 0 ? `\n\nRestrições:\n${rests.map(r => `- ${r}`).join('\n')}` : ''}${categoryList.length > 0 ? `\n\nCategorias Autorizadas:\n${categoryList.map(c => `- ${c}`).join('\n')}` : ''}
+`;
 
       const welcomeText = 'Você foi convidado para acessar a plataforma.';
 
