@@ -82,6 +82,7 @@ export function normalizeCoverageRadius(value: string | number | null | undefine
  * É uma função pura e não injeta efeitos colaterais.
  */
 export function mapOrganizationProfileToUpdate(formData: OrganizationProfileFormData): OrganizationUpdatePayload {
+  return {
     name: formData.razao_social,
     razao_social: formData.razao_social,
     nome_fantasia: formData.nome_fantasia,
