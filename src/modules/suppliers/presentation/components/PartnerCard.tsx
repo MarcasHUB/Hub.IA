@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { Clock, CheckCircle2, XCircle, MoreVertical, MapPin, Mail, Phone, Globe, Star, Package, Building2 } from 'lucide-react';
+import { Clock, CheckCircle2, XCircle, MoreVertical, MapPin, Mail, Phone, Globe, Star, Package, Building2, Loader2 } from 'lucide-react';
 import { Badge } from '@/shared/components/ui/Badge';
 import { Button } from '@/shared/components/ui/Button';
 import { useChatDrawer } from '@/modules/messages/presentation/context/ChatDrawerContext';
 import { formatCNPJ } from '@/shared/utils/formatters';
+import { usePublicOrganizationProfile } from '@/modules/organizations/presentation/hooks/usePublicOrganizationProfile';
 
 export interface Partner {
   id: string; // organization.id
@@ -77,9 +78,21 @@ export function PartnerCard({
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const { openChat } = useChatDrawer();
+  
+  const { data: publicProfile, isLoading: isProfileLoading } = usePublicOrganizationProfile(partner.organizationId);
 
-  const initials = partner.name.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase();
-  const gradient = getGradient(partner.segment);
+  const displayName = publicProfile?.tradeName || partner.name;
+  const logoUrl = publicProfile?.logoUrl;
+  const isInactive = partner.isInactive || publicProfile?.status === 'inativo';
+  const role = publicProfile?.commercialProfile || publicProfile?.companyType || partner.perfil_comercial || partner.tipo_empresa || '';
+  const city = publicProfile?.city || partner.city;
+  const state = publicProfile?.state || partner.state;
+  const radius = publicProfile?.serviceRadiusKm || partner.raio_atendimento_km;
+  const certs = publicProfile?.certifications?.map(c => c.name).join(',') || partner.certifications;
+  const segs = (publicProfile?.segments?.map(s => s.name) || (Array.isArray(partner.segment) ? partner.segment : (typeof partner.segment === 'string' ? partner.segment.split(',') : []))) as string[];
+
+  const initials = displayName.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase();
+  const gradient = getGradient(segs[0] || partner.segment || 'default');
 
   const matchedProduct = highlight
     ? partner.products.find(p => p.toLowerCase().includes(highlight.toLowerCase()))
@@ -93,23 +106,27 @@ export function PartnerCard({
 
       <div className="p-5 flex flex-col flex-1 gap-4">
         <div className="flex items-start gap-3">
-          <div className={`h-12 w-12 rounded-xl bg-gradient-to-br ${gradient} flex items-center justify-center text-white font-bold text-sm flex-shrink-0 shadow-inner`}>
-            {initials}
-          </div>
+          {logoUrl ? (
+            <img src={logoUrl} alt="Logo" className="h-12 w-12 rounded-xl object-contain bg-white border border-slate-100 p-1 flex-shrink-0 shadow-sm" />
+          ) : (
+            <div className={`h-12 w-12 rounded-xl bg-gradient-to-br ${gradient} flex items-center justify-center text-white font-bold text-sm flex-shrink-0 shadow-inner`}>
+              {initials}
+            </div>
+          )}
           <div className="flex-1 min-w-0 pr-6">
             <button 
               onClick={() => onViewDetails?.(partner)}
-              className="font-bold text-slate-900 text-sm leading-tight truncate hover:text-indigo-600 hover:underline text-left" 
-              title={partner.name}
+              className="font-bold text-slate-900 text-sm leading-tight truncate hover:text-indigo-600 hover:underline text-left block w-full" 
+              title={displayName}
             >
-              {partner.name}
+              {displayName}
             </button>
             <div className="flex items-center gap-2 mt-1">
               <Badge variant="secondary" className="text-[10px] bg-slate-100 text-slate-600 border-0 px-1.5 py-0.5">
                 CNPJ: {formatCNPJ(partner.document)}
               </Badge>
             </div>
-            <p className="text-[11px] text-slate-500 mt-0.5">{partner.segment}</p>
+            <p className="text-[11px] text-slate-500 mt-0.5 truncate">{segs[0] || partner.segment}</p>
           </div>
         </div>
 
@@ -130,72 +147,75 @@ export function PartnerCard({
           </div>
         )}
 
-        <div className="space-y-2 mb-4 text-xs font-semibold text-slate-600">
-          <div className="flex flex-col gap-1.5">
-            {(partner.perfil_comercial || partner.tipo_empresa) && (
-              <span className="flex items-center gap-1.5 text-slate-700">
-                <Building2 className="h-3.5 w-3.5 text-indigo-500" /> 
-                {(() => {
-                   const r = (partner.perfil_comercial || partner.tipo_empresa || '').toLowerCase();
-                   if (r === 'buyer' || r === 'comprador') return 'Comprador';
-                   if (r === 'seller' || r === 'fornecedor') return 'Fornecedor';
-                   if (r === 'both' || r === 'ambos' || r === 'comprador e fornecedor') return 'Comprador & Fornecedor';
-                   return partner.perfil_comercial || partner.tipo_empresa;
-                })()}
-              </span>
-            )}
+        <div className="space-y-2 mb-4 text-xs font-semibold text-slate-600 min-h-[96px]">
+          {isProfileLoading ? (
+            <div className="flex items-center gap-2 text-slate-400 py-4">
+              <Loader2 className="h-4 w-4 animate-spin" /> Carregando perfil...
+            </div>
+          ) : (
+            <div className="flex flex-col gap-1.5">
+              {role && (
+                <span className="flex items-center gap-1.5 text-slate-700">
+                  <Building2 className="h-3.5 w-3.5 text-indigo-500" /> 
+                  {(() => {
+                     const r = role.toLowerCase();
+                     if (r === 'buyer' || r === 'comprador') return 'Comprador';
+                     if (r === 'seller' || r === 'fornecedor') return 'Fornecedor';
+                     if (r === 'both' || r === 'ambos' || r === 'comprador e fornecedor') return 'Comprador & Fornecedor';
+                     return role;
+                  })()}
+                </span>
+              )}
             
-            {partner.city && partner.city !== '-' && (
-              <span className="flex items-center gap-1.5 text-slate-500">
-                <MapPin className="h-3.5 w-3.5 text-slate-400" /> {partner.city}, {partner.state}
-              </span>
-            )}
+              {city && city !== '-' && (
+                <span className="flex items-center gap-1.5 text-slate-500">
+                  <MapPin className="h-3.5 w-3.5 text-slate-400" /> {city}, {state}
+                </span>
+              )}
             
-            {partner.isInactive && (
-              <span className="flex items-center gap-1.5 font-bold text-red-600 bg-red-50 border border-red-200 px-2 py-0.5 rounded-md text-[10px] w-fit">
-                Empresa Inativa
-              </span>
-            )}
+              {isInactive && (
+                <span className="flex items-center gap-1.5 font-bold text-red-600 bg-red-50 border border-red-200 px-2 py-0.5 rounded-md text-[10px] w-fit">
+                  Empresa Inativa
+                </span>
+              )}
             
-            {partner.raio_atendimento_km && (
-              <span className="flex items-center gap-1.5 text-slate-500">
-                <Globe className="h-3.5 w-3.5 text-slate-400" /> Atende até {partner.raio_atendimento_km} km
-              </span>
-            )}
+              {radius && (
+                <span className="flex items-center gap-1.5 text-slate-500">
+                  <Globe className="h-3.5 w-3.5 text-slate-400" /> Atende até {radius} km
+                </span>
+              )}
             
-            {partner.certifications && (
-              <div className="flex flex-col gap-1 mt-1">
-                {partner.certifications.split(',').slice(0, 3).map((cert, idx) => (
-                  <span key={idx} className="flex items-center gap-1.5 text-emerald-600 font-bold">
-                    <CheckCircle2 className="h-3.5 w-3.5" /> {cert.trim()}
-                  </span>
-                ))}
-                {partner.certifications.split(',').length > 3 && (
-                  <span className="text-[10px] text-slate-400 ml-5 font-medium">
-                    +{partner.certifications.split(',').length - 3} Certificações
-                  </span>
-                )}
+              {certs && (
+                <div className="flex flex-col gap-1 mt-1">
+                  {certs.split(',').slice(0, 3).map((cert, idx) => (
+                    <span key={idx} className="flex items-center gap-1.5 text-emerald-600 font-bold">
+                      <CheckCircle2 className="h-3.5 w-3.5" /> {cert.trim()}
+                    </span>
+                  ))}
+                  {certs.split(',').length > 3 && (
+                    <span className="text-[10px] text-slate-400 ml-5 font-medium">
+                      +{certs.split(',').length - 3} Certificações
+                    </span>
+                  )}
+                </div>
+              )}
+            
+              <div className="flex flex-wrap gap-1 mt-1">
+                {segs.slice(0, 3).map((seg: string, idx: number) => (
+                    <span key={idx} className="bg-slate-100 text-slate-600 text-[10px] px-2 py-0.5 rounded-full flex items-center gap-1 border border-slate-200">
+                      <Package className="h-2.5 w-2.5" /> {seg.trim()}
+                    </span>
+                  ))}
               </div>
-            )}
             
-            <div className="flex flex-wrap gap-1 mt-1">
-              {(() => {
-                const segs: string[] = Array.isArray(partner.segment) ? partner.segment : (typeof partner.segment === 'string' ? partner.segment.split(',') : []);
-                return segs.slice(0, 3).map((seg: string, idx: number) => (
-                  <span key={idx} className="bg-slate-100 text-slate-600 text-[10px] px-2 py-0.5 rounded-full flex items-center gap-1 border border-slate-200">
-                    <Package className="h-2.5 w-2.5" /> {seg.trim()}
-                  </span>
-                ));
-              })()}
+              <div className="mt-2 bg-indigo-50 border border-indigo-100 text-indigo-700 text-[10px] font-bold px-2.5 py-1.5 rounded-lg flex items-center justify-between">
+                <span className="flex items-center gap-1.5">
+                  <Star className="h-3.5 w-3.5" /> Hub.IA Score
+                </span>
+                <span className="bg-indigo-100 px-1.5 py-0.5 rounded text-indigo-800 text-[9px] uppercase tracking-wider">Em Breve</span>
+              </div>
             </div>
-            
-            <div className="mt-2 bg-indigo-50 border border-indigo-100 text-indigo-700 text-[10px] font-bold px-2.5 py-1.5 rounded-lg flex items-center justify-between">
-              <span className="flex items-center gap-1.5">
-                <Star className="h-3.5 w-3.5" /> Hub.IA Score
-              </span>
-              <span className="bg-indigo-100 px-1.5 py-0.5 rounded text-indigo-800 text-[9px] uppercase tracking-wider">Em Breve</span>
-            </div>
-          </div>
+          )}
         </div>
 
         {partner.email && (

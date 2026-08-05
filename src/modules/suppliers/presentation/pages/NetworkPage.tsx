@@ -6,6 +6,7 @@ import { InviteCompanyModal } from '../components/InviteCompanyModal';
 import { useNotifications } from '@/modules/notifications/presentation/context/NotificationContext';
 import NetworkCompanyModal, { NetworkOrg } from '../components/NetworkCompanyModal';
 import { EmailService } from '@/shared/utils/EmailService';
+import { usePublicOrganizationProfile } from '@/modules/organizations/presentation/hooks/usePublicOrganizationProfile';
 
 // UUID raiz da organização Hub.IA (SupplyHub Ltda)
 const HUB_IA_ORG_ID = 'a0000000-0000-0000-0000-000000000001';
@@ -111,31 +112,37 @@ function CompanyCard({
   onConnect: (org: NetworkOrg) => void;
   onClick: (org: NetworkOrg) => void;
 }) {
-  const displayName = org.razao_social || org.nome_fantasia || org.name;
-  const tradeName = org.nome_fantasia || displayName;
-  const corporateName = org.razao_social || org.name;
+  const { data: publicProfile, isLoading: isProfileLoading } = usePublicOrganizationProfile(org.id);
+
+  const displayName = publicProfile?.tradeName || org.razao_social || org.nome_fantasia || org.name;
+  const tradeName = publicProfile?.tradeName !== publicProfile?.legalName ? publicProfile?.tradeName : (org.nome_fantasia || displayName);
+  const corporateName = publicProfile?.legalName || org.razao_social || org.name;
+  const logoUrl = publicProfile?.logoUrl || org.logo_url;
+  const isInactive = org.status === 'inativo' || publicProfile?.status === 'inativo';
   
-  const initials = tradeName.split(' ').filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase();
+  const initials = tradeName?.split(' ').filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase() || 'EMP';
 
   const roleLabel = (() => {
-    const r = (org.perfil_comercial || org.tipo_empresa || org.business_model || '').toLowerCase();
+    const r = (publicProfile?.commercialProfile || publicProfile?.companyType || org.perfil_comercial || org.tipo_empresa || org.business_model || '').toLowerCase();
     if (r === 'buyer' || r === 'comprador') return 'Comprador';
     if (r === 'seller' || r === 'fornecedor') return 'Fornecedor';
     if (r === 'both' || r === 'ambos' || r === 'comprador e fornecedor') return 'Comprador & Fornecedor';
     return r ? r.charAt(0).toUpperCase() + r.slice(1) : 'Não informado';
   })();
 
-  const cityState = [org.city, org.state].filter(Boolean).join(' - ');
+  const cityState = [publicProfile?.city || org.city, publicProfile?.state || org.state].filter(Boolean).join(' - ');
+  const radius = publicProfile?.serviceRadiusKm || org.raio_atendimento_km;
+  const certs = publicProfile?.certifications?.map(c => c.name).join(',') || org.certifications;
 
   return (
     <div 
-      className="group relative bg-white border border-slate-200 rounded-2xl flex flex-col transition-all duration-150 ease-out hover:-translate-y-[2px] hover:shadow-lg hover:border-slate-300 h-full"
+      className={`group relative bg-white border border-slate-200 rounded-2xl flex flex-col transition-all duration-150 ease-out hover:-translate-y-[2px] hover:shadow-lg hover:border-slate-300 h-full ${isInactive ? 'opacity-70' : ''}`}
     >
       <div className="p-5 flex flex-col flex-1">
         {/* Header do Card (Logo + Nomes) */}
         <div className="flex items-start gap-3 mb-4 h-[48px]">
-          {org.logo_url ? (
-            <img src={org.logo_url} alt="Logo" className="h-12 w-12 rounded-xl object-contain bg-slate-50 border border-slate-100 shrink-0" />
+          {logoUrl ? (
+            <img src={logoUrl} alt="Logo" className="h-12 w-12 rounded-xl object-contain bg-slate-50 border border-slate-100 shrink-0" />
           ) : (
             <div className="h-12 w-12 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600 font-bold text-lg shrink-0">
               {initials}
@@ -156,39 +163,45 @@ function CompanyCard({
         
         {/* Informações detalhadas */}
         <div className="space-y-2 mb-4 text-xs font-semibold text-slate-600">
-          <div className="flex flex-col gap-1.5">
-            {roleLabel !== 'Não informado' && (
-              <span className="flex items-center gap-1.5 text-slate-700">
-                <Building2 className="h-3.5 w-3.5 text-indigo-500" /> {roleLabel}
-              </span>
-            )}
-            
-            {cityState && (
-              <span className="flex items-center gap-1.5 text-slate-500">
-                <MapPin className="h-3.5 w-3.5 text-slate-400" /> {cityState}
-              </span>
-            )}
-            
-            {org.raio_atendimento_km && (
-              <span className="flex items-center gap-1.5 text-slate-500">
-                <Globe className="h-3.5 w-3.5 text-slate-400" /> Atende até {org.raio_atendimento_km} km
-              </span>
-            )}
-            
-            {org.certifications && (
-              <div className="flex flex-col gap-1 mt-1">
-                {org.certifications.split(',').slice(0, 3).map((cert, idx) => (
-                  <span key={idx} className="flex items-center gap-1.5 text-emerald-600 font-bold">
-                    <CheckCircle2 className="h-3.5 w-3.5" /> {cert.trim()}
-                  </span>
-                ))}
-                {org.certifications.split(',').length > 3 && (
-                  <span className="text-[10px] text-slate-400 ml-5 font-medium">
-                    +{org.certifications.split(',').length - 3} Certificações
+          <div className="flex flex-col gap-1.5 min-h-[96px]">
+            {isProfileLoading ? (
+              <div className="flex items-center gap-2 text-slate-400 py-4">
+                <Loader2 className="h-4 w-4 animate-spin" /> Carregando perfil...
+              </div>
+            ) : (
+              <>
+                {roleLabel !== 'Não informado' && (
+                  <span className="flex items-center gap-1.5 text-slate-700">
+                    <Building2 className="h-3.5 w-3.5 text-indigo-500" /> {roleLabel}
                   </span>
                 )}
-              </div>
-            )}
+                
+                {cityState && (
+                  <span className="flex items-center gap-1.5 text-slate-500">
+                    <MapPin className="h-3.5 w-3.5 text-slate-400" /> {cityState}
+                  </span>
+                )}
+                
+                {radius && (
+                  <span className="flex items-center gap-1.5 text-slate-500">
+                    <Globe className="h-3.5 w-3.5 text-slate-400" /> Atende até {radius} km
+                  </span>
+                )}
+                
+                {certs && (
+                  <div className="flex flex-col gap-1 mt-1">
+                    {certs.split(',').slice(0, 3).map((cert, idx) => (
+                      <span key={idx} className="flex items-center gap-1.5 text-emerald-600 font-bold">
+                        <CheckCircle2 className="h-3.5 w-3.5" /> {cert.trim()}
+                      </span>
+                    ))}
+                    {certs.split(',').length > 3 && (
+                      <span className="text-[10px] text-slate-400 ml-5 font-medium">
+                        +{certs.split(',').length - 3} Certificações
+                      </span>
+                    )}
+                  </div>
+                )}
             
             <div className="flex flex-wrap gap-1 mt-1">
               {(() => {
@@ -207,6 +220,8 @@ function CompanyCard({
               </span>
               <span className="bg-indigo-100 px-1.5 py-0.5 rounded text-indigo-800 text-[9px] uppercase tracking-wider">Em Breve</span>
             </div>
+            </>
+            )}
           </div>
         </div>
 

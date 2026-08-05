@@ -3,6 +3,7 @@ import { X, Building2, MapPin, Globe, Mail, Phone, MessageSquare, Briefcase, Che
 import { supabase } from '@/infrastructure/supabase/client';
 import { useNotifications } from '@/modules/notifications/presentation/context/NotificationContext';
 import { EmailService } from '@/shared/utils/EmailService';
+import { usePublicOrganizationProfile } from '@/modules/organizations/presentation/hooks/usePublicOrganizationProfile';
 
 export interface NetworkOrg {
   id: string;
@@ -46,24 +47,16 @@ interface NetworkCompanyModalProps {
   onConnectSuccess?: (orgId: string) => void;
 }
 
-function SegmentBadge({ segment }: { segment: any }) {
-  const labels: string[] = (() => {
-    if (!segment) return [];
-    if (Array.isArray(segment)) return segment.map(String);
-    if (typeof segment === 'string') return [segment];
-    if (typeof segment === 'object') return Object.values(segment).map(String);
-    return [];
-  })();
-  
-  if (labels.length === 0) {
+function SegmentBadge({ segments }: { segments: any[] }) {
+  if (!segments || segments.length === 0) {
     return <span className="text-sm text-slate-400">Não informado</span>;
   }
   
   return (
     <div className="flex flex-wrap gap-2">
-      {labels.map((l, i) => (
+      {segments.map((s, i) => (
         <span key={i} className="text-[11px] bg-indigo-50 text-indigo-700 border border-indigo-100 rounded-full px-2.5 py-1 font-semibold truncate max-w-xs">
-          {l}
+          {s.name || s}
         </span>
       ))}
     </div>
@@ -87,17 +80,15 @@ function RoleLabel({ role }: { role: string | null }) {
 
 export default function NetworkCompanyModal({ org, isOpen, onClose, onConnect, onConnectSuccess }: NetworkCompanyModalProps) {
   const backdropRef = useRef<HTMLDivElement>(null);
-  
-  // Materials state
-  const [materials, setMaterials] = useState<any[]>([]);
-  const [isLoadingMaterials, setIsLoadingMaterials] = useState(false);
   const [isInactive, setIsInactive] = useState(false);
+
+  const { data: publicProfile, isLoading: isProfileLoading } = usePublicOrganizationProfile(isOpen && org ? org.id : null);
 
   useEffect(() => {
     if (org) {
-      setIsInactive(org.status === 'inativo');
+      setIsInactive(org.status === 'inativo' || publicProfile?.status === 'inativo');
     }
-  }, [org]);
+  }, [org, publicProfile]);
 
   useEffect(() => {
     const handleStatusChanged = (e: Event) => {
@@ -110,51 +101,21 @@ export default function NetworkCompanyModal({ org, isOpen, onClose, onConnect, o
     return () => window.removeEventListener('hubia:organization-status-changed', handleStatusChanged);
   }, [org]);
 
-  const { addMockNotification } = useNotifications();
-  const tenantId = localStorage.getItem('supplyhub_organization_id') || '';
-
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     document.addEventListener('keydown', handleKey);
     return () => document.removeEventListener('keydown', handleKey);
   }, [onClose]);
-  
-  useEffect(() => {
-    if (isOpen && org) {
-      loadMaterials(org.id);
-    }
-  }, [isOpen, org]);
-
-  const loadMaterials = async (orgId: string) => {
-    setIsLoadingMaterials(true);
-    try {
-      const { data, error } = await supabase
-        .from('organization_materials')
-        .select(`
-          id,
-          display_name,
-          materials (
-            official_name
-          )
-        `)
-        .eq('organization_id', orgId)
-        .limit(5);
-        
-      if (error) throw error;
-      setMaterials(data || []);
-    } catch (err) {
-      console.error('Erro ao carregar materiais:', err);
-    } finally {
-      setIsLoadingMaterials(false);
-    }
-  };
 
   if (!isOpen || !org) return null;
 
-  const displayName = org.razao_social || org.nome_fantasia || org.name;
-  const tradeName   = org.nome_fantasia !== displayName ? org.nome_fantasia : null;
-  const email       = org.business_email || org.email_corporativo;
-  const phone       = org.phone || org.telefone;
+  const displayName = publicProfile?.tradeName || org.razao_social || org.nome_fantasia || org.name;
+  const tradeName   = publicProfile?.legalName && publicProfile?.legalName !== displayName ? publicProfile.legalName : (org.nome_fantasia !== displayName ? org.nome_fantasia : null);
+  const email       = publicProfile?.businessEmail || org.business_email || org.email_corporativo;
+  const phone       = publicProfile?.phone || org.phone || org.telefone;
+  const logoUrl     = publicProfile?.logoUrl || org.logo_url;
+  const segments    = publicProfile?.segments || (org.segment ? [org.segment] : []);
+  const materials   = publicProfile?.productsAndServices || [];
 
   const initials = displayName
     .split(' ').filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase();
@@ -174,8 +135,8 @@ export default function NetworkCompanyModal({ org, isOpen, onClose, onConnect, o
         {/* Header Superior */}
         <div className="bg-slate-900 px-8 py-6 text-white flex-shrink-0 flex items-start justify-between">
           <div className="flex items-center gap-5">
-            {org.logo_url ? (
-              <img src={org.logo_url} alt={displayName} className="h-16 w-16 sm:h-20 sm:w-20 rounded-2xl object-contain bg-white p-2 flex-shrink-0" />
+            {logoUrl ? (
+              <img src={logoUrl} alt={displayName} className="h-16 w-16 sm:h-20 sm:w-20 rounded-2xl object-contain bg-white p-2 flex-shrink-0" />
             ) : (
               <div className="h-16 w-16 sm:h-20 sm:w-20 rounded-2xl bg-gradient-to-br from-indigo-500 to-indigo-700 flex items-center justify-center text-white text-2xl font-bold flex-shrink-0">
                 {initials}
@@ -302,11 +263,47 @@ export default function NetworkCompanyModal({ org, isOpen, onClose, onConnect, o
                 <h3 className="text-sm font-bold text-slate-900 mb-3 flex items-center justify-between">
                   <span>Segmentos de Atuação</span>
                   <span className="text-xs font-medium text-slate-400 bg-slate-200/50 px-2.5 py-1 rounded-lg">
-                    {org.segments_count || 0} cadastrados
+                    {segments.length || 0} cadastrados
                   </span>
                 </h3>
-                <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-                  <SegmentBadge segment={org.segment} />
+                <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm min-h-[80px]">
+                  {isProfileLoading ? (
+                    <div className="flex items-center justify-center text-slate-400 h-full w-full py-2">
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                    </div>
+                  ) : (
+                    <SegmentBadge segments={segments} />
+                  )}
+                </div>
+              </div>
+
+              {/* Certificações */}
+              <div>
+                <h3 className="text-sm font-bold text-slate-900 mb-3 flex items-center justify-between">
+                  <span>Certificações</span>
+                  <span className="text-xs font-medium text-slate-400 bg-slate-200/50 px-2.5 py-1 rounded-lg">
+                    {publicProfile?.certifications?.length || 0} ativas
+                  </span>
+                </h3>
+                <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm min-h-[80px]">
+                  {isProfileLoading ? (
+                    <div className="flex items-center justify-center text-slate-400 h-full w-full py-2">
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                    </div>
+                  ) : (
+                    publicProfile?.certifications && publicProfile.certifications.length > 0 ? (
+                      <div className="flex flex-wrap gap-2">
+                        {publicProfile.certifications.map((c, i) => (
+                          <span key={i} className="text-[11px] bg-green-50 text-green-700 border border-green-200 rounded-full px-2.5 py-1 font-semibold truncate max-w-xs flex items-center gap-1.5">
+                            <CheckCircle2 className="h-3 w-3" />
+                            {c.name}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="text-sm text-slate-400">Não informado</span>
+                    )
+                  )}
                 </div>
               </div>
 
@@ -319,8 +316,8 @@ export default function NetworkCompanyModal({ org, isOpen, onClose, onConnect, o
                   </span>
                 </h3>
                 
-                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                  {isLoadingMaterials ? (
+                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden min-h-[100px]">
+                  {isProfileLoading ? (
                     <div className="p-8 flex items-center justify-center text-slate-400">
                       <Loader2 className="h-6 w-6 animate-spin" />
                     </div>
@@ -332,7 +329,7 @@ export default function NetworkCompanyModal({ org, isOpen, onClose, onConnect, o
                             <Package className="h-4 w-4" />
                           </div>
                           <p className="text-sm font-medium text-slate-700 truncate">
-                            {m.display_name || m.materials?.official_name || 'Material sem nome'}
+                            {m.name || 'Material sem nome'}
                           </p>
                         </div>
                       ))}
