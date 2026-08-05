@@ -8,7 +8,10 @@ import { CompanyAddressSection } from './sections/CompanyAddressSection';
 import { supabase } from '../../../../infrastructure/supabase/client';
 import { OrganizationProfileData } from '../hooks/useOrganizationProfile';
 import { GeographicCoverageType } from '../../domain/types/GeographicCoverageType';
-
+import { ORGANIZATION_LOGO_BUCKET, resolveOrganizationLogoUrl } from '../../application/utils/logoUtils';
+import { calculateOrganizationProfileCompletion } from '../../application/utils/profileCompletion';
+import { useQueryClient } from '@tanstack/react-query';
+import { organizationProfileKeys } from '../hooks/useOrganizationProfile';
 export interface CompanyProfileFormProps {
   organizationId: string;
   initialData: OrganizationProfileData | null;
@@ -101,6 +104,7 @@ export function CompanyProfileForm({
   const [saved, setSaved] = useState(false);
   const [internalIsSuperAdmin, setInternalIsSuperAdmin] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
   const effectiveIsSuperAdmin = isSuperAdmin || internalIsSuperAdmin;
 
@@ -255,31 +259,82 @@ export function CompanyProfileForm({
     const file = e.target.files?.[0];
     if (!file) return;
 
+    if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) {
+      setSaveError('O logotipo deve ser PNG, JPG ou WEBP.');
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      setSaveError('O logotipo deve possuir no máximo 2 MB.');
+      return;
+    }
+
     const objectUrl = URL.createObjectURL(file);
     setPreviewUrl(objectUrl);
+    setSaveError('');
 
     try {
       setIsUploading(true);
-      const fileExt = file.name.split('.').pop();
-      const fileName = `organizations/${organizationId}/logo.${fileExt}`;
+      const extension = file.name.split('.').pop()?.toLowerCase() || 'png';
+      const objectPath = `organizations/${organizationId}/logo.${extension}`;
+      
       const { error: uploadError } = await supabase.storage
-        .from('companies')
-        .upload(fileName, file, { upsert: true });
+        .from(ORGANIZATION_LOGO_BUCKET)
+        .upload(objectPath, file, { 
+          upsert: true,
+          cacheControl: '3600',
+          contentType: file.type
+        });
 
       if (uploadError) throw uploadError;
 
-      const { data: { publicUrl } } = supabase.storage
-        .from('companies')
-        .getPublicUrl(fileName);
+      const completionInput = {
+        razaoSocial: initialData?.name,
+        nomeFantasia: initialData?.trade_name,
+        cnpj: initialData?.document,
+        emailCorporativo: initialData?.commercial_email,
+        telefone: initialData?.phone,
+        whatsapp: initialData?.whatsapp,
+        addressZipCode: initialData?.address_zip_code,
+        addressStreet: initialData?.address_street,
+        addressNumber: initialData?.address_number,
+        addressNeighborhood: initialData?.address_neighborhood,
+        city: initialData?.address_city,
+        state: initialData?.address_state,
+        logoUrl: objectPath,
+        website: initialData?.website,
+        tipoEmpresa: initialData?.tipo_empresa,
+        perfilComercial: initialData?.commercialProfile,
+        cnaePrincipal: initialData?.cnae_principal,
+        geographicCoverageType: initialData?.geographic_coverage_type,
+        raioAtendimentoKm: initialData?.raio_atendimento_km,
+        estadosAtendidos: initialCoverageStates,
+        segmentIds: initialSegments
+      };
+      const completionScore = calculateOrganizationProfileCompletion(completionInput);
 
-      setForm(f => ({ ...f, logo_url: fileName }));
-      localStorage.setItem('supplyhub_company_logo', publicUrl);
-      window.dispatchEvent(new Event('storage'));
+      const { error: organizationError } = await supabase
+        .from('organizations')
+        .update({
+          logo_url: objectPath,
+          profile_completion: completionScore
+        })
+        .eq('id', organizationId);
+
+      if (organizationError) throw organizationError;
+
+      const publicUrl = resolveOrganizationLogoUrl(objectPath);
+      const displayUrl = publicUrl ? `${publicUrl}?v=${Date.now()}` : '';
+
+      setForm(f => ({ ...f, logo_url: objectPath }));
+      if (displayUrl) {
+        setPreviewUrl(displayUrl);
+      }
       
-      URL.revokeObjectURL(objectUrl);
-      setPreviewUrl(null);
-    } catch (error) {
+      queryClient.invalidateQueries({ queryKey: organizationProfileKeys.detail(organizationId) });
+      
+    } catch (error: any) {
       console.error('Erro ao enviar logo:', error);
+      setSaveError(error.message || 'Falha ao salvar logotipo.');
       URL.revokeObjectURL(objectUrl);
       setPreviewUrl(null);
     } finally {
@@ -325,7 +380,7 @@ export function CompanyProfileForm({
               <CompanyGeneralDataSection
                 form={{
                   ...form, 
-                  logo_url: previewUrl || (form.logo_url ? (form.logo_url.startsWith('http') || form.logo_url.startsWith('blob:') ? form.logo_url : supabase.storage.from('companies').getPublicUrl(form.logo_url).data.publicUrl) : '')
+                  logo_url: previewUrl || resolveOrganizationLogoUrl(form.logo_url) || ''
                 }}
                 onChange={handleChange}
                 isUploading={isUploading}
