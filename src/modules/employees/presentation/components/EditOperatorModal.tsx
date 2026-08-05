@@ -220,21 +220,28 @@ export function EditOperatorModal({ operator, orgId, operators, onClose }: EditO
               </div>
 
               {/* Dados pessoais */}
+              {operator.status !== 'pendente' && (
+                <div className="p-3 bg-indigo-50/50 border border-indigo-100 rounded-lg">
+                  <p className="text-xs text-indigo-800">
+                    <strong>Nota:</strong> Dados pessoais (Nome, Telefone, Cargo) são mantidos pelo próprio usuário. Para alterá-los, acesse <a href="/perfil" className="font-bold underline cursor-pointer">Meus Dados</a>.
+                  </p>
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Nome *</label>
-                  <Input value={form.nome} onChange={e => setForm(f => ({ ...f, nome: e.target.value }))} className="h-9 text-sm" />
+                  <Input value={form.nome} onChange={e => setForm(f => ({ ...f, nome: e.target.value }))} readOnly={operator.status !== 'pendente'} className={`h-9 text-sm ${operator.status !== 'pendente' ? 'bg-slate-50 text-slate-500 cursor-not-allowed' : ''}`} />
                 </div>
                 <div className="space-y-1">
                   <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Sobrenome</label>
-                  <Input value={form.sobrenome} onChange={e => setForm(f => ({ ...f, sobrenome: e.target.value }))} className="h-9 text-sm" />
+                  <Input value={form.sobrenome} onChange={e => setForm(f => ({ ...f, sobrenome: e.target.value }))} readOnly={operator.status !== 'pendente'} className={`h-9 text-sm ${operator.status !== 'pendente' ? 'bg-slate-50 text-slate-500 cursor-not-allowed' : ''}`} />
                 </div>
               </div>
               
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Telefone</label>
-                  <Input value={form.telefone} onChange={e => setForm(f => ({ ...f, telefone: e.target.value }))} placeholder="(11) 9xxxx-xxxx" className="h-9 text-sm" />
+                  <Input value={form.telefone} onChange={e => setForm(f => ({ ...f, telefone: e.target.value }))} placeholder="(11) 9xxxx-xxxx" readOnly={operator.status !== 'pendente'} className={`h-9 text-sm ${operator.status !== 'pendente' ? 'bg-slate-50 text-slate-500 cursor-not-allowed' : ''}`} />
                 </div>
                 <div className="space-y-1">
                   <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Gestor Direto (Opcional)</label>
@@ -257,7 +264,7 @@ export function EditOperatorModal({ operator, orgId, operators, onClose }: EditO
               {operator.status !== 'pendente' && (
                 <div className="space-y-1">
                   <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Cargo</label>
-                  <Input value={form.cargo} onChange={e => setForm(f => ({ ...f, cargo: e.target.value }))} placeholder="Ex: Comprador Sênior" className="h-9 text-sm" />
+                  <Input value={form.cargo} readOnly disabled className="h-9 text-sm bg-slate-50 text-slate-500 cursor-not-allowed" />
                 </div>
               )}
 
@@ -359,14 +366,9 @@ export function EditOperatorModal({ operator, orgId, operators, onClose }: EditO
                   
                   {form.todas_categorias ? (
                     <div className="pl-6 pt-1">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-2 block">Inclui:</span>
-                      <div className="flex flex-wrap gap-1.5">
-                        {categoriesList.map(cat => (
-                          <span key={cat.id} className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-100">
-                            {cat.name}
-                          </span>
-                        ))}
-                      </div>
+                      <p className="text-xs font-medium text-indigo-700 bg-indigo-50 border border-indigo-100 p-2 rounded-lg">
+                        Todas as categorias organizacionais estão autorizadas para este operador.
+                      </p>
                     </div>
                   ) : (
                     <div className="pl-6 grid grid-cols-2 gap-2">

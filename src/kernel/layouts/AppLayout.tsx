@@ -156,12 +156,13 @@ export function AppLayout() {
              // Buscar role especifica da organizacao ativa
              const { data: roleData } = await supabase.from('user_roles').select('role').eq('user_id', user.id).eq('organization_id', activeOrganizationId).maybeSingle();
              const { data: opData } = await supabase.from('operators').select('perfil, nome, sobrenome').eq('id', user.id).eq('organization_id', activeOrganizationId).maybeSingle();
+             const { data: profData } = await supabase.from('profiles').select('display_name, full_name, email, contact_email').eq('id', user.id).maybeSingle();
              
-             opNome = opData?.nome || '';
+             opNome = profData?.display_name || profData?.full_name?.split(' ')[0] || profData?.contact_email?.split('@')[0] || profData?.email?.split('@')[0] || opData?.nome || user.email?.split('@')[0] || 'Operador';
              
-             // Importa e usa a funcao getRoleLabel que criamos
-             const { getRoleLabel } = await import('@/shared/utils/roleUtils');
-             currentProfile = getRoleLabel(roleData?.role || opData?.perfil || 'operator');
+             // Importa e usa a funcao getCompactRoleLabel que criamos
+             const { getCompactRoleLabel } = await import('@/shared/utils/roleUtils');
+             currentProfile = getCompactRoleLabel(roleData?.role || opData?.perfil || 'operator');
 
              if (roleData?.role === 'organization_admin' || opData?.perfil === 'administrador') {
                setIsAdmin(true);

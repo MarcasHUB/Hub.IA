@@ -12,6 +12,7 @@ import { ORGANIZATION_LOGO_BUCKET, resolveOrganizationLogoUrl } from '../../appl
 import { calculateOrganizationProfileCompletion } from '../../application/utils/profileCompletion';
 import { useQueryClient } from '@tanstack/react-query';
 import { organizationProfileKeys } from '../hooks/useOrganizationProfile';
+import { uploadPublicImage } from '../../../../shared/utils/uploadImage';
 export interface CompanyProfileFormProps {
   organizationId: string;
   initialData: OrganizationProfileData | null;
@@ -274,18 +275,13 @@ export function CompanyProfileForm({
 
     try {
       setIsUploading(true);
-      const extension = file.name.split('.').pop()?.toLowerCase() || 'png';
-      const objectPath = `organizations/${organizationId}/logo.${extension}`;
-      
-      const { error: uploadError } = await supabase.storage
-        .from(ORGANIZATION_LOGO_BUCKET)
-        .upload(objectPath, file, { 
-          upsert: true,
-          cacheControl: '3600',
-          contentType: file.type
-        });
+      const oldLogoUrl = form.logo_url;
 
-      if (uploadError) throw uploadError;
+      const { publicUrl, objectPath } = await uploadPublicImage({
+        bucket: ORGANIZATION_LOGO_BUCKET,
+        folderPath: `organizations/${organizationId}`,
+        file
+      });
 
       const completionInput = {
         razaoSocial: initialData?.name,
@@ -322,8 +318,12 @@ export function CompanyProfileForm({
 
       if (organizationError) throw organizationError;
 
-      const publicUrl = resolveOrganizationLogoUrl(objectPath);
-      const displayUrl = publicUrl ? `${publicUrl}?v=${Date.now()}` : '';
+      // Clean up old file if it was successful and exists
+      if (oldLogoUrl && oldLogoUrl !== objectPath && oldLogoUrl.startsWith('organizations/')) {
+         supabase.storage.from(ORGANIZATION_LOGO_BUCKET).remove([oldLogoUrl]).catch(e => console.error('Failed to cleanup old logo:', e));
+      }
+
+      const displayUrl = publicUrl;
 
       setForm(f => ({ ...f, logo_url: objectPath }));
       if (displayUrl) {

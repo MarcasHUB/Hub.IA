@@ -31,3 +31,21 @@ export const getRoleLabel = (role: string | null | undefined): string => {
       return r.toUpperCase();
   }
 };
+
+export const getCompactRoleLabel = (role: string | null | undefined): string => {
+  if (!role) return 'OPERADOR';
+  const r = role.toLowerCase().trim();
+  switch (r) {
+    case 'organization_admin':
+    case 'admin':
+    case 'administrador':
+    case 'company_admin':
+      return 'ADMINISTRADOR';
+    case 'platform_admin':
+    case 'global_admin':
+    case 'super_admin':
+      return 'ADMINISTRADOR GLOBAL';
+    default:
+      return getRoleLabel(role);
+  }
+};

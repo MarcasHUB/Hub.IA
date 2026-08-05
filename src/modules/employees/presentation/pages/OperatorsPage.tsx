@@ -369,19 +369,9 @@ function InviteModal({ onClose, onInvite, operators, organizationId }: { onClose
               
               {inviteForm.todas_categorias ? (
                 <div className="pl-6 pt-1">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-2 block">Inclui:</span>
-                  <div className="flex flex-wrap gap-1.5">
-                    {categories.slice(0, 10).map(cat => (
-                      <span key={cat.id} className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-100">
-                        {cat.name}
-                      </span>
-                    ))}
-                    {categories.length > 10 && (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-500 border border-slate-200">
-                        +{categories.length - 10} categorias
-                      </span>
-                    )}
-                  </div>
+                  <p className="text-xs font-medium text-indigo-700 bg-indigo-50 border border-indigo-100 p-2 rounded-lg">
+                    Todas as categorias organizacionais estão autorizadas para este operador.
+                  </p>
                 </div>
               ) : (
                 <div className="pl-6 space-y-3">
