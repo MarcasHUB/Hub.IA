@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/shared/components/ui/Button';
 import { Input } from '@/shared/components/ui/Input';
@@ -12,6 +12,12 @@ export default function OnboardingWizardPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const token = searchParams.get('token');
+
+  type InviteLoadState = 'loading' | 'ready' | 'invalid' | 'error';
+  const [loadState, setLoadState] = useState<InviteLoadState>('loading');
+  const [loadErrorMsg, setLoadErrorMsg] = useState('');
+  
+  const hydratedTokenRef = useRef<string | null>(null);
 
   const [step, setStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
@@ -56,39 +62,81 @@ export default function OnboardingWizardPage() {
 
   // Buscar dados do convite se houver token
   useEffect(() => {
-    if (!token) return;
-    const fetchInvite = async () => {
-      const { supabase } = await import('@/infrastructure/supabase/client');
-      // Chama a RPC 'validate_company_invite' que tem SECURITY DEFINER para bypassar o RLS
-      const { data, error } = await supabase.rpc('validate_company_invite', { p_token: token });
-      
-      if (data && data.length > 0) {
-        mapCompanyInviteToWizard(data[0]);
+    if (!token || hydratedTokenRef.current === token) return;
+
+    const fetchInvite = async (currentToken: string) => {
+      try {
+        setLoadState('loading');
+        hydratedTokenRef.current = currentToken;
+        const { supabase } = await import('@/infrastructure/supabase/client');
+        const { data, error } = await supabase.rpc('validate_company_invite', { p_token: currentToken });
+        
+        console.debug('[COMPANY_INVITE_RPC_SHAPE]', {
+          isArray: Array.isArray(data),
+          length: Array.isArray(data) ? data.length : undefined,
+          keys: data && !Array.isArray(data) ? Object.keys(data) : data?.[0] ? Object.keys(data[0]) : [],
+        });
+
+        if (error) {
+          throw new Error(error.message);
+        }
+
+        const invite = Array.isArray(data) ? data[0] : data;
+        
+        if (!invite) {
+          setLoadState('invalid');
+          setLoadErrorMsg('Convite não encontrado, expirado ou já aceito.');
+          return;
+        }
+
+        const normalized = {
+          id: invite.id,
+          cnpj: invite.document ?? '',
+          legalName: invite.company ?? invite.name ?? '',
+          tradeName: invite.name ?? invite.company ?? '',
+          email: invite.email ?? '',
+          city: invite.city ?? '',
+          state: invite.state ?? '',
+          website: invite.website ?? '',
+          contactName: invite.contact_name ?? '',
+          segments: Array.isArray(invite.segments) ? invite.segments : [],
+          inviterLogo: invite.inviter_logo_url ?? '',
+          inviterName: invite.inviter_name ?? ''
+        };
+
+        if (!normalized.id || !normalized.cnpj || !normalized.legalName || !normalized.email) {
+          setLoadState('invalid');
+          setLoadErrorMsg('O convite não possui os dados obrigatórios para continuar.');
+          return;
+        }
+
+        setCnpj(normalized.cnpj);
+        setRazaoSocial(normalized.legalName);
+        setNomeFantasia(normalized.tradeName);
+        setCidade(normalized.city);
+        setEstado(normalized.state);
+        setUserEmail(normalized.email);
+        setInviteId(normalized.id);
+        setSite(normalized.website);
+        
+        if (normalized.contactName) setUserName(normalized.contactName);
+        if (normalized.inviterLogo) setInviterLogo(normalized.inviterLogo);
+        if (normalized.inviterName) setInviterName(normalized.inviterName);
+        
+        if (normalized.segments && normalized.segments.length > 0) {
+          setSelectedSegments(normalized.segments);
+        }
+
+        setLoadState('ready');
+      } catch (err: any) {
+        console.error('Error fetching invite:', err);
+        setLoadState('error');
+        setLoadErrorMsg('Ocorreu um erro ao carregar os dados do convite. Tente novamente mais tarde.');
+        hydratedTokenRef.current = null; // Permite tentar novamente
       }
     };
     
-    const mapCompanyInviteToWizard = (inv: any) => {
-      setCnpj(inv.document || '');
-      setRazaoSocial(inv.company || inv.name || '');
-      setNomeFantasia(inv.company || inv.name || ''); // pré-preenche com razão social
-      setCidade(inv.city || '');
-      setEstado(inv.state || '');
-      setUserEmail(inv.email || '');
-      setInviteId(inv.id);
-      setSite(inv.website || '');
-      setInviteMessage(inv.message || '');
-      
-      if (inv.contact_name) setUserName(inv.contact_name);
-      if (inv.inviter_logo_url) setInviterLogo(inv.inviter_logo_url);
-      if (inv.inviter_name) setInviterName(inv.inviter_name);
-      
-      if (inv.segments && Array.isArray(inv.segments)) {
-        // Agora recebemos diretamente os UUIDs do banco, basta setá-los no array final
-        setSelectedSegments(inv.segments);
-      }
-    };
-    
-    fetchInvite();
+    void fetchInvite(token);
   }, [token]);
 
   const toggleTipo = (t: string) => {
@@ -198,6 +246,36 @@ export default function OnboardingWizardPage() {
           </div>
 
           <div className="p-8">
+            {loadState === 'loading' && (
+              <div className="flex flex-col items-center justify-center py-12 space-y-4">
+                <div className="h-8 w-8 rounded-full border-4 border-indigo-200 border-t-indigo-600 animate-spin" />
+                <p className="text-slate-500 font-medium">Carregando dados do convite...</p>
+              </div>
+            )}
+
+            {loadState === 'invalid' && (
+              <div className="flex flex-col items-center justify-center py-12 space-y-4 text-center">
+                <div className="h-12 w-12 rounded-full bg-amber-100 flex items-center justify-center">
+                  <span className="text-2xl">⚠️</span>
+                </div>
+                <h3 className="text-lg font-bold text-slate-800">Convite Inválido</h3>
+                <p className="text-slate-500 max-w-sm">{loadErrorMsg}</p>
+              </div>
+            )}
+
+            {loadState === 'error' && (
+              <div className="flex flex-col items-center justify-center py-12 space-y-4 text-center">
+                <div className="h-12 w-12 rounded-full bg-red-100 flex items-center justify-center">
+                  <span className="text-2xl">🚨</span>
+                </div>
+                <h3 className="text-lg font-bold text-slate-800">Erro no Carregamento</h3>
+                <p className="text-slate-500 max-w-sm">{loadErrorMsg}</p>
+                <Button onClick={() => window.location.reload()} className="mt-4 bg-indigo-600 hover:bg-indigo-700 text-white">Tentar Novamente</Button>
+              </div>
+            )}
+
+            {loadState === 'ready' && (
+              <>
             {/* ETAPA 1 */}
             {step === 1 && (
               <div className="space-y-6 animate-in slide-in-from-right-4 duration-300">
@@ -353,7 +431,7 @@ export default function OnboardingWizardPage() {
                   </div>
                   <div className="space-y-1.5">
                     <label className="text-xs font-bold text-slate-700">E-mail Corporativo</label>
-                    <Input type="email" value={userEmail} onChange={e => setUserEmail(e.target.value)} />
+                    <Input type="email" value={userEmail} disabled className="bg-slate-50 text-slate-500 border-slate-200" />
                   </div>
                   <div className="space-y-1.5">
                     <label className="text-xs font-bold text-slate-700">Senha de Acesso</label>
@@ -401,6 +479,8 @@ export default function OnboardingWizardPage() {
                   </Button>
                 </div>
               </div>
+            )}
+            </>
             )}
 
           </div>
