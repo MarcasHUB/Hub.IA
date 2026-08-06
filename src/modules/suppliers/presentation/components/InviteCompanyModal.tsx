@@ -4,6 +4,7 @@ import { Input } from '@/shared/components/ui/Input';
 import { Button } from '@/shared/components/ui/Button';
 import { supabase } from '@/infrastructure/supabase/client';
 import { maskCNPJ } from '@/shared/utils/formatters';
+import { generateRawToken, hashToken } from '@/shared/utils/tokenUtils';
 
 interface InviteCompanyModalProps {
   isOpen: boolean;
@@ -189,7 +190,8 @@ export function InviteCompanyModal({ isOpen, onClose, onSuccess }: InviteCompany
       }
 
       // 1. Gera token rastreável para o fornecedor
-      const tokenHash = crypto.randomUUID();
+      const rawToken = generateRawToken();
+      const tokenHash = await hashToken(rawToken);
       const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(); // 7 dias
 
       // 2. Insere na tabela 'invitations'
@@ -218,7 +220,8 @@ export function InviteCompanyModal({ isOpen, onClose, onSuccess }: InviteCompany
       // 3. Dispara envio de E-mail pela Edge Function reaproveitando a arquitetura
       try {
         const { EmailService } = await import('@/shared/utils/EmailService');
-        const emailRes = await EmailService.sendTransactionalEmail('supplier_invite', tokenHash);
+        // Envia o RAW token para o email, não o hash!
+        const emailRes = await EmailService.sendTransactionalEmail('supplier_invite', rawToken);
         
         if (!emailRes.success) {
           console.warn('Convite salvo, mas falha no envio do e-mail:', emailRes.message);

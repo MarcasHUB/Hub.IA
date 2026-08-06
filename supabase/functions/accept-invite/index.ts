@@ -32,10 +32,15 @@ serve(async (req: Request) => {
     }
 
     // 1. Validar e obter o convite na tabela operator_invitations
+    // O token recebido é o bruto. Calculamos o hash antes de buscar.
+    const tokenData = new TextEncoder().encode(token);
+    const tokenDigest = await crypto.subtle.digest('SHA-256', tokenData);
+    const tokenHash = Array.from(new Uint8Array(tokenDigest)).map(b => b.toString(16).padStart(2, '0')).join('');
+
     const { data: invite, error: inviteGetError } = await supabase
       .from('operator_invitations')
       .select('*')
-      .eq('token', token)
+      .eq('token', tokenHash)
       .eq('status', 'pendente')
       .single();
 
@@ -87,7 +92,7 @@ serve(async (req: Request) => {
 
     // 4. Aceite transacional: Atualiza operador, insere categorias, atualiza convite, logs.
     const { error: acceptRpcError } = await supabase.rpc('accept_operator_invitation_transactional', {
-      p_token: token,
+      p_token: tokenHash, // Enviamos o hash!
       p_user_id: userId,
       p_ip: ip || null,
       p_user_agent: user_agent || null

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/infrastructure/supabase/client';
 import { Button } from '@/shared/components/ui/Button';
 import { UserRound, Mail, Phone, Briefcase, Building, AlertCircle } from 'lucide-react';
@@ -6,11 +7,13 @@ import { AppLayout } from '@/kernel/layouts/AppLayout';
 import { uploadPublicImage } from '@/shared/utils/uploadImage';
 
 export function MyProfilePage() {
+  const queryClient = useQueryClient();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
   
+  const [userId, setUserId] = useState<string | null>(null);
   const [email, setEmail] = useState('');
   const [fullName, setFullName] = useState('');
   const [displayName, setDisplayName] = useState('');
@@ -27,6 +30,7 @@ export function MyProfilePage() {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
         
+        setUserId(user.id);
         setEmail(user.email || '');
         
         const { data, error } = await supabase
@@ -114,8 +118,13 @@ export function MyProfilePage() {
       if (avatarUrl) localStorage.setItem('supplyhub_user_avatar', avatarUrl);
       else localStorage.removeItem('supplyhub_user_avatar');
       
-      // Force reload layout or window to show updated name (simple approach)
-      setTimeout(() => window.location.reload(), 1000);
+      if (userId) {
+        queryClient.invalidateQueries({ queryKey: ['authenticated-profile', userId] });
+        queryClient.invalidateQueries({ queryKey: ['operator-profile', userId] });
+      }
+      
+      // Force reload layout to show updated name completely
+      setTimeout(() => window.location.reload(), 800);
 
     } catch (err: any) {
       setError(err.message);

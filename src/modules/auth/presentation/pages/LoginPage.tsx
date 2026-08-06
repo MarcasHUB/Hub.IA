@@ -159,8 +159,8 @@ export default function LoginPage() {
             const { error: insertError } = await supabase.from('operators').insert({
               id: operatorId,
               organization_id: finalOrgId,
-              nome: data.user.user_metadata?.nome || 'Gestor',
-              sobrenome: data.user.user_metadata?.sobrenome || 'Central',
+              nome: data.user.user_metadata?.nome || data.user.email?.split('@')[0] || 'Usuário',
+              sobrenome: data.user.user_metadata?.sobrenome || '',
               email: data.user.email,
               perfil: 'administrador',
               status: 'ativo',

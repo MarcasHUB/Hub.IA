@@ -70,23 +70,37 @@ export class SupabaseLogRepository {
     const [accResult, opeResult, opsResult] = await Promise.all([
       supabase.from('access_logs').select('*').eq('organization_id', organizationId),
       supabase.from('operation_logs').select('*').eq('organization_id', organizationId),
-      supabase.from('operators').select('id, nome, sobrenome').eq('organization_id', organizationId)
+      supabase.from('operators').select('id, email').eq('organization_id', organizationId)
     ]);
 
     let accessLogs = (accResult.data as AccessLog[]) || [];
     let operationLogs = (opeResult.data as OperationLog[]) || [];
     const ops = opsResult.data || [];
+    
+    // Fetch profiles for the operators
+    const opIds = ops.map((o: any) => o.id);
+    let profilesMap = new Map<string, any>();
+    if (opIds.length > 0) {
+      const { data: profs } = await supabase.from('profiles').select('user_id, display_name, full_name, email, contact_email').in('user_id', opIds);
+      if (profs) {
+        profs.forEach(p => profilesMap.set(p.user_id, p));
+      }
+    }
 
-    const opMap = new Map<string, string>(ops.map((o: any) => [o.id, `${o.nome} ${o.sobrenome}`]));
+    const opMap = new Map<string, string>(ops.map((o: any) => {
+      const p = profilesMap.get(o.id);
+      const name = p?.display_name || p?.full_name || p?.email || o.email || 'Usuário não identificado';
+      return [o.id, name];
+    }));
 
     accessLogs = accessLogs.map(l => ({
       ...l,
-      operator_nome: l.operator_id ? opMap.get(l.operator_id) || 'Operador Central' : 'Sistema',
+      operator_nome: l.operator_id ? opMap.get(l.operator_id) || 'Usuário não identificado' : 'Sistema',
     })).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
     operationLogs = operationLogs.map(l => ({
       ...l,
-      operator_nome: l.operator_id ? opMap.get(l.operator_id) || 'Operador Central' : 'Sistema',
+      operator_nome: l.operator_id ? opMap.get(l.operator_id) || 'Usuário não identificado' : 'Sistema',
     })).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
     return { accessLogs, operationLogs };

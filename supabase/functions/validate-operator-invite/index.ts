@@ -31,13 +31,18 @@ serve(async (req: Request) => {
       );
     }
 
-    const { data: invite, error } = await supabase
-      .from('operator_invitations')
-      .select('status, expires_at, email, nome, perfil')
-      .eq('token', token)
-      .maybeSingle();
+    // 1. O token recebido da URL é bruto, calculamos o hash antes de buscar.
+    const tokenData = new TextEncoder().encode(token);
+    const tokenDigest = await crypto.subtle.digest('SHA-256', tokenData);
+    const tokenHash = Array.from(new Uint8Array(tokenDigest)).map(b => b.toString(16).padStart(2, '0')).join('');
 
-    if (error || !invite) {
+    const { data: invite, error: inviteGetError } = await supabase
+      .from('operator_invitations')
+      .select('id, email, nome, status, expires_at, organization_id')
+      .eq('token', tokenHash)
+      .single();
+
+    if (inviteGetError || !invite) {
       return new Response(
         JSON.stringify({ error: 'Token não encontrado.' }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

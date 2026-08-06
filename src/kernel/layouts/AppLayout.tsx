@@ -130,7 +130,8 @@ export function AppLayout() {
             const orgName = orgData.nome_fantasia || orgData.name || 'Empresa';
             if (isMounted) {
               setCompanyName(orgName);
-              setCompanyLogo(orgData.logo_url || null);
+              const { resolveOrganizationLogoUrl } = await import('@/shared/utils/logoUtils');
+              setCompanyLogo(resolveOrganizationLogoUrl(orgData.logo_url, activeOrganizationId));
             }
             // Persistir também pro resto do app em modo compatibilidade
             localStorage.setItem('supplyhub_company_name', orgName);
@@ -152,13 +153,14 @@ export function AppLayout() {
           let currentProfile = 'Operador';
           let opNome = '';
 
+          // Busca perfil pessoal primeiro de profiles
+          const { data: profData } = await supabase.from('profiles').select('display_name, full_name').eq('user_id', user.id).maybeSingle();
+          opNome = profData?.display_name?.trim() || profData?.full_name?.trim() || user.email || 'Usuário não identificado';
+
           if (activeOrganizationId) {
              // Buscar role especifica da organizacao ativa
              const { data: roleData } = await supabase.from('user_roles').select('role').eq('user_id', user.id).eq('organization_id', activeOrganizationId).maybeSingle();
-             const { data: opData } = await supabase.from('operators').select('perfil, nome, sobrenome').eq('id', user.id).eq('organization_id', activeOrganizationId).maybeSingle();
-             const { data: profData } = await supabase.from('profiles').select('display_name, full_name, email, contact_email').eq('id', user.id).maybeSingle();
-             
-             opNome = profData?.display_name || profData?.full_name?.split(' ')[0] || profData?.contact_email?.split('@')[0] || profData?.email?.split('@')[0] || opData?.nome || user.email?.split('@')[0] || 'Operador';
+             const { data: opData } = await supabase.from('operators').select('perfil').eq('id', user.id).eq('organization_id', activeOrganizationId).maybeSingle();
              
              // Importa e usa a funcao getCompactRoleLabel que criamos
              const { getCompactRoleLabel } = await import('@/shared/utils/roleUtils');
@@ -182,7 +184,7 @@ export function AppLayout() {
           setOperatorProfile(currentProfile);
           
           // Nome do operador autenticado (nunca usar nome da empresa aqui)
-          const nameToSet = globalUser?.display_name || globalUser?.full_name || opNome || user.email || 'Usuário';
+          const nameToSet = globalUser?.display_name || globalUser?.full_name || opNome || user.email || 'Usuário não identificado';
           setOperatorName(nameToSet);
           
           // Avatar

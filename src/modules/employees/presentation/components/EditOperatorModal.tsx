@@ -39,11 +39,22 @@ export function EditOperatorModal({ operator, orgId, operators, onClose }: EditO
   });
 
   const { data: categoriesList = [] } = useQuery({
-    queryKey: ['categories', orgId],
+    queryKey: ['organization-categories', orgId],
     queryFn: async () => {
       const repo = new SupabaseCategoryRepository();
       return repo.findAll(orgId);
     }
+  });
+
+  const { data: operatorProfile, isLoading: isProfileLoading } = useQuery({
+    queryKey: ['operator-profile', operator.id],
+    queryFn: async () => {
+      if (operator.status === 'pendente') return null;
+      const { supabase } = await import('@/infrastructure/supabase/client');
+      const { data } = await supabase.from('profiles').select('full_name, display_name, phone, job_title').eq('user_id', operator.id).maybeSingle();
+      return data;
+    },
+    enabled: operator.status !== 'pendente'
   });
 
   const [saving, setSaving] = useState(false);
@@ -124,17 +135,22 @@ export function EditOperatorModal({ operator, orgId, operators, onClose }: EditO
 
       } else {
         const payload: Partial<Operator> = {
-          nome: form.nome,
-          sobrenome: form.sobrenome,
           email: operator.email, // email change only allowed if pending
           status: operator.status,
-          telefone: form.telefone || undefined,
-          cargo: operator.status === 'pendente' ? MACRO_PROFILES[form.macroProfile].cargo : (form.cargo || undefined),
-          perfil: operator.status === 'pendente' ? MACRO_PROFILES[form.macroProfile].perfil : form.perfil,
+          perfil: form.perfil,
           gestor_id: form.gestor_id || undefined,
           todas_categorias: form.todas_categorias,
           categories: form.todas_categorias ? [] : form.category_ids,
         };
+        
+        // Só atualizamos dados pessoais em convites pendentes
+        if (operator.status === 'pendente') {
+          payload.nome = form.nome;
+          payload.sobrenome = form.sobrenome;
+          payload.telefone = form.telefone || undefined;
+          payload.cargo = MACRO_PROFILES[form.macroProfile].cargo;
+          payload.perfil = MACRO_PROFILES[form.macroProfile].perfil;
+        }
 
         await repo.updateOperator(operator.id, payload as any);
 
@@ -230,18 +246,18 @@ export function EditOperatorModal({ operator, orgId, operators, onClose }: EditO
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Nome *</label>
-                  <Input value={form.nome} onChange={e => setForm(f => ({ ...f, nome: e.target.value }))} readOnly={operator.status !== 'pendente'} className={`h-9 text-sm ${operator.status !== 'pendente' ? 'bg-slate-50 text-slate-500 cursor-not-allowed' : ''}`} />
+                  <Input value={operator.status === 'pendente' ? form.nome : (operatorProfile?.display_name || operatorProfile?.full_name?.split(' ')[0] || operator.nome || '')} onChange={e => setForm(f => ({ ...f, nome: e.target.value }))} readOnly={operator.status !== 'pendente'} className={`h-9 text-sm ${operator.status !== 'pendente' ? 'bg-slate-50 text-slate-500 cursor-not-allowed' : ''}`} />
                 </div>
                 <div className="space-y-1">
                   <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Sobrenome</label>
-                  <Input value={form.sobrenome} onChange={e => setForm(f => ({ ...f, sobrenome: e.target.value }))} readOnly={operator.status !== 'pendente'} className={`h-9 text-sm ${operator.status !== 'pendente' ? 'bg-slate-50 text-slate-500 cursor-not-allowed' : ''}`} />
+                  <Input value={operator.status === 'pendente' ? form.sobrenome : (operatorProfile?.full_name?.split(' ').slice(1).join(' ') || operator.sobrenome || '')} onChange={e => setForm(f => ({ ...f, sobrenome: e.target.value }))} readOnly={operator.status !== 'pendente'} className={`h-9 text-sm ${operator.status !== 'pendente' ? 'bg-slate-50 text-slate-500 cursor-not-allowed' : ''}`} />
                 </div>
               </div>
               
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Telefone</label>
-                  <Input value={form.telefone} onChange={e => setForm(f => ({ ...f, telefone: e.target.value }))} placeholder="(11) 9xxxx-xxxx" readOnly={operator.status !== 'pendente'} className={`h-9 text-sm ${operator.status !== 'pendente' ? 'bg-slate-50 text-slate-500 cursor-not-allowed' : ''}`} />
+                  <Input value={operator.status === 'pendente' ? form.telefone : (operatorProfile?.phone || operator.telefone || '')} onChange={e => setForm(f => ({ ...f, telefone: e.target.value }))} placeholder="(11) 9xxxx-xxxx" readOnly={operator.status !== 'pendente'} className={`h-9 text-sm ${operator.status !== 'pendente' ? 'bg-slate-50 text-slate-500 cursor-not-allowed' : ''}`} />
                 </div>
                 <div className="space-y-1">
                   <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Gestor Direto (Opcional)</label>
@@ -264,7 +280,7 @@ export function EditOperatorModal({ operator, orgId, operators, onClose }: EditO
               {operator.status !== 'pendente' && (
                 <div className="space-y-1">
                   <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Cargo</label>
-                  <Input value={form.cargo} readOnly disabled className="h-9 text-sm bg-slate-50 text-slate-500 cursor-not-allowed" />
+                  <Input value={operatorProfile?.job_title || operator.cargo || ''} readOnly disabled className="h-9 text-sm bg-slate-50 text-slate-500 cursor-not-allowed" />
                 </div>
               )}
 
@@ -336,7 +352,14 @@ export function EditOperatorModal({ operator, orgId, operators, onClose }: EditO
                   <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Perfil de Acesso *</label>
                   <select
                     value={form.perfil}
-                    onChange={e => setForm(f => ({ ...f, perfil: e.target.value as OperatorPerfil }))}
+                    onChange={e => {
+                      const newPerfil = e.target.value as OperatorPerfil;
+                      setForm(f => ({ 
+                        ...f, 
+                        perfil: newPerfil,
+                        todas_categorias: (newPerfil === 'administrador' || newPerfil === 'gestor') ? true : f.todas_categorias
+                      }));
+                    }}
                     className="w-full h-9 px-3 rounded-lg border border-slate-300 text-sm font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   >
                     <option value="auditor">Auditor/Consulta — Acesso restrito de leitura</option>
@@ -359,7 +382,7 @@ export function EditOperatorModal({ operator, orgId, operators, onClose }: EditO
                       type="checkbox" 
                       className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
                       checked={form.todas_categorias}
-                      onChange={(e) => setForm(f => ({ ...f, todas_categorias: e.target.checked, category_ids: e.target.checked ? [] : f.category_ids }))}
+                      onChange={(e) => setForm(f => ({ ...f, todas_categorias: e.target.checked }))}
                     />
                     <span className="text-sm font-semibold text-slate-700">Todas as Categorias</span>
                   </label>

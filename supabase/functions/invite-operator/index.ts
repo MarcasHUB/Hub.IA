@@ -32,10 +32,17 @@ serve(async (req: Request) => {
     }
 
     // 1. Gerar token seguro para rastreabilidade
-    const token = crypto.randomUUID();
+    const rawTokenBytes = new Uint8Array(32);
+    crypto.getRandomValues(rawTokenBytes);
+    const rawToken = Array.from(rawTokenBytes).map(b => b.toString(16).padStart(2, '0')).join('');
+    
+    const tokenData = new TextEncoder().encode(rawToken);
+    const tokenDigest = await crypto.subtle.digest('SHA-256', tokenData);
+    const tokenHash = Array.from(new Uint8Array(tokenDigest)).map(b => b.toString(16).padStart(2, '0')).join('');
 
     const origin = req.headers.get('origin') || 'http://localhost:5173';
-    const redirectUrl = `${origin}/aceitar-convite?token=${token}`;
+    // O link envia o token bruto
+    const redirectUrl = `${origin}/aceitar-convite?token=${rawToken}`;
 
     // 2. Verificar se o operador já existe globalmente pelo e-mail
     const { data: globalOp } = await supabase
@@ -90,7 +97,7 @@ serve(async (req: Request) => {
           cargo,
           perfil,
           organization_id,
-          invite_token: token,
+          invite_token: tokenHash, // save hash in metadata just in case
         }
       });
 
@@ -157,7 +164,7 @@ serve(async (req: Request) => {
         nome: `${nome} ${sobrenome}`.trim(),
         cargo,
         perfil,
-        token, // Rastreável
+        token: tokenHash, // We store the hash in the DB, despite the column name 'token'
         status: 'pendente',
         todas_categorias: todas_categorias || false,
         category_ids: resolvedCategoryIds,

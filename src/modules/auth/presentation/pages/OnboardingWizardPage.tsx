@@ -34,7 +34,7 @@ export default function OnboardingWizardPage() {
   // Passo 2: Segmento (Atuação Empresarial)
   const [selectedSegments, setSelectedSegments] = useState<string[]>([]);
   const [globalSegments, setGlobalSegments] = useState<any[]>([]);
-  const [inviteSegments, setInviteSegments] = useState<string[]>([]);
+  const [inviteMessage, setInviteMessage] = useState('');
 
   useEffect(() => {
     const fetchSegments = async () => {
@@ -47,18 +47,7 @@ export default function OnboardingWizardPage() {
     fetchSegments();
   }, []);
 
-  // Mapeia nomes de segmentos vindos do convite para UUIDs assim que os globais carregarem
-  useEffect(() => {
-    if (globalSegments.length > 0 && inviteSegments.length > 0) {
-      const mappedIds = inviteSegments.map(name => {
-        const seg = globalSegments.find(s => s.nome === name);
-        return seg ? seg.id : null;
-      }).filter(Boolean) as string[];
-      
-      setSelectedSegments(prev => Array.from(new Set([...prev, ...mappedIds])));
-    }
-  }, [globalSegments, inviteSegments]);
-
+  // Segmentos globais carregados diretamente do banco para validação
   // Formulário: Usuário
   const [userName, setUserName] = useState('');
   const [userEmail, setUserEmail] = useState('');
@@ -74,24 +63,31 @@ export default function OnboardingWizardPage() {
       const { data, error } = await supabase.rpc('validate_company_invite', { p_token: token });
       
       if (data && data.length > 0) {
-        const inv = data[0];
-        setCnpj(inv.document || '');
-        setRazaoSocial(inv.company || inv.name || '');
-        setNomeFantasia(inv.company || inv.name || ''); // pré-preenche com razão social
-        setCidade(inv.city || '');
-        setEstado(inv.state || '');
-        setUserEmail(inv.email || '');
-        setInviteId(inv.id);
-        
-        if (inv.contact_name) setUserName(inv.contact_name);
-        if (inv.inviter_logo_url) setInviterLogo(inv.inviter_logo_url);
-        if (inv.inviter_name) setInviterName(inv.inviter_name);
-        
-        if (inv.segments && Array.isArray(inv.segments)) {
-          setInviteSegments(inv.segments);
-        }
+        mapCompanyInviteToWizard(data[0]);
       }
     };
+    
+    const mapCompanyInviteToWizard = (inv: any) => {
+      setCnpj(inv.document || '');
+      setRazaoSocial(inv.company || inv.name || '');
+      setNomeFantasia(inv.company || inv.name || ''); // pré-preenche com razão social
+      setCidade(inv.city || '');
+      setEstado(inv.state || '');
+      setUserEmail(inv.email || '');
+      setInviteId(inv.id);
+      setSite(inv.website || '');
+      setInviteMessage(inv.message || '');
+      
+      if (inv.contact_name) setUserName(inv.contact_name);
+      if (inv.inviter_logo_url) setInviterLogo(inv.inviter_logo_url);
+      if (inv.inviter_name) setInviterName(inv.inviter_name);
+      
+      if (inv.segments && Array.isArray(inv.segments)) {
+        // Agora recebemos diretamente os UUIDs do banco, basta setá-los no array final
+        setSelectedSegments(inv.segments);
+      }
+    };
+    
     fetchInvite();
   }, [token]);
 
