@@ -36,7 +36,7 @@ export function InviteCompanyModal({ isOpen, onClose, onSuccess }: InviteCompany
   const [isExistingOrg, setIsExistingOrg] = useState(false);
   const [existingOrgId, setExistingOrgId] = useState<string | null>(null);
   const [isInactive, setIsInactive] = useState(false);
-  const [successData, setSuccessData] = useState<{name: string, email: string} | null>(null);
+  const [successData, setSuccessData] = useState<{name: string, email: string, emailFailed?: boolean} | null>(null);
 
   useEffect(() => {
     const handleStatusChanged = (e: Event) => {
@@ -218,6 +218,7 @@ export function InviteCompanyModal({ isOpen, onClose, onSuccess }: InviteCompany
       }
 
       // 3. Dispara envio de E-mail pela Edge Function reaproveitando a arquitetura
+      let emailFailed = false;
       try {
         const { EmailService } = await import('@/shared/utils/EmailService');
         // Envia o RAW token para o email, não o hash!
@@ -225,14 +226,17 @@ export function InviteCompanyModal({ isOpen, onClose, onSuccess }: InviteCompany
         
         if (!emailRes.success) {
           console.warn('Convite salvo, mas falha no envio do e-mail:', emailRes.message);
+          emailFailed = true;
         }
       } catch (err) {
         console.error('Erro ao chamar EmailService:', err);
+        emailFailed = true;
       }
 
       setSuccessData({
         name: newCompName,
-        email: newCompEmail
+        email: newCompEmail,
+        emailFailed
       });
 
       onSuccess({
@@ -283,10 +287,15 @@ export function InviteCompanyModal({ isOpen, onClose, onSuccess }: InviteCompany
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
         <div className="bg-white w-full max-w-sm rounded-2xl shadow-2xl p-8 flex flex-col items-center animate-in fade-in zoom-in-95 duration-200">
-          <div className="h-16 w-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mb-6">
+          <div className={`h-16 w-16 rounded-full flex items-center justify-center mb-6 ${successData.emailFailed ? 'bg-amber-100 text-amber-600' : 'bg-green-100 text-green-600'}`}>
             <CheckCircle2 className="h-8 w-8" />
           </div>
-          <h2 className="text-xl font-bold text-slate-900 mb-2">Convite enviado com sucesso</h2>
+          <h2 className="text-xl font-bold text-slate-900 mb-2 text-center">
+            {successData.emailFailed ? 'Convite criado, mas o e-mail não pôde ser enviado' : 'Convite enviado com sucesso'}
+          </h2>
+          {successData.emailFailed && (
+            <p className="text-sm text-slate-500 text-center mb-4">Você pode tentar reenviar este convite posteriormente através da tela de Rede.</p>
+          )}
           
           <div className="w-full bg-slate-50 p-4 rounded-xl space-y-3 mb-6 text-sm text-left">
             <div>

@@ -241,14 +241,21 @@ ${perms.map(p => `- ${p}`).join('\n')}${rests.length > 0 ? `\n\nRestrições:\n$
 
     // FLUXO: CONVITE DE FORNECEDOR/EMPRESA
     if (action === 'supplier_invite') {
+      const dataEncoder = new TextEncoder().encode(target_id);
+      const hashBuffer = await crypto.subtle.digest('SHA-256', dataEncoder);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      const hashedToken = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+
       const { data: invite, error: fetchError } = await supabase
         .from('invitations')
         .select('*')
-        .eq('token_hash', target_id)
+        .eq('token_hash', hashedToken)
+        .eq('status', 'pendente')
+        .gt('expires_at', new Date().toISOString())
         .single();
 
       if (fetchError || !invite) {
-        return new Response(JSON.stringify({ error: 'Convite de empresa não encontrado ou RLS bloqueou o acesso' }), {
+        return new Response(JSON.stringify({ error: 'Convite de empresa não encontrado, expirado ou RLS bloqueou o acesso' }), {
           status: 404,
           headers: { 'Content-Type': 'application/json', ...corsHeaders }
         });
@@ -258,7 +265,7 @@ ${perms.map(p => `- ${p}`).join('\n')}${rests.length > 0 ? `\n\nRestrições:\n$
       toName = invite.contact_name || invite.name || invite.company;
       subject = 'Sua empresa foi convidada para fazer parte da Rede Hub.IA de Suprimentos';
       
-      const link = joinUrl(publicUrl, `onboarding?token=${invite.token_hash}`);
+      const link = joinUrl(publicUrl, `onboarding?token=${encodeURIComponent(target_id)}`);
 
       const inviterName = user?.user_metadata?.nome 
         ? `${user.user_metadata.nome} ${user.user_metadata.sobrenome || ''}`.trim() 
