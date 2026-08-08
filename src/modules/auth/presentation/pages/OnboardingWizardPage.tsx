@@ -221,40 +221,39 @@ export default function OnboardingWizardPage() {
     try {
       if (inviteState.status !== 'ready') throw new Error('Convite não validado.');
 
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: userEmail,
-        password: userPass,
-        options: {
-          data: { full_name: userName },
-          emailRedirectTo: `${window.location.origin}/login`
+      const { data, error: functionError } = await supabase.functions.invoke('complete-onboarding', {
+        body: {
+          token: token || '',
+          password: userPass,
+          fullName: userName,
+          role: userRole,
+          orgTradeName: nomeFantasia || razaoSocial,
+          city: cidade,
+          state: estado,
+          website: site || null,
+          cnpj: cnpj,
+          segments: resolvedSegments.map(segment => segment.name) // Envia nomes por compatibilidade
         }
       });
 
-      if (authError || !authData.user) {
-        throw new Error('Erro ao criar usuário: ' + authError?.message);
+      // supabase-js functions.invoke returns HttpError for 400/500 statuses
+      if (functionError) {
+        // Tenta extrair o código de erro ou a mensagem do corpo da resposta
+        let errMsg = functionError.message;
+        if (functionError.context && typeof functionError.context.json === 'function') {
+          try {
+            const errData = await functionError.context.json();
+            errMsg = errData.code || errData.message || errData.error || errMsg;
+          } catch (e) {}
+        }
+        throw new Error(errMsg);
       }
 
-      let mappedRole = 'admin';
-      if (userRole === 'Comercial') mappedRole = 'manager';
-      if (userRole === 'Engenharia') mappedRole = 'buyer';
-
-      const { error: rpcError } = await supabase.rpc('complete_onboarding', {
-        p_token: token || '',
-        p_auth_id: authData.user.id,
-        p_email: userEmail,
-        p_full_name: userName,
-        p_role: mappedRole,
-        p_org_name: razaoSocial || nomeFantasia,
-        p_org_trade_name: nomeFantasia || razaoSocial,
-        p_org_document: cnpj,
-        p_org_city: cidade,
-        p_org_state: estado,
-        p_org_website: site || null,
-        p_segments: resolvedSegments.map(segment => segment.name) // Envia nomes por compatibilidade
-      });
-
-      if (rpcError) {
-        throw new Error(rpcError.message);
+      if (data?.code && data.code !== 'SUCCESS') {
+        throw new Error(data.code);
+      }
+      if (data?.error) {
+        throw new Error(data.error);
       }
 
       setStep(4);
@@ -267,12 +266,16 @@ export default function OnboardingWizardPage() {
         userMsg = 'Não foi possível validar um dos segmentos associados ao convite. O segmento não foi encontrado no catálogo global.';
       } else if (msg.includes('ONBOARDING_SEGMENT_AMBIGUOUS')) {
         userMsg = 'O segmento associado ao convite possui duplicidade no catálogo global. Entre em contato com a empresa remetente.';
-      } else if (msg.includes('ONBOARDING_INVITE_INVALID')) {
+      } else if (msg.includes('ONBOARDING_INVITE_INVALID') || msg.includes('ALREADY_USED')) {
         userMsg = 'O convite é inválido, incompleto ou já foi utilizado.';
       } else if (msg.includes('ONBOARDING_INVITE_EXPIRED')) {
         userMsg = 'O convite encontra-se expirado.';
+      } else if (msg.includes('ONBOARDING_AUTH_USER_EXISTS') || msg.includes('already registered')) {
+        userMsg = 'Erro ao criar sua conta de acesso. O e-mail associado ao convite já está em uso na plataforma.';
+      } else if (msg.includes('ONBOARDING_PASSWORD_INVALID')) {
+        userMsg = 'A senha informada não atende aos requisitos mínimos (mínimo 6 caracteres).';
       } else if (msg.includes('AuthApiError') || msg.includes('sign up')) {
-        userMsg = 'Erro ao criar sua conta de acesso. O e-mail pode já estar em uso.';
+        userMsg = 'Erro ao criar sua conta de acesso.';
       }
 
       alert(userMsg);
