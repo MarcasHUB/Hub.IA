@@ -37,6 +37,15 @@ export function InviteCompanyModal({ isOpen, onClose, onSuccess }: InviteCompany
   const [existingOrgId, setExistingOrgId] = useState<string | null>(null);
   const [isInactive, setIsInactive] = useState(false);
   const [successData, setSuccessData] = useState<{name: string, email: string, emailFailed?: boolean} | null>(null);
+  const [globalSegments, setGlobalSegments] = useState<{id: string, nome: string}[]>([]);
+
+  useEffect(() => {
+    const fetchSegs = async () => {
+      const { data } = await supabase.from('segments').select('id, nome').is('organization_id', null).eq('status', 'ativo').is('deleted_at', null).order('nome');
+      if (data) setGlobalSegments(data);
+    };
+    fetchSegs();
+  }, []);
 
   useEffect(() => {
     const handleStatusChanged = (e: Event) => {
@@ -123,9 +132,9 @@ export function InviteCompanyModal({ isOpen, onClose, onSuccess }: InviteCompany
           if (data.cnae_fiscal_descricao) {
             const suggested = matchSegments(data.cnae_fiscal_descricao);
             if (suggested.length > 0) {
-              setNewCompSeg(suggested.join(', '));
+              setNewCompSeg(suggested[0]);
             } else {
-              setNewCompSeg(data.cnae_fiscal_descricao.substring(0, 80));
+              setNewCompSeg('');
             }
           }
         }
@@ -380,8 +389,18 @@ export function InviteCompanyModal({ isOpen, onClose, onSuccess }: InviteCompany
 
             <div className="grid grid-cols-1 gap-5">
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700">Segmentos (Separados por vírgula)</label>
-                <Input placeholder="Ex: Material Elétrico, EPIs" value={newCompSeg} onChange={e => setNewCompSeg(e.target.value)} readOnly={isExistingOrg} className={isExistingOrg ? "bg-slate-50 text-slate-500 cursor-not-allowed" : ""} />
+                <label className="text-xs font-bold text-slate-700">Segmento de Atuação (Selecione um)</label>
+                <select
+                  value={newCompSeg}
+                  onChange={e => setNewCompSeg(e.target.value)}
+                  disabled={isExistingOrg}
+                  className={`w-full flex h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${isExistingOrg ? 'bg-slate-50 text-slate-500 cursor-not-allowed' : ''}`}
+                >
+                  <option value="">Selecione o Segmento Principal</option>
+                  {globalSegments.map(seg => (
+                    <option key={seg.id} value={seg.nome}>{seg.nome}</option>
+                  ))}
+                </select>
               </div>
             </div>
 
