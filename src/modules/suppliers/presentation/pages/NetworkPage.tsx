@@ -7,6 +7,7 @@ import { useNotifications } from '@/modules/notifications/presentation/context/N
 import NetworkCompanyModal, { NetworkOrg } from '../components/NetworkCompanyModal';
 import { EmailService } from '@/shared/utils/EmailService';
 import { usePublicOrganizationProfile } from '@/modules/organizations/presentation/hooks/usePublicOrganizationProfile';
+import { resolveOrganizationLogoUrl } from '@/shared/utils/logoUtils';
 
 // UUID raiz da organização Hub.IA (SupplyHub Ltda)
 const HUB_IA_ORG_ID = 'a0000000-0000-0000-0000-000000000001';
@@ -117,7 +118,7 @@ function CompanyCard({
   const displayName = publicProfile?.tradeName || org.razao_social || org.nome_fantasia || org.name;
   const tradeName = publicProfile?.tradeName !== publicProfile?.legalName ? publicProfile?.tradeName : (org.nome_fantasia || displayName);
   const corporateName = publicProfile?.legalName || org.razao_social || org.name;
-  const logoUrl = publicProfile?.logoUrl || org.logo_url;
+  const logoUrl = publicProfile?.logoUrl || resolveOrganizationLogoUrl(org.logo_url, org.id);
   const isInactive = org.status === 'inativo' || publicProfile?.status === 'inativo';
   
   const initials = tradeName?.split(' ').filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase() || 'EMP';
@@ -220,6 +221,12 @@ function CompanyCard({
               </span>
               <span className="bg-indigo-100 px-1.5 py-0.5 rounded text-indigo-800 text-[9px] uppercase tracking-wider">Em Breve</span>
             </div>
+            
+            {org.isPartner && org.connection_date && (
+              <div className="mt-1 flex items-center gap-1.5 text-indigo-600 font-medium text-[10px]">
+                <Clock className="h-3 w-3" /> Parceiro desde {new Date(org.connection_date).toLocaleDateString('pt-BR')}
+              </div>
+            )}
             </>
             )}
           </div>
@@ -314,11 +321,12 @@ export default function NetworkPage() {
       let partnerIds = new Set<string>();
       let pendingSentIds = new Set<string>();
       let pendingReceivedIds = new Set<string>();
+      let partnerDates = new Map<string, string>();
 
       if (tenantId && tenantId !== '00000000-0000-0000-0000-000000000000') {
         const { data: connections, error: connectionsError } = await supabase
           .from('connection_requests')
-          .select('requester_company_id, target_company_id, status')
+          .select('requester_company_id, target_company_id, status, accepted_at')
           .or(`requester_company_id.eq.${tenantId},target_company_id.eq.${tenantId}`);
 
         (connections || []).forEach(conn => {
@@ -329,12 +337,27 @@ export default function NetworkPage() {
             
           if (conn.status === 'accepted') {
             partnerIds.add(partnerId);
+            if (conn.accepted_at) {
+               partnerDates.set(partnerId, conn.accepted_at);
+            }
           } else if (conn.status === 'pending') {
             if (isRequester) {
               pendingSentIds.add(partnerId);
             } else {
               pendingReceivedIds.add(partnerId);
             }
+          }
+        });
+        
+        // Agora busca a data de convites aceitos caso não tenha vindo do connection_requests
+        const { data: invites } = await supabase
+          .from('invitations')
+          .select('organization_id, accepted_at')
+          .eq('status', 'aceito');
+          
+        (invites || []).forEach(inv => {
+          if (inv.organization_id && inv.accepted_at && !partnerDates.has(inv.organization_id)) {
+            partnerDates.set(inv.organization_id, inv.accepted_at);
           }
         });
       }
@@ -348,11 +371,22 @@ export default function NetworkPage() {
         });
       }
 
+      // Busca a quantidade de segmentos de todas as empresas
+      const { data: segs } = await supabase.from('company_segments').select('organization_id');
+      const segCounts: Record<string, number> = {};
+      if (segs) {
+        segs.forEach(s => {
+          segCounts[s.organization_id] = (segCounts[s.organization_id] || 0) + 1;
+        });
+      }
+
       const mapped: NetworkOrg[] = allOrgs.map(o => {
-        let segCount = 0;
-        if (Array.isArray(o.segment)) segCount = o.segment.length;
-        else if (typeof o.segment === 'string') segCount = 1;
-        else if (typeof o.segment === 'object' && o.segment) segCount = Object.values(o.segment).length;
+        let segCount = segCounts[o.id] || 0;
+        if (segCount === 0) {
+          if (Array.isArray(o.segment)) segCount = o.segment.length;
+          else if (typeof o.segment === 'string') segCount = 1;
+          else if (typeof o.segment === 'object' && o.segment) segCount = Object.values(o.segment).length;
+        }
 
         return {
           ...o,
@@ -361,6 +395,7 @@ export default function NetworkPage() {
           isPendingReceived: pendingReceivedIds.has(o.id),
           materials_count: matCounts[o.id] || 0,
           segments_count: segCount,
+          connection_date: partnerDates.get(o.id) || null,
         };
       });
 

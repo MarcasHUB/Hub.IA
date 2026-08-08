@@ -9,6 +9,7 @@ import { NotificationBell } from '@/modules/notifications/presentation/component
 import { useChatDrawer } from '@/modules/messages/presentation/context/ChatDrawerContext';
 import { ChatDrawer } from '@/modules/messages/presentation/components/ChatDrawer';
 import { QuotationTypeModal } from '@/modules/quotations/presentation/components/QuotationTypeModal';
+import { resolveOrganizationLogoUrl } from '@/shared/utils/logoUtils';
 
 const APP_VERSION = '1.0.1-build';
 console.log(`[SupplyHub] AppLayout loaded - Version: ${APP_VERSION}`);
@@ -16,19 +17,42 @@ console.log(`[SupplyHub] AppLayout loaded - Version: ${APP_VERSION}`);
 // NAV_ITEMS agora é calculado dinamicamente dentro de AppLayout
 
 // ─── CompanyLogo (logo da empresa ou iniciais) ────────────────────────────────
-function CompanyLogo({ logo }: { logo: string | null }) {
+function CompanyLogo({ logo, initials }: { logo: string | null; initials?: string }) {
   return (
-    <div className="h-8 w-8 rounded-full border border-indigo-200 overflow-hidden bg-slate-900 flex items-center justify-center shrink-0 shadow-sm">
+    <div className="h-8 w-8 rounded-full border border-indigo-200 overflow-hidden bg-slate-900 flex items-center justify-center shrink-0 shadow-sm relative group">
       {logo ? (
-        <img src={logo} alt="Logo" className="h-full w-full object-cover" />
+        <>
+          <img 
+            src={logo} 
+            alt="Logo" 
+            className="h-full w-full object-cover"
+            onError={(e) => {
+              e.currentTarget.style.display = 'none';
+              e.currentTarget.parentElement?.querySelector('.fallback-avatar')?.classList.remove('hidden');
+              e.currentTarget.parentElement?.querySelector('.fallback-avatar')?.classList.add('flex');
+            }}
+          />
+          <div className="fallback-avatar hidden absolute inset-0 bg-gradient-to-br from-indigo-600 to-violet-600 items-center justify-center">
+            <span className="text-[10px] font-black text-white leading-none">{initials || 'SH'}</span>
+          </div>
+        </>
       ) : (
         <div className="h-full w-full bg-gradient-to-br from-indigo-600 to-violet-600 flex items-center justify-center">
-          <span className="text-[10px] font-black text-white leading-none">SH</span>
+          <span className="text-[10px] font-black text-white leading-none">{initials || 'SH'}</span>
         </div>
       )}
     </div>
   );
 }
+
+const isNavItemActive = (itemHref: string, currentPath: string) => {
+  if (itemHref === currentPath) return true;
+  if (itemHref === '/dashboard') return false;
+  if (itemHref === '/suppliers') {
+    return currentPath.startsWith('/suppliers') && !currentPath.startsWith('/suppliers/network');
+  }
+  return currentPath.startsWith(itemHref);
+};
 
 // ─── AppLayout ────────────────────────────────────────────────────────────────
 export function AppLayout() {
@@ -39,7 +63,7 @@ export function AppLayout() {
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
 
   const [companyLogo, setCompanyLogo] = useState<string | null>(
-    localStorage.getItem('supplyhub_company_logo')
+    resolveOrganizationLogoUrl(localStorage.getItem('supplyhub_company_logo'), localStorage.getItem('supplyhub_organization_id') || undefined)
   );
   const [companyName, setCompanyName] = useState<string>(
     localStorage.getItem('supplyhub_company_name') || 'Hub.IA'
@@ -130,7 +154,6 @@ export function AppLayout() {
             const orgName = orgData.nome_fantasia || orgData.name || 'Empresa';
             if (isMounted) {
               setCompanyName(orgName);
-              const { resolveOrganizationLogoUrl } = await import('@/shared/utils/logoUtils');
               setCompanyLogo(resolveOrganizationLogoUrl(orgData.logo_url, activeOrganizationId));
             }
             // Persistir também pro resto do app em modo compatibilidade
@@ -247,9 +270,19 @@ export function AppLayout() {
       loadAuth();
     };
 
+    const handleLogoUpdate = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      if (customEvent.detail && customEvent.detail.logo_url) {
+        const orgId = localStorage.getItem('supplyhub_organization_id') || undefined;
+        setCompanyLogo(resolveOrganizationLogoUrl(customEvent.detail.logo_url, orgId));
+        localStorage.setItem('supplyhub_company_logo', customEvent.detail.logo_url);
+      }
+    };
+
     window.addEventListener('pageshow', handlePageShow);
     document.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('online', handleOnline);
+    window.addEventListener('hubia:company-logo-updated', handleLogoUpdate);
 
     return () => {
       isMounted = false;
@@ -257,6 +290,7 @@ export function AppLayout() {
       window.removeEventListener('pageshow', handlePageShow);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('online', handleOnline);
+      window.removeEventListener('hubia:company-logo-updated', handleLogoUpdate);
     };
   }, []);
 
@@ -279,7 +313,8 @@ export function AppLayout() {
     }
 
     const handleUpdate = () => {
-      setCompanyLogo(localStorage.getItem('supplyhub_company_logo'));
+      const orgId = localStorage.getItem('supplyhub_organization_id') || undefined;
+      setCompanyLogo(resolveOrganizationLogoUrl(localStorage.getItem('supplyhub_company_logo'), orgId));
       setCompanyName(localStorage.getItem('supplyhub_company_name') || 'Hub.IA');
       // Aqui não atualizamos mais o Operador do localStorage para evitar piscar dados antigos
       // A responsabilidade de manter o operador agora é do loadAuth (profiles)
@@ -416,9 +451,7 @@ export function AppLayout() {
 
               {(authReady && profileReady) ? (
                 dynamicNavItems.map((item) => {
-                  const isActive =
-                    location.pathname === item.href ||
-                    (item.href !== '/dashboard' && location.pathname.startsWith(item.href));
+                  const isActive = isNavItemActive(item.href, location.pathname);
                   return (
                     <Link
                       key={item.name}
@@ -472,7 +505,7 @@ export function AppLayout() {
 
             {/* Card da Empresa Minimalista */}
             <Link to="/empresa" className="hidden md:flex items-center gap-2 hover:opacity-80 transition-opacity" title="Área da Empresa">
-              <CompanyLogo logo={companyLogo} />
+              <CompanyLogo logo={companyLogo} initials={companyName.substring(0, 2).toUpperCase()} />
               <span className="text-sm font-bold text-slate-800">{companyName}</span>
             </Link>
 

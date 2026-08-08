@@ -4,6 +4,7 @@ import { supabase } from '@/infrastructure/supabase/client';
 import { useNotifications } from '@/modules/notifications/presentation/context/NotificationContext';
 import { EmailService } from '@/shared/utils/EmailService';
 import { usePublicOrganizationProfile } from '@/modules/organizations/presentation/hooks/usePublicOrganizationProfile';
+import { resolveOrganizationLogoUrl } from '@/shared/utils/logoUtils';
 
 export interface NetworkOrg {
   id: string;
@@ -37,6 +38,7 @@ export interface NetworkOrg {
   isPendingReceived?: boolean;
   segments_count?: number;
   materials_count?: number;
+  connection_date?: string | null;
 }
 
 interface NetworkCompanyModalProps {
@@ -113,7 +115,7 @@ export default function NetworkCompanyModal({ org, isOpen, onClose, onConnect, o
   const tradeName   = publicProfile?.legalName && publicProfile?.legalName !== displayName ? publicProfile.legalName : (org.nome_fantasia !== displayName ? org.nome_fantasia : null);
   const email       = publicProfile?.businessEmail || org.business_email || org.email_corporativo;
   const phone       = publicProfile?.phone || org.phone || org.telefone;
-  const logoUrl     = publicProfile?.logoUrl || org.logo_url;
+  const logoUrl     = publicProfile?.logoUrl || resolveOrganizationLogoUrl(org.logo_url, org.id);
   const segments    = publicProfile?.segments || (org.segment ? [org.segment] : []);
   const materials   = publicProfile?.productsAndServices || [];
 
@@ -135,13 +137,29 @@ export default function NetworkCompanyModal({ org, isOpen, onClose, onConnect, o
         {/* Header Superior */}
         <div className="bg-slate-900 px-8 py-6 text-white flex-shrink-0 flex items-start justify-between">
           <div className="flex items-center gap-5">
-            {logoUrl ? (
-              <img src={logoUrl} alt={displayName} className="h-16 w-16 sm:h-20 sm:w-20 rounded-2xl object-contain bg-white p-2 flex-shrink-0" />
-            ) : (
-              <div className="h-16 w-16 sm:h-20 sm:w-20 rounded-2xl bg-gradient-to-br from-indigo-500 to-indigo-700 flex items-center justify-center text-white text-2xl font-bold flex-shrink-0">
-                {initials}
-              </div>
-            )}
+            <div className="relative group shrink-0 h-16 w-16 sm:h-20 sm:w-20">
+              {logoUrl ? (
+                <>
+                  <img 
+                    src={logoUrl} 
+                    alt={displayName} 
+                    className="h-full w-full rounded-2xl object-contain bg-white p-2"
+                    onError={(e) => {
+                      e.currentTarget.style.display = 'none';
+                      e.currentTarget.parentElement?.querySelector('.fallback-avatar')?.classList.remove('hidden');
+                      e.currentTarget.parentElement?.querySelector('.fallback-avatar')?.classList.add('flex');
+                    }}
+                  />
+                  <div className="fallback-avatar hidden absolute inset-0 bg-slate-800 rounded-2xl items-center justify-center font-bold text-xl sm:text-2xl tracking-tight text-white border border-slate-700">
+                    {initials}
+                  </div>
+                </>
+              ) : (
+                <div className="h-full w-full bg-slate-800 rounded-2xl flex items-center justify-center font-bold text-xl sm:text-2xl tracking-tight text-white border border-slate-700">
+                  {initials}
+                </div>
+              )}
+            </div>
             <div className="min-w-0">
               <h2 className="text-xl sm:text-2xl font-extrabold leading-tight">
                 {displayName}
@@ -153,7 +171,7 @@ export default function NetworkCompanyModal({ org, isOpen, onClose, onConnect, o
                 {org.cnpj && <span className="text-slate-400 text-sm font-mono">{org.cnpj}</span>}
                 {org.isPartner && (
                   <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-400 bg-emerald-900/40 border border-emerald-700/50 rounded-lg px-2.5 py-1">
-                    <CheckCircle2 className="h-3.5 w-3.5" /> Parceiro Ativo
+                    <CheckCircle2 className="h-3.5 w-3.5" /> Parceiro Ativo {org.connection_date && `desde ${new Date(org.connection_date).toLocaleDateString('pt-BR')}`}
                   </span>
                 )}
                 {org.isPendingSent && !org.isPartner && (

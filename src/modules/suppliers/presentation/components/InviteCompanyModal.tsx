@@ -38,6 +38,7 @@ export function InviteCompanyModal({ isOpen, onClose, onSuccess }: InviteCompany
   const [isInactive, setIsInactive] = useState(false);
   const [successData, setSuccessData] = useState<{name: string, email: string, emailFailed?: boolean} | null>(null);
   const [globalSegments, setGlobalSegments] = useState<{id: string, nome: string}[]>([]);
+  const [existingConnectionStatus, setExistingConnectionStatus] = useState<'none' | 'partner' | 'pending_connection' | 'pending_invite' | 'available' | 'self' | 'ambiguous'>('none');
 
   useEffect(() => {
     const fetchSegs = async () => {
@@ -99,11 +100,17 @@ export function InviteCompanyModal({ isOpen, onClose, onSuccess }: InviteCompany
     if (cleanCnpj.length !== 14) return;
     setIsFetchingCnpj(true);
     try {
-      const { data: existingOrg } = await supabase
-        .from('organizations')
-        .select('*')
-        .eq('cnpj', cleanCnpj)
-        .maybeSingle();
+      const { data: existingOrgs, error } = await supabase
+        .rpc('find_organization_by_cnpj', { p_cnpj: cleanCnpj });
+
+      if (error && error.message.includes('ORGANIZATION_CNPJ_AMBIGUOUS')) {
+        setIsExistingOrg(true);
+        setExistingConnectionStatus('ambiguous');
+        setIsFetchingCnpj(false);
+        return;
+      }
+
+      const existingOrg = existingOrgs && existingOrgs.length > 0 ? existingOrgs[0] : null;
 
       if (existingOrg) {
         setIsExistingOrg(true);
@@ -119,24 +126,62 @@ export function InviteCompanyModal({ isOpen, onClose, onSuccess }: InviteCompany
         if (existingOrg.email_corporativo || existingOrg.business_email) {
             setNewCompEmail(existingOrg.email_corporativo || existingOrg.business_email || '');
         }
+
+        if (existingOrg.id === tenantId) {
+          setExistingConnectionStatus('self');
+        } else {
+          // Check relationship
+          const { data: existingConnection } = await supabase
+            .from('connection_requests')
+            .select('status')
+            .or(`and(requester_company_id.eq.${tenantId},target_company_id.eq.${existingOrg.id}),and(requester_company_id.eq.${existingOrg.id},target_company_id.eq.${tenantId})`)
+            .in('status', ['accepted', 'pending'])
+            .maybeSingle();
+
+          if (existingConnection) {
+            if (existingConnection.status === 'accepted') {
+              setExistingConnectionStatus('partner');
+            } else {
+              setExistingConnectionStatus('pending_connection');
+            }
+          } else {
+             setExistingConnectionStatus('available');
+          }
+        }
+
       } else {
         setIsExistingOrg(false);
         setExistingOrgId(null);
         setIsInactive(false);
-        const response = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${cleanCnpj}`);
-        if (response.ok) {
-          const data = await response.json();
-          setNewCompName(data.razao_social || data.nome_fantasia || '');
-          setNewCompCity(data.municipio || '');
-          setNewCompState(data.uf || '');
-          if (data.cnae_fiscal_descricao) {
-            const suggested = matchSegments(data.cnae_fiscal_descricao);
-            if (suggested.length > 0) {
-              setNewCompSeg(suggested[0]);
-            } else {
-              setNewCompSeg('');
-            }
-          }
+        
+        // Check if there is a pending invite for this CNPJ (case E)
+        const { data: pendingInvite } = await supabase
+          .from('invitations')
+          .select('status')
+          .eq('organization_id', tenantId)
+          .eq('document', cleanCnpj)
+          .eq('status', 'pendente')
+          .maybeSingle();
+          
+        if (pendingInvite) {
+           setExistingConnectionStatus('pending_invite');
+        } else {
+           setExistingConnectionStatus('none');
+           const response = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${cleanCnpj}`);
+           if (response.ok) {
+             const data = await response.json();
+             setNewCompName(data.razao_social || data.nome_fantasia || '');
+             setNewCompCity(data.municipio || '');
+             setNewCompState(data.uf || '');
+             if (data.cnae_fiscal_descricao) {
+               const suggested = matchSegments(data.cnae_fiscal_descricao);
+               if (suggested.length > 0) {
+                 setNewCompSeg(suggested[0]);
+               } else {
+                 setNewCompSeg('');
+               }
+             }
+           }
         }
       }
     } catch (e) {
@@ -180,6 +225,33 @@ export function InviteCompanyModal({ isOpen, onClose, onSuccess }: InviteCompany
 
       // Validação em connection_requests se a organização já existir no BD
       if (existingOrgId) {
+        if (existingConnectionStatus === 'available') {
+          // Fluxo direto de Conexão (não é onboarding)
+          const { error: connError } = await supabase.from('connection_requests').insert({
+            requester_company_id: tenantId,
+            target_company_id: existingOrgId,
+            status: 'pending'
+          });
+          if (connError) {
+            alert('Erro ao solicitar conexão.');
+            setIsSubmitting(false);
+            return;
+          }
+          
+          onSuccess({
+            id: existingOrgId,
+            name: newCompName,
+            document: newCompDoc,
+            segment: newCompSeg || 'Geral',
+            city: newCompCity || 'São Paulo',
+            state: newCompState || 'SP',
+            status: 'pending_sent',
+            email: newCompEmail,
+          });
+          resetAndClose();
+          return;
+        }
+
         const { data: existingConnection } = await supabase
           .from('connection_requests')
           .select('id, status')
@@ -289,6 +361,7 @@ export function InviteCompanyModal({ isOpen, onClose, onSuccess }: InviteCompany
     setIsExistingOrg(false);
     setExistingOrgId(null);
     setIsInactive(false);
+    setExistingConnectionStatus('none');
     onClose();
   };
 
@@ -367,7 +440,12 @@ export function InviteCompanyModal({ isOpen, onClose, onSuccess }: InviteCompany
                   <Input placeholder="Ex: 00.000.000/0001-00" value={newCompDoc} onChange={e => setNewCompDoc(maskCNPJ(e.target.value))} onBlur={handleCnpjBlur} required />
                   {isFetchingCnpj && <Loader2 className="absolute right-3 top-2.5 h-4 w-4 animate-spin text-slate-400" />}
                 </div>
-                {isExistingOrg && !isInactive && <p className="text-[10px] text-indigo-600 font-medium">Dados carregados da Rede Hub.IA</p>}
+                {isExistingOrg && !isInactive && existingConnectionStatus === 'available' && <p className="text-[10px] text-indigo-600 font-medium">Empresa já cadastrada na Hub.IA.</p>}
+                {isExistingOrg && !isInactive && existingConnectionStatus === 'partner' && <p className="text-[10px] text-emerald-600 font-medium">Esta empresa já faz parte da sua rede de parceiros.</p>}
+                {isExistingOrg && !isInactive && existingConnectionStatus === 'pending_connection' && <p className="text-[10px] text-amber-600 font-medium">Já existe uma solicitação de conexão pendente.</p>}
+                {isExistingOrg && !isInactive && existingConnectionStatus === 'self' && <p className="text-[10px] text-red-600 font-medium">Este CNPJ pertence à sua própria empresa.</p>}
+                {isExistingOrg && !isInactive && existingConnectionStatus === 'ambiguous' && <p className="text-[10px] text-red-600 font-medium">Encontramos mais de um cadastro para este CNPJ na plataforma. Entre em contato com o suporte da Hub.IA.</p>}
+                {!isExistingOrg && existingConnectionStatus === 'pending_invite' && <p className="text-[10px] text-amber-600 font-medium">Já existe um convite pendente para esta empresa.</p>}
                 {isInactive && <p className="text-[10px] text-red-600 font-medium">Empresa inativada pelo administrador.</p>}
               </div>
               <div className="space-y-1.5">
@@ -432,14 +510,22 @@ export function InviteCompanyModal({ isOpen, onClose, onSuccess }: InviteCompany
           <button 
             type="submit" 
             form="inviteForm"
-            disabled={isSubmitting || isInactive}
+            disabled={isSubmitting || isInactive || existingConnectionStatus === 'self' || existingConnectionStatus === 'ambiguous' || existingConnectionStatus === 'partner' || existingConnectionStatus === 'pending_connection' || existingConnectionStatus === 'pending_invite'}
             className={`flex-1 h-11 rounded-xl text-white text-sm font-bold transition-colors flex items-center justify-center gap-2 ${
-              isInactive 
+              (isInactive || existingConnectionStatus === 'self' || existingConnectionStatus === 'ambiguous' || existingConnectionStatus === 'partner' || existingConnectionStatus === 'pending_connection' || existingConnectionStatus === 'pending_invite')
                 ? 'bg-slate-300 cursor-not-allowed' 
                 : 'bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60'
             }`}
           >
-            {isSubmitting ? <><Loader2 className="h-4 w-4 animate-spin" /> Enviando...</> : 'Enviar Convite'}
+            {isSubmitting ? <><Loader2 className="h-4 w-4 animate-spin" /> Processando...</> : 
+              existingConnectionStatus === 'ambiguous' ? 'Suporte Necessário' :
+              existingConnectionStatus === 'self' ? 'Operação Inválida' :
+              existingConnectionStatus === 'partner' ? 'Empresa já conectada' :
+              existingConnectionStatus === 'pending_connection' ? 'Conexão Pendente' :
+              existingConnectionStatus === 'pending_invite' ? 'Convite Pendente' :
+              existingConnectionStatus === 'available' ? 'Conectar' :
+              'Enviar Convite'
+            }
           </button>
         </div>
       </div>
