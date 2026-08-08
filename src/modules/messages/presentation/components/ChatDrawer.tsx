@@ -2,7 +2,8 @@ import { useState, useRef, useEffect } from 'react';
 import {
   Send, X, Paperclip, FileText, ShieldAlert,
   AlertTriangle, Maximize2, Check, CheckCheck,
-  Bell, BellOff, MessageSquare, ArrowLeft, Search
+  Bell, BellOff, MessageSquare, ArrowLeft, Search,
+  Download, Image as ImageIcon
 } from 'lucide-react';
 import { useChatDrawer } from '../context/ChatDrawerContext';
 import { useNotifications } from '@/modules/notifications/presentation/context/NotificationContext';
@@ -63,10 +64,11 @@ export function ChatDrawer() {
   const [showPartnerSelector, setShowPartnerSelector] = useState(false);
   const [userId, setUserId] = useState<string | undefined>(undefined);
   const activeOrgId = localStorage.getItem('supplyhub_organization_id');
-  
+
   const [soundEnabled, setSoundEnabled] = useState(localStorage.getItem('hubia_chat_sound_enabled') !== 'false');
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
   const notifiedMessageIdsRef = useRef<Set<string>>(new Set());
-  
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -79,7 +81,7 @@ export function ChatDrawer() {
   const partnersMap = getPartnersMap();
   const partnersList = Object.values(partnersMap);
   let partner = activePartnerId ? partnersMap[activePartnerId] : null;
-  
+
   if (!partner && activePartnerData) {
     partner = {
       id: activePartnerData.id,
@@ -91,7 +93,7 @@ export function ChatDrawer() {
       isConnected: activePartnerData.isConnected !== undefined ? activePartnerData.isConnected : true
     };
   }
-  
+
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }: any) => {
       if (user) setUserId(user.id);
@@ -107,15 +109,15 @@ export function ChatDrawer() {
       // Subscribe to real-time new messages for this conversation
       const channel = supabase
         .channel(`chat_${activeConversationId}`)
-        .on('postgres_changes', { 
-            event: 'INSERT', 
-            schema: 'public', 
+        .on('postgres_changes', {
+            event: 'INSERT',
+            schema: 'public',
             table: 'messages',
-            filter: `conversation_id=eq.${activeConversationId}` 
-          }, 
+            filter: `conversation_id=eq.${activeConversationId}`
+          },
           (payload: any) => {
              const message = payload.new as ChatMessage;
-             
+
              if (notifiedMessageIdsRef.current.has(message.id)) return;
              notifiedMessageIdsRef.current.add(message.id);
 
@@ -153,7 +155,7 @@ export function ChatDrawer() {
 
 
   const handleSend = async (textToSend = inputText) => {
-    if (!partner || !activeConversationId || !activeOrgId) return; 
+    if (!partner || !activeConversationId || !activeOrgId) return;
     const text = textToSend.trim();
     if (!text) return;
 
@@ -180,7 +182,7 @@ export function ChatDrawer() {
       setComplianceError(`Não foi possível enviar a mensagem. Verifique sua organização ativa e tente novamente. Detalhe: ${e?.message || 'Erro interno'}`);
       return; // Do not clear the input if it fails
     }
-    
+
     setComplianceError(null);
     setInputText('');
   };
@@ -217,19 +219,19 @@ export function ChatDrawer() {
   };
 
   const filteredConversations = (conversations || []).filter(c =>
-    c.partnerName.toLowerCase().includes(searchInbox.toLowerCase()) || 
+    c.partnerName.toLowerCase().includes(searchInbox.toLowerCase()) ||
     (c.lastMessage && c.lastMessage.toLowerCase().includes(searchInbox.toLowerCase()))
   );
 
   return (
     <>
       {isChatOpen && (
-      <div 
+      <div
         className="fixed right-0 top-0 h-full w-96 bg-white border-l border-slate-200 shadow-2xl z-40 flex flex-col animate-in slide-in-from-right duration-300"
         onPointerDown={unlockAudio}
         onClick={unlockAudio}
       >
-        
+
         {viewMode === 'inbox' ? (
           <div className="flex-1 flex flex-col h-full bg-white">
             <div className="h-16 px-4 border-b border-slate-200 flex items-center justify-between bg-slate-50 shrink-0">
@@ -280,8 +282,8 @@ export function ChatDrawer() {
               ) : (
                 <div className="divide-y divide-slate-100">
                   {filteredConversations.map(conv => {
-                    const displayLastMessage = conv.lastMessageSenderOrganizationId === activeOrgId 
-                      ? `Você: ${conv.lastMessage}` 
+                    const displayLastMessage = conv.lastMessageSenderOrganizationId === activeOrgId
+                      ? `Você: ${conv.lastMessage}`
                       : conv.lastMessage;
                     return (
                     <button
@@ -380,7 +382,7 @@ export function ChatDrawer() {
 
             {/* Área de Mensagens */}
             <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50/50">
-              
+
               {!partner.isConnected && (
                 <div className="flex flex-col items-center justify-center h-full p-4 text-center">
                    <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mb-4">
@@ -395,11 +397,11 @@ export function ChatDrawer() {
                    </button>
                 </div>
               )}
-              
+
               {partner.isConnected && messages.map((msg, idx) => {
                 const isMe = msg.sender_organization_id === activeOrgId;
                 const isSystem = false;
-                
+
                 if (isSystem) {
                   return (
                     <div key={msg.id} className="flex justify-center my-4">
@@ -410,14 +412,115 @@ export function ChatDrawer() {
                   );
                 }
 
+                let attachmentRender = null;
+                let parsedContent = msg.content;
+                let attachmentUrl = '';
+
+                if (msg.metadata?.type === 'attachment') {
+                  const attachment = msg.metadata.attachment;
+                  const { data: publicUrlData } = supabase.storage.from('messages').getPublicUrl(attachment.path);
+                  attachmentUrl = publicUrlData.publicUrl;
+                  const isImage = attachment.mimeType?.startsWith('image/');
+
+                  if (isImage) {
+                    attachmentRender = (
+                      <div className="mt-2 flex flex-col gap-1">
+                        <img
+                          src={attachmentUrl}
+                          alt={attachment.name}
+                          className="w-48 h-48 object-cover rounded-lg cursor-pointer border border-slate-200"
+                          onClick={() => setPreviewImage(attachmentUrl)}
+                        />
+                        <div className="flex justify-between items-center px-1">
+                          <span className="text-xs truncate max-w-[140px] opacity-90" title={attachment.name}>{attachment.name}</span>
+                          <a href={attachmentUrl} download={attachment.name} target="_blank" rel="noreferrer" className="opacity-75 hover:opacity-100">
+                            <Download className="h-4 w-4" />
+                          </a>
+                        </div>
+                      </div>
+                    );
+                  } else {
+                    attachmentRender = (
+                      <div className="mt-2 bg-white/10 p-3 rounded-lg border border-slate-200/20 flex flex-col gap-2">
+                        <div className="flex items-center gap-2">
+                          <FileText className="h-6 w-6 opacity-80" />
+                          <div className="flex flex-col">
+                            <span className="text-sm font-semibold truncate max-w-[150px]" title={attachment.name}>{attachment.name}</span>
+                            <span className="text-[10px] opacity-75">{Math.round(attachment.size / 1024)} KB • {attachment.mimeType?.split('/')[1]?.toUpperCase() || 'Arquivo'}</span>
+                          </div>
+                        </div>
+                        <div className="flex gap-2 text-xs font-semibold mt-1">
+                          <a href={attachmentUrl} target="_blank" rel="noreferrer" className="flex-1 text-center py-1.5 bg-black/10 hover:bg-black/20 rounded">
+                            Abrir
+                          </a>
+                          <a href={attachmentUrl} download={attachment.name} target="_blank" rel="noreferrer" className="flex-1 text-center py-1.5 bg-black/10 hover:bg-black/20 rounded">
+                            Baixar
+                          </a>
+                        </div>
+                      </div>
+                    );
+                  }
+                } else if (msg.content?.startsWith('📁 Anexo: [')) {
+                  // Legacy parser
+                  const regex = /📁 Anexo: \[(.*?)\]\((.*?)\)/;
+                  const match = msg.content.match(regex);
+                  if (match) {
+                    parsedContent = '';
+                    const fileName = match[1];
+                    attachmentUrl = match[2];
+                    const ext = fileName.split('.').pop()?.toLowerCase();
+                    const isImage = ['png', 'jpg', 'jpeg', 'gif', 'webp'].includes(ext || '');
+
+                    if (isImage) {
+                      attachmentRender = (
+                        <div className="mt-2 flex flex-col gap-1">
+                          <img
+                            src={attachmentUrl}
+                            alt={fileName}
+                            className="w-48 h-48 object-cover rounded-lg cursor-pointer border border-slate-200"
+                            onClick={() => setPreviewImage(attachmentUrl)}
+                          />
+                          <div className="flex justify-between items-center px-1">
+                            <span className="text-xs truncate max-w-[140px] opacity-90" title={fileName}>{fileName}</span>
+                            <a href={attachmentUrl} download={fileName} target="_blank" rel="noreferrer" className="opacity-75 hover:opacity-100">
+                              <Download className="h-4 w-4" />
+                            </a>
+                          </div>
+                        </div>
+                      );
+                    } else {
+                      attachmentRender = (
+                        <div className="mt-2 bg-white/10 p-3 rounded-lg border border-slate-200/20 flex flex-col gap-2">
+                          <div className="flex items-center gap-2">
+                            <FileText className="h-6 w-6 opacity-80" />
+                            <div className="flex flex-col">
+                              <span className="text-sm font-semibold truncate max-w-[150px]" title={fileName}>{fileName}</span>
+                              <span className="text-[10px] opacity-75">{ext?.toUpperCase() || 'Arquivo'}</span>
+                            </div>
+                          </div>
+                          <div className="flex gap-2 text-xs font-semibold mt-1">
+                            <a href={attachmentUrl} target="_blank" rel="noreferrer" className="flex-1 text-center py-1.5 bg-black/10 hover:bg-black/20 rounded">
+                              Abrir
+                            </a>
+                            <a href={attachmentUrl} download={fileName} target="_blank" rel="noreferrer" className="flex-1 text-center py-1.5 bg-black/10 hover:bg-black/20 rounded">
+                              Baixar
+                            </a>
+                          </div>
+                        </div>
+                      );
+                    }
+                  }
+                }
+
                 return (
                   <div key={msg.id} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} animate-in fade-in slide-in-from-bottom-2 duration-300`}>
                     <div className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm shadow-sm relative group ${
-                      isMe 
-                        ? 'bg-indigo-600 text-white rounded-tr-sm' 
+                      isMe
+                        ? 'bg-indigo-600 text-white rounded-tr-sm'
                         : 'bg-white border border-slate-200 text-slate-700 rounded-tl-sm'
                     }`}>
-                      <p className="leading-relaxed whitespace-pre-wrap">{msg.content}</p>
+                      {parsedContent && <p className="leading-relaxed whitespace-pre-wrap">{parsedContent}</p>}
+                      {attachmentRender}
 
                       <div className={`flex items-center gap-1.5 mt-1 text-[10px] ${isMe ? 'text-indigo-200 justify-end' : 'text-slate-400'}`}>
                         {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -429,6 +532,16 @@ export function ChatDrawer() {
               })}
               <div ref={messagesEndRef} />
             </div>
+
+            {/* Modal de Preview de Imagem */}
+            {previewImage && (
+              <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+                <button onClick={() => setPreviewImage(null)} className="absolute top-6 right-6 text-white hover:text-slate-300">
+                  <X className="h-8 w-8" />
+                </button>
+                <img src={previewImage} alt="Preview" className="max-w-full max-h-full object-contain rounded-lg" />
+              </div>
+            )}
 
             {/* Alerta de Compliance */}
             {complianceError && (
@@ -484,9 +597,9 @@ export function ChatDrawer() {
       </div>
       )}
 
-      <QuotationTypeModal 
-        isOpen={isQuotationModalOpen} 
-        onClose={() => setIsQuotationModalOpen(false)} 
+      <QuotationTypeModal
+        isOpen={isQuotationModalOpen}
+        onClose={() => setIsQuotationModalOpen(false)}
         onSubmit={handleCreateQuotation}
         defaultPartnerId={partner?.id}
       />

@@ -84,11 +84,15 @@ export class SupabaseSignalRepository {
       const { data, error } = await supabase
         .from('hubia_signals')
         .select('*')
-        .eq('organization_id', organizationId)
-        .in('status', ['nao_lido', 'lido']);
-      
+        .eq('organization_id', organizationId);
+
       if (!error && data) {
-        list = data as HubIASignal[];
+        list = data.map((d: any) => ({
+          ...d,
+          status: d.lido ? 'lido' : 'nao_lido',
+          criticidade: d.criticidade || 'informativo',
+          categoria: d.categoria || 'operadores'
+        })) as HubIASignal[];
       } else {
         list = this.getLocalSignals().filter(s => s.organization_id === organizationId);
       }
@@ -128,9 +132,12 @@ export class SupabaseSignalRepository {
 
     // 2. Atualizar Supabase Remoto
     try {
+      // O banco remoto não possui a coluna 'status', possui a coluna booleana 'lido'.
+      // Portanto 'lido', 'resolvido', 'ignorado' podem ser considerados lidos.
+      const isLido = status !== 'nao_lido';
       await supabase
         .from('hubia_signals')
-        .update({ status })
+        .update({ lido: isLido })
         .eq('id', id);
     } catch {}
 
@@ -147,8 +154,16 @@ export class SupabaseSignalRepository {
         .from('hubia_signals')
         .select('*')
         .eq('organization_id', organizationId);
-      if (data) list = data as HubIASignal[];
-      else list = this.getLocalSignals();
+      if (data) {
+        list = data.map((d: any) => ({
+          ...d,
+          status: d.lido ? 'lido' : 'nao_lido',
+          criticidade: d.criticidade || 'informativo',
+          categoria: d.categoria || 'operadores'
+        })) as HubIASignal[];
+      } else {
+        list = this.getLocalSignals();
+      }
     } catch {
       list = this.getLocalSignals();
     }

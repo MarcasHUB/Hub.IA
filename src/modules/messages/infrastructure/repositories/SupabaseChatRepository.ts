@@ -14,6 +14,7 @@ export interface ChatMessage {
   sender_id?: string;
   sender_organization_id: string;
   content: string;
+  metadata?: any;
   created_at: string;
   read_at?: string;
 }
@@ -21,7 +22,7 @@ export interface ChatMessage {
 export class SupabaseChatRepository {
   async getOrCreateConversation(orgIdA: string, orgIdB: string): Promise<string> {
     const partnerOrgId = orgIdB; // O frontend chama getOrCreateConversation(activeOrgId, partnerId)
-    
+
     console.log('CHAT_CONVERSATION_LOOKUP_RPC', {
       currentOrganizationId: orgIdA,
       partnerOrganizationId: orgIdB,
@@ -56,18 +57,20 @@ export class SupabaseChatRepository {
     return data || [];
   }
 
-  async sendMessage(conversationId: string, senderOrgId: string, content: string, senderUserId?: string): Promise<ChatMessage> {
+  async sendMessage(conversationId: string, senderOrgId: string, content: string, senderUserId?: string, metadata?: any): Promise<ChatMessage> {
     console.log('CHAT_MESSAGE_INSERT_RPC', {
       conversationId,
       senderId: senderUserId,
       senderOrganizationId: senderOrgId,
       contentLength: content?.length,
+      hasMetadata: !!metadata
     });
 
     const { data: msgId, error: rpcError } = await supabase
       .rpc('send_partner_message', {
         p_conversation_id: conversationId,
-        p_content: content
+        p_content: content,
+        p_metadata: metadata || null
       });
 
     console.log('CHAT_MESSAGE_RPC_RESULT', { data: msgId, error: rpcError });
@@ -76,7 +79,7 @@ export class SupabaseChatRepository {
       console.error('Error sending message via RPC', rpcError);
       throw rpcError;
     }
-    
+
     // As the RPC returns a UUID, we mock a ChatMessage structure to not break the frontend that expects the created object back.
     // In a real app we might want the RPC to return the full record, or fetch it.
     return {
@@ -85,6 +88,7 @@ export class SupabaseChatRepository {
       sender_id: senderUserId,
       sender_organization_id: senderOrgId,
       content: content,
+      metadata: metadata,
       created_at: new Date().toISOString()
     };
   }
@@ -102,14 +106,20 @@ export class SupabaseChatRepository {
       throw uploadError;
     }
 
-    const { data: publicUrlData } = supabase.storage
-      .from('messages')
-      .getPublicUrl(fileName);
+    const metadata = {
+      type: 'attachment',
+      version: 1,
+      attachment: {
+        name: file.name,
+        path: fileName,
+        mimeType: file.type || 'application/octet-stream',
+        size: file.size
+      }
+    };
 
-    const attachmentUrl = publicUrlData.publicUrl;
-    const content = `📁 Anexo: [${file.name}](${attachmentUrl})`;
+    const content = ``; // The RPC accepts an empty string if it's an attachment. We will use an empty string.
 
-    return this.sendMessage(conversationId, senderOrgId, content, senderUserId);
+    return this.sendMessage(conversationId, senderOrgId, content, senderUserId, metadata);
   }
   async listConversationsForCurrentOrganization(activeOrgId: string): Promise<any[]> {
     const { data, error } = await supabase
@@ -127,6 +137,7 @@ export class SupabaseChatRepository {
           content,
           created_at,
           read_at,
+          metadata,
           sender_organization_id
         )
       `)
@@ -142,14 +153,14 @@ export class SupabaseChatRepository {
     const list = data.map((conv: any) => {
       const isA = conv.organization_a_id === activeOrgId;
       const partnerId = isA ? conv.organization_b_id : conv.organization_a_id;
-      
+
       const rawPartner = isA ? conv.org_b : conv.org_a;
       const partnerObj = Array.isArray(rawPartner) ? rawPartner[0] : rawPartner;
       const partnerName = partnerObj?.razao_social || partnerObj?.nome_fantasia || 'Empresa Parceira';
-      
+
       const msgs = conv.messages || [];
       msgs.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-      
+
       const lastMsg = msgs.length > 0 ? msgs[0] : null;
       const unreadCount = msgs.filter((m: any) => m.sender_organization_id !== activeOrgId && !m.read_at).length;
 
