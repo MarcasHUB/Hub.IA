@@ -65,7 +65,7 @@ export function CompanyProfileForm({
   isSuperAdmin = false
 }: CompanyProfileFormProps) {
   const [activeSubTab, setActiveSubTab] = useState<'gerais'|'comerciais'>('gerais');
-  
+
   const [form, setForm] = useState({
     commercialProfile: '',
     latitude: '',
@@ -178,18 +178,49 @@ export function CompanyProfileForm({
   }, [organizationId]);
 
   const handleChange = (field: string, value: any) => {
-    const maskedValue = (typeof value === 'string' && ['cnpj', 'telefone', 'whatsapp', 'cep'].includes(field)) 
-      ? applyMask(field, value) 
+    const maskedValue = (typeof value === 'string' && ['cnpj', 'telefone', 'whatsapp', 'cep'].includes(field))
+      ? applyMask(field, value)
       : value;
-      
+
     setForm(f => ({ ...f, [field]: maskedValue }));
-    
+
     if (field === 'cnpj' && typeof maskedValue === 'string') {
       fetchCNPJ(maskedValue);
+    }
+    if (field === 'cep' && typeof maskedValue === 'string') {
+      fetchCEP(maskedValue);
     }
     if (field === 'nome_fantasia' && typeof maskedValue === 'string') {
       localStorage.setItem('supplyhub_company_name', maskedValue);
       window.dispatchEvent(new Event('storage'));
+    }
+  };
+
+  const fetchCEP = async (cepVal: string) => {
+    const cleanCEP = cepVal.replace(/\D/g, '');
+    if (cleanCEP.length !== 8) return;
+
+    try {
+      const response = await fetch(`https://brasilapi.com.br/api/cep/v2/${cleanCEP}`);
+      if (!response.ok) {
+         setSaveError('Não foi possível consultar este CEP. Revise o endereço manualmente.');
+         return;
+      }
+
+      const data = await response.json();
+
+      setForm(f => ({
+         ...f,
+         endereco: data.street || f.endereco,
+         bairro: data.neighborhood || f.bairro,
+         cidade: data.city || f.cidade,
+         uf: data.state || f.uf,
+      }));
+
+      setSaveError('');
+    } catch (error) {
+      console.error("Erro ao buscar CEP na BrasilAPI:", error);
+      setSaveError('Não foi possível consultar este CEP. Revise o endereço manualmente.');
     }
   };
 
@@ -203,11 +234,11 @@ export function CompanyProfileForm({
          setSaveError('Não foi possível consultar os dados do CNPJ. Os demais campos podem ser preenchidos manualmente.');
          return;
       }
-      
+
       const data = await response.json();
       const cnaePrincipal = data.cnae_fiscal ? `${data.cnae_fiscal} - ${data.cnae_fiscal_descricao}` : '';
       const cnaesSecundarios = data.cnaes_secundarios ? data.cnaes_secundarios.map((c: any) => `${c.codigo} - ${c.descricao}`) : [];
-      
+
       setForm(f => ({
         ...f,
         razao_social: f.razao_social || data.razao_social || '',
@@ -329,9 +360,9 @@ export function CompanyProfileForm({
       if (displayUrl) {
         setPreviewUrl(displayUrl);
       }
-      
+
       queryClient.invalidateQueries({ queryKey: organizationProfileKeys.detail(organizationId) });
-      
+
     } catch (error: any) {
       console.error('Erro ao enviar logo:', error);
       setSaveError(error.message || 'Falha ao salvar logotipo.');
@@ -379,7 +410,7 @@ export function CompanyProfileForm({
             <>
               <CompanyGeneralDataSection
                 form={{
-                  ...form, 
+                  ...form,
                   logo_url: previewUrl || resolveOrganizationLogoUrl(form.logo_url) || ''
                 }}
                 onChange={handleChange}
