@@ -267,9 +267,17 @@ ${perms.map(p => `- ${p}`).join('\n')}${rests.length > 0 ? `\n\nRestrições:\n$
       
       const link = joinUrl(publicUrl, `onboarding?token=${encodeURIComponent(target_id)}`);
 
-      const inviterName = user?.user_metadata?.nome 
-        ? `${user.user_metadata.nome} ${user.user_metadata.sobrenome || ''}`.trim() 
-        : 'Usuário do Sistema';
+      let inviterName = 'Usuário do Sistema';
+      if (user?.id) {
+         const { data: profile } = await supabase.from('profiles').select('display_name, full_name').eq('user_id', user.id).maybeSingle();
+         if (profile?.display_name) {
+            inviterName = profile.display_name;
+         } else if (profile?.full_name) {
+            inviterName = profile.full_name;
+         } else if (user?.email) {
+            inviterName = user.email;
+         }
+      }
       const inviterEmail = user?.email || 'contato@hub.ia';
       
       let inviterCompany = 'Rede Hub.IA';

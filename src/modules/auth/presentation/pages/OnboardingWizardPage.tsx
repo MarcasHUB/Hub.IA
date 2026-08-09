@@ -115,6 +115,12 @@ export default function OnboardingWizardPage() {
   const [userEmail, setUserEmail] = useState('');
   const [userPass, setUserPass] = useState('');
   const [userRole, setUserRole] = useState('');
+  const [userPassConfirm, setUserPassConfirm] = useState('');
+
+  // Formulário: BrasilAPI
+  const [isConsultingCNPJ, setIsConsultingCNPJ] = useState(false);
+  const [cnpjError, setCnpjError] = useState('');
+  const [cnpjSuccess, setCnpjSuccess] = useState(false);
 
   useEffect(() => {
     const fetchSegments = async () => {
@@ -215,6 +221,78 @@ export default function OnboardingWizardPage() {
       }
 
       setInviteState({ status: 'ready', invite: normalized });
+
+      // Auto-preenchimento opcional via BrasilAPI caso não exita na base
+      const cleanCNPJ = normalized.invitedCompany.cnpj.replace(/\D/g, '');
+      if (cleanCNPJ.length === 14) {
+        setIsConsultingCNPJ(true);
+        setCnpjError('');
+        setCnpjSuccess(false);
+        try {
+          const { data: orgData, error: rpcError } = await supabase.rpc('find_organization_by_cnpj', { p_cnpj: cleanCNPJ });
+          const existingOrg = (Array.isArray(orgData) && orgData.length > 0) ? orgData[0] : (orgData || null);
+
+          if (existingOrg && !rpcError) {
+             setRazaoSocial(prev => prev || existingOrg.razao_social || '');
+             setNomeFantasia(prev => prev || existingOrg.nome_fantasia || existingOrg.razao_social || '');
+             setCidade(prev => prev || existingOrg.city || '');
+             setEstado(prev => prev || existingOrg.state || '');
+             setSite(prev => prev || existingOrg.website || '');
+             setTelefone(prev => prev || existingOrg.telefone || '');
+             setEmailCorporativo(prev => prev || existingOrg.email_corporativo || '');
+             setCep(prev => prev || existingOrg.address_zip_code || '');
+             setLogradouro(prev => prev || existingOrg.address_street || '');
+             setNumero(prev => prev || existingOrg.address_number || '');
+             setComplemento(prev => prev || existingOrg.address_complement || '');
+             setBairro(prev => prev || existingOrg.address_neighborhood || '');
+             setCnaePrincipal(prev => prev || existingOrg.cnae_principal || '');
+             setCnpjSuccess(true);
+          } else {
+             const res = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${cleanCNPJ}`);
+             if (res.ok) {
+                const data = await res.json();
+                const cnae = data.cnae_fiscal ? `${data.cnae_fiscal} - ${data.cnae_fiscal_descricao}` : '';
+                setRazaoSocial(prev => prev || data.razao_social || '');
+                setNomeFantasia(prev => prev || data.nome_fantasia || data.razao_social || '');
+                setTelefone(prev => prev || data.ddd_telefone_1 || '');
+                setEmailCorporativo(prev => prev || data.email || '');
+                setCep(prev => prev || data.cep || '');
+                setLogradouro(prev => prev || data.logradouro || '');
+                setNumero(prev => prev || data.numero || '');
+                setComplemento(prev => prev || data.complemento || '');
+                setBairro(prev => prev || data.bairro || '');
+                setCidade(prev => prev || data.municipio || '');
+                setEstado(prev => prev || data.uf || '');
+                setCnaePrincipal(prev => prev || cnae);
+                setCnpjSuccess(true);
+
+                const finalCep = data.cep;
+                const needsAddress = !data.logradouro || !data.bairro || !data.municipio || !data.uf;
+                if (finalCep && needsAddress) {
+                   try {
+                      const cepRes = await fetch(`https://brasilapi.com.br/api/cep/v2/${finalCep.replace(/\D/g, '')}`);
+                      if (cepRes.ok) {
+                         const cepData = await cepRes.json();
+                         setLogradouro(prev => prev || cepData.street || '');
+                         setBairro(prev => prev || cepData.neighborhood || '');
+                         setCidade(prev => prev || cepData.city || '');
+                         setEstado(prev => prev || cepData.state || '');
+                      }
+                   } catch (e) {
+                      console.error('Erro na consulta de CEP', e);
+                   }
+                }
+             } else {
+                setCnpjError('Não foi possível consultar automaticamente. Você pode continuar preenchendo manualmente.');
+             }
+          }
+        } catch (e) {
+           console.error('Erro na consulta CNPJ', e);
+           setCnpjError('Não foi possível consultar automaticamente. Você pode continuar preenchendo manualmente.');
+        } finally {
+           setIsConsultingCNPJ(false);
+        }
+      }
     } catch (err: any) {
       console.error('Error fetching invite:', err);
       setInviteState({ status: 'error', reason: 'network' });
@@ -417,28 +495,34 @@ export default function OnboardingWizardPage() {
 
           {inviteState.status === 'ready' && (
             <div className="bg-slate-900 px-6 py-4 flex justify-between items-center relative overflow-x-hidden">
-              <div className="absolute bottom-0 left-0 h-1 bg-indigo-500 transition-all duration-500" style={{ width: `${(step / 4) * 100}%` }} />
+              <div className="absolute bottom-0 left-0 h-1 bg-indigo-500 transition-all duration-500" style={{ width: `${((step - 1) / 4) * 100}%` }} />
 
               <div className={`flex flex-col items-center ${step >= 1 ? 'text-indigo-400' : 'text-slate-500'}`}>
                 <div className={`h-8 w-8 rounded-full flex items-center justify-center font-bold mb-1 ${step >= 1 ? 'bg-indigo-500/20 text-indigo-400' : 'bg-slate-800 text-slate-500'}`}>1</div>
                 <span className="text-[10px] uppercase font-bold tracking-wider hidden sm:block">Empresa</span>
               </div>
-              <div className={`h-0.5 flex-1 mx-2 sm:mx-4 ${step >= 2 ? 'bg-indigo-500/50' : 'bg-slate-800'}`} />
+              <div className={`h-0.5 flex-1 mx-1 sm:mx-2 ${step >= 2 ? 'bg-indigo-500/50' : 'bg-slate-800'}`} />
 
               <div className={`flex flex-col items-center ${step >= 2 ? 'text-indigo-400' : 'text-slate-500'}`}>
                 <div className={`h-8 w-8 rounded-full flex items-center justify-center font-bold mb-1 ${step >= 2 ? 'bg-indigo-500/20 text-indigo-400' : 'bg-slate-800 text-slate-500'}`}>2</div>
-                <span className="text-[10px] uppercase font-bold tracking-wider hidden sm:block">Perfil</span>
+                <span className="text-[10px] uppercase font-bold tracking-wider hidden sm:block">Dados Gerais</span>
               </div>
-              <div className={`h-0.5 flex-1 mx-2 sm:mx-4 ${step >= 3 ? 'bg-indigo-500/50' : 'bg-slate-800'}`} />
+              <div className={`h-0.5 flex-1 mx-1 sm:mx-2 ${step >= 3 ? 'bg-indigo-500/50' : 'bg-slate-800'}`} />
 
               <div className={`flex flex-col items-center ${step >= 3 ? 'text-indigo-400' : 'text-slate-500'}`}>
                 <div className={`h-8 w-8 rounded-full flex items-center justify-center font-bold mb-1 ${step >= 3 ? 'bg-indigo-500/20 text-indigo-400' : 'bg-slate-800 text-slate-500'}`}>3</div>
+                <span className="text-[10px] uppercase font-bold tracking-wider hidden sm:block">Atuação</span>
+              </div>
+              <div className={`h-0.5 flex-1 mx-1 sm:mx-2 ${step >= 4 ? 'bg-indigo-500/50' : 'bg-slate-800'}`} />
+
+              <div className={`flex flex-col items-center ${step >= 4 ? 'text-indigo-400' : 'text-slate-500'}`}>
+                <div className={`h-8 w-8 rounded-full flex items-center justify-center font-bold mb-1 ${step >= 4 ? 'bg-indigo-500/20 text-indigo-400' : 'bg-slate-800 text-slate-500'}`}>4</div>
                 <span className="text-[10px] uppercase font-bold tracking-wider hidden sm:block">Conta</span>
               </div>
-              <div className={`h-0.5 flex-1 mx-2 sm:mx-4 ${step >= 4 ? 'bg-indigo-500/50' : 'bg-slate-800'}`} />
+              <div className={`h-0.5 flex-1 mx-1 sm:mx-2 ${step >= 5 ? 'bg-indigo-500/50' : 'bg-slate-800'}`} />
 
-              <div className={`flex flex-col items-center ${step >= 4 ? 'text-emerald-400' : 'text-slate-500'}`}>
-                <div className={`h-8 w-8 rounded-full flex items-center justify-center font-bold mb-1 ${step >= 4 ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-800 text-slate-500'}`}>4</div>
+              <div className={`flex flex-col items-center ${step >= 5 ? 'text-emerald-400' : 'text-slate-500'}`}>
+                <div className={`h-8 w-8 rounded-full flex items-center justify-center font-bold mb-1 ${step >= 5 ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-800 text-slate-500'}`}>5</div>
                 <span className="text-[10px] uppercase font-bold tracking-wider hidden sm:block">Sucesso</span>
               </div>
             </div>
@@ -521,6 +605,27 @@ export default function OnboardingWizardPage() {
                     <p className="text-xs sm:text-sm text-slate-500">Confirme os dados da sua organização.</p>
                   </div>
                 </div>
+
+                {isConsultingCNPJ && (
+                  <div className="bg-indigo-50 border border-indigo-100 rounded-lg p-3 mb-4 flex items-center gap-3">
+                    <div className="h-5 w-5 rounded-full border-2 border-indigo-200 border-t-indigo-600 animate-spin" />
+                    <p className="text-sm text-indigo-800 font-medium">Consultando dados do CNPJ...</p>
+                  </div>
+                )}
+
+                {!isConsultingCNPJ && cnpjSuccess && (
+                  <div className="bg-emerald-50 border border-emerald-100 rounded-lg p-3 mb-4 flex items-center gap-3">
+                    <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0" />
+                    <p className="text-sm text-emerald-800">Já encontramos informações do seu convite e do CNPJ. Revise os dados antes de continuar.</p>
+                  </div>
+                )}
+
+                {!isConsultingCNPJ && cnpjError && (
+                  <div className="bg-amber-50 border border-amber-100 rounded-lg p-3 mb-4 flex items-center gap-3">
+                    <span className="text-amber-600 text-lg shrink-0">⚠️</span>
+                    <p className="text-sm text-amber-800">{cnpjError}</p>
+                  </div>
+                )}
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
@@ -622,7 +727,7 @@ export default function OnboardingWizardPage() {
                   <Button variant="outline" onClick={() => setStep(1)} className="font-bold w-full sm:w-auto">
                     <ChevronLeft className="h-4 w-4 mr-1" /> Voltar
                   </Button>
-                  <Button onClick={() => setStep(4)} className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-8 shadow-md w-full sm:w-auto">
+                  <Button onClick={() => setStep(3)} className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-8 shadow-md w-full sm:w-auto">
                     Próximo <ChevronRight className="h-4 w-4 ml-1" />
                   </Button>
                 </div>
@@ -630,7 +735,101 @@ export default function OnboardingWizardPage() {
             )}
 
             {/* ETAPA 3 - ATUAÇÃO */}
-            {step === 5 && (
+            {step === 3 && (
+              <div className="space-y-6 animate-in slide-in-from-right-4 duration-300">
+                <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
+                  <div className="h-10 w-10 rounded-xl bg-indigo-50 flex items-center justify-center shrink-0">
+                    <Briefcase className="h-5 w-5 text-indigo-600" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg sm:text-xl font-bold text-slate-900">Atuação</h2>
+                    <p className="text-xs sm:text-sm text-slate-500">Defina os papéis que você exercerá na rede.</p>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <label className="text-xs font-bold text-slate-700">Papel na Rede</label>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    {['Comprador', 'Fornecedor', 'Comprador e Fornecedor'].map(p => (
+                      <button
+                        key={p}
+                        onClick={() => setPerfilRede(p)}
+                        className={`p-3 text-sm font-semibold rounded-xl border text-left transition-all ${perfilRede === p ? 'border-indigo-600 bg-indigo-50/50 text-indigo-700' : 'border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50'}`}
+                      >
+                        {p}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-4 mt-6">
+                  <label className="text-xs font-bold text-slate-700">Tipo de Empresa</label>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                    {['Matriz', 'Filial'].map(p => (
+                      <button
+                        key={p}
+                        onClick={() => setTipoEmpresa(p)}
+                        className={`p-2.5 text-xs font-semibold rounded-xl border text-center transition-all ${tipoEmpresa === p ? 'border-indigo-600 bg-indigo-50/50 text-indigo-700' : 'border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50'}`}
+                      >
+                        {p}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-4 mt-6">
+                  <label className="text-xs font-bold text-slate-700">Perfil Comercial</label>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                    {['Indústria / Fabricante', 'Distribuidor / Revenda', 'Consumidor Final', 'Prestador de Serviços', 'Fabricante e Revenda'].map(p => (
+                      <button
+                        key={p}
+                        onClick={() => setPerfilComercial(p)}
+                        className={`p-2.5 text-xs font-semibold rounded-xl border text-center transition-all ${perfilComercial === p ? 'border-indigo-600 bg-indigo-50/50 text-indigo-700' : 'border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50'}`}
+                      >
+                        {p}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-4 mt-6 border-t border-slate-100 pt-6">
+                  <label className="text-xs font-bold text-slate-700">Tipo de Cobertura</label>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                    {['Nacional', 'Regional'].map(r => (
+                      <button
+                        key={r}
+                        onClick={() => setTipoCobertura(r)}
+                        className={`p-2.5 text-xs font-semibold rounded-xl border text-center transition-all ${tipoCobertura === r ? 'border-indigo-600 bg-indigo-50/50 text-indigo-700' : 'border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50'}`}
+                      >
+                        {r}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-4 mt-6 border-t border-slate-100 pt-6">
+                  <label className="text-xs font-bold text-slate-700">Raio de Atendimento (km) (Opcional)</label>
+                  <Input value={raio} onChange={e => setRaio(e.target.value)} type="number" />
+                </div>
+
+                <div className="space-y-4 mt-6 border-t border-slate-100 pt-6">
+                  <label className="text-xs font-bold text-slate-700">CNAE Principal (Opcional)</label>
+                  <Input value={cnaePrincipal} onChange={e => setCnaePrincipal(e.target.value)} />
+                </div>
+
+                <div className="flex flex-col-reverse sm:flex-row justify-between gap-3 pt-4">
+                  <Button variant="outline" onClick={() => setStep(2)} className="font-bold w-full sm:w-auto">
+                    <ChevronLeft className="h-4 w-4 mr-1" /> Voltar
+                  </Button>
+                  <Button onClick={() => setStep(4)} disabled={!perfilRede} className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-8 shadow-md w-full sm:w-auto">
+                    Próximo <ChevronRight className="h-4 w-4 ml-1" />
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* ETAPA 4 - CONTA */}
+            {step === 4 && (
               <div className="space-y-6 animate-in slide-in-from-right-4 duration-300">
                 <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
                   <div className="h-10 w-10 rounded-xl bg-indigo-50 flex items-center justify-center shrink-0">
@@ -644,35 +843,42 @@ export default function OnboardingWizardPage() {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-1.5 md:col-span-2">
-                    <label className="text-xs font-bold text-slate-700">Nome Completo</label>
+                    <label className="text-xs font-bold text-slate-700">Nome Completo *</label>
                     <Input value={userName} onChange={e => setUserName(e.target.value)} />
                   </div>
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-slate-700">E-mail Corporativo</label>
+                  <div className="space-y-1.5 md:col-span-2">
+                    <label className="text-xs font-bold text-slate-700">E-mail de Acesso (Convite)</label>
                     <Input type="email" value={userEmail} disabled className="bg-slate-50 text-slate-500 border-slate-200" />
                   </div>
+                  <div className="space-y-1.5 md:col-span-2">
+                    <label className="text-xs font-bold text-slate-700">Cargo / Função *</label>
+                    <Input value={userRole} onChange={e => setUserRole(e.target.value)} placeholder="Ex.: Comprador, Gerente Comercial, Engenheiro, Diretor" />
+                  </div>
                   <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-slate-700">Senha de Acesso</label>
+                    <label className="text-xs font-bold text-slate-700">Criar senha *</label>
                     <Input type="password" value={userPass} onChange={e => setUserPass(e.target.value)} />
                   </div>
-                  <div className="space-y-1.5 md:col-span-2">
-                    <label className="text-xs font-bold text-slate-700">Cargo / Função</label>
-                    <Input value={userRole} onChange={e => setUserRole(e.target.value)} placeholder="Ex.: Comprador, Gerente Comercial, Engenheiro, Diretor" />
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-700">Confirmar senha *</label>
+                    <Input type="password" value={userPassConfirm} onChange={e => setUserPassConfirm(e.target.value)} />
+                    {userPass && userPassConfirm && userPass !== userPassConfirm && (
+                      <p className="text-[10px] text-red-500 font-bold mt-1">As senhas não coincidem.</p>
+                    )}
                   </div>
                 </div>
 
                 <div className="flex flex-col-reverse sm:flex-row justify-between gap-3 pt-4">
-                  <Button variant="outline" onClick={() => setStep(2)} className="font-bold w-full sm:w-auto">
+                  <Button variant="outline" onClick={() => setStep(3)} className="font-bold w-full sm:w-auto">
                     <ChevronLeft className="h-4 w-4 mr-1" /> Voltar
                   </Button>
-                  <Button onClick={handleFinish} disabled={!userName || !userEmail || !userPass || isLoading} className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-8 shadow-md w-full sm:w-auto">
+                  <Button onClick={handleFinish} disabled={!userName || !userEmail || !userPass || !userRole || userPass !== userPassConfirm || isLoading} className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-8 shadow-md w-full sm:w-auto">
                     {isLoading ? 'Finalizando...' : 'Concluir Cadastro'} {!isLoading && <CheckCircle2 className="h-4 w-4 ml-1" />}
                   </Button>
                 </div>
               </div>
             )}
 
-            {/* ETAPA 4 - SUCESSO */}
+            {/* ETAPA 5 - SUCESSO */}
             {step === 5 && (
               <div className="flex flex-col items-center justify-center text-center py-12 animate-in zoom-in-95 duration-500">
                 <div className="h-20 w-20 rounded-full bg-emerald-100 flex items-center justify-center mb-6 ring-8 ring-emerald-50 shrink-0">
