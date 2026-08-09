@@ -133,6 +133,29 @@ export default function OnboardingWizardPage() {
     fetchSegments();
   }, []);
 
+  const lastQueriedCepRef = useRef('');
+
+  useEffect(() => {
+    const cleanCep = cep.replace(/\D/g, '');
+    if (cleanCep.length === 8 && cleanCep !== lastQueriedCepRef.current) {
+      const needsAddress = !logradouro || !bairro || !cidade || !estado;
+      if (needsAddress) {
+        lastQueriedCepRef.current = cleanCep;
+        fetch(`https://brasilapi.com.br/api/cep/v2/${cleanCep}`)
+          .then(res => res.ok ? res.json() : Promise.reject())
+          .then(data => {
+            setLogradouro(prev => prev || data.street || '');
+            setBairro(prev => prev || data.neighborhood || '');
+            setCidade(prev => prev || data.city || '');
+            setEstado(prev => prev || data.state || '');
+          })
+          .catch(e => {
+            console.error('Erro na consulta de CEP via useEffect', e);
+          });
+      }
+    }
+  }, [cep, logradouro, bairro, cidade, estado]);
+
   const fetchInvite = async (currentToken: string) => {
     try {
       setInviteState({ status: 'loading' });
@@ -265,23 +288,6 @@ export default function OnboardingWizardPage() {
                 setEstado(prev => prev || data.uf || '');
                 setCnaePrincipal(prev => prev || cnae);
                 setCnpjSuccess(true);
-
-                const finalCep = data.cep;
-                const needsAddress = !data.logradouro || !data.bairro || !data.municipio || !data.uf;
-                if (finalCep && needsAddress) {
-                   try {
-                      const cepRes = await fetch(`https://brasilapi.com.br/api/cep/v2/${finalCep.replace(/\D/g, '')}`);
-                      if (cepRes.ok) {
-                         const cepData = await cepRes.json();
-                         setLogradouro(prev => prev || cepData.street || '');
-                         setBairro(prev => prev || cepData.neighborhood || '');
-                         setCidade(prev => prev || cepData.city || '');
-                         setEstado(prev => prev || cepData.state || '');
-                      }
-                   } catch (e) {
-                      console.error('Erro na consulta de CEP', e);
-                   }
-                }
              } else {
                 setCnpjError('Não foi possível consultar automaticamente. Você pode continuar preenchendo manualmente.');
              }
