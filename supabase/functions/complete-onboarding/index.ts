@@ -27,11 +27,28 @@ serve(async (req: Request) => {
       token,
       password,
       fullName,
-      role,
+      role, // O user recomendou reaproveitar 'role' como 'cargo' ou profiles.job_title se desejar, mas ele é transportado na interface
       orgTradeName,
+      razaoSocial,
+      cnpj,
+      website,
+      emailCorporativo,
+      telefone,
+      whatsapp,
+      cep,
+      logradouro,
+      numero,
+      complemento,
+      bairro,
       city,
       state,
-      website,
+      profileType,
+      tipoEmpresa,
+      perfilComercial,
+      tipoCobertura,
+      raioAtendimentoKm,
+      cnaePrincipal,
+      atividadePrincipal,
       segments
     } = body;
 
@@ -216,9 +233,7 @@ serve(async (req: Request) => {
     }
 
     // 7. Run complete_onboarding RPC
-    let mappedRole = 'admin';
-    if (role === 'Comercial') mappedRole = 'manager';
-    if (role === 'Engenharia') mappedRole = 'buyer';
+    const mappedRole = 'admin';
 
     const { error: rpcError } = await supabaseAdmin.rpc('complete_onboarding', {
       p_token: token,
@@ -239,9 +254,109 @@ serve(async (req: Request) => {
       throw rpcError;
     }
 
-    // 8. Return full success!
+    // 8. Resolver organization_id via profiles
+    const { data: profileData, error: profileError } = await supabaseAdmin
+      .from('profiles')
+      .select('organization_id')
+      .eq('user_id', createdUserId)
+      .single();
+
+    if (profileError || !profileData?.organization_id) {
+      console.error('[AUDIT] profileError', profileError);
+      return new Response(
+        JSON.stringify({ code: 'ONBOARDING_ORG_LOOKUP_FAILED', message: 'Organização criada, mas não foi possível localizá-la para salvar campos complementares. Tente refazer o convite ou contate o suporte.' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const orgId = profileData.organization_id;
+
+    // 9. UPDATE organizations com os dados complementares
+    const orgUpdatePayload: any = {};
+    if (razaoSocial) orgUpdatePayload.razao_social = razaoSocial;
+    if (orgTradeName) orgUpdatePayload.nome_fantasia = orgTradeName;
+    if (website) orgUpdatePayload.website = website;
+    if (emailCorporativo) orgUpdatePayload.email_corporativo = emailCorporativo;
+    if (telefone) orgUpdatePayload.telefone = telefone;
+    if (whatsapp) orgUpdatePayload.whatsapp = whatsapp;
+    if (cep) orgUpdatePayload.address_zip_code = cep;
+    if (logradouro) orgUpdatePayload.address_street = logradouro;
+    if (numero) orgUpdatePayload.address_number = numero;
+    if (complemento) orgUpdatePayload.address_complement = complemento;
+    if (bairro) orgUpdatePayload.address_neighborhood = bairro;
+    if (profileType) orgUpdatePayload.profile_type = profileType;
+    if (tipoEmpresa) orgUpdatePayload.tipo_empresa = tipoEmpresa;
+    if (perfilComercial) orgUpdatePayload.perfil_comercial = perfilComercial;
+    if (tipoCobertura) orgUpdatePayload.tipo_cobertura = tipoCobertura;
+    if (raioAtendimentoKm) orgUpdatePayload.raio_atendimento_km = parseInt(String(raioAtendimentoKm), 10);
+    if (cnaePrincipal) orgUpdatePayload.cnae_principal = cnaePrincipal;
+    if (atividadePrincipal) orgUpdatePayload.atividade_principal = atividadePrincipal;
+
+    if (Object.keys(orgUpdatePayload).length > 0) {
+      const { error: updateError } = await supabaseAdmin
+        .from('organizations')
+        .update(orgUpdatePayload)
+        .eq('id', orgId);
+
+      if (updateError) {
+        console.error('[AUDIT] update org failed', updateError);
+        return new Response(
+          JSON.stringify({ code: 'ONBOARDING_ORG_UPDATE_FAILED', message: 'Falha ao salvar dados complementares da empresa. Tente submeter novamente.' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
+
+    // 10. READ-AFTER-WRITE dos campos críticos
+    if (profileType) {
+      const { data: readOrg, error: readOrgError } = await supabaseAdmin
+        .from('organizations')
+        .select('profile_type, tipo_empresa')
+        .eq('id', orgId)
+        .single();
+
+      if (readOrgError || readOrg?.profile_type !== profileType) {
+        console.error('[AUDIT] read-after-write failed on organizations', readOrgError);
+        return new Response(
+          JSON.stringify({ code: 'ONBOARDING_ORG_VERIFY_FAILED', message: 'Inconsistência ao validar salvamento da empresa. Tente submeter novamente.' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
+
+    // 11. Salvar o cargo/função
+    if (role) {
+      await supabaseAdmin.from('profiles').update({ job_title: role }).eq('user_id', createdUserId);
+      const { error: opUpdateError } = await supabaseAdmin.from('operators').update({ cargo: role }).eq('id', createdUserId);
+      if (opUpdateError) {
+        console.error('[AUDIT] Failed to update operators.cargo, might not exist or failed:', opUpdateError);
+      }
+    }
+
+    // 11b. Read-after-write das permissões do primeiro usuário
+    const { data: roleData, error: roleError } = await supabaseAdmin
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', createdUserId)
+      .single();
+
+    const { data: opData, error: opError } = await supabaseAdmin
+      .from('operators')
+      .select('perfil, cargo')
+      .eq('id', createdUserId)
+      .single();
+
+    if (roleError || roleData?.role !== 'admin' || opError || opData?.perfil !== 'administrador') {
+      console.error('[AUDIT] Read-after-write failed on user_roles/operators', roleError, opError, roleData, opData);
+      return new Response(
+        JSON.stringify({ code: 'ONBOARDING_ROLE_VERIFY_FAILED', message: 'Inconsistência ao atribuir permissões administrativas. Tente submeter novamente.' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // 12. Return full success!
     return new Response(
-      JSON.stringify({ code: 'SUCCESS', message: 'Onboarding concluído.', data: { userId: createdUserId } }),
+      JSON.stringify({ code: 'SUCCESS', message: 'Onboarding concluído.', data: { userId: createdUserId, organizationId: orgId } }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 

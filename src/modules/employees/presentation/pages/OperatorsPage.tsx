@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Users, UserPlus, Shield, UserCheck, Search,
@@ -526,6 +527,7 @@ export default function OperatorsPage({ organizationId }: { organizationId?: str
   const [editingOperator, setEditingOperator] = useState<Operator | null>(null);
   const [search, setSearch] = useState('');
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
+  const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
   
   type TabType = 'todos' | 'ativos' | 'pendentes' | 'inativos' | 'cancelados';
   const [activeTab, setActiveTab] = useState<TabType>('todos');
@@ -971,16 +973,27 @@ export default function OperatorsPage({ organizationId }: { organizationId?: str
                       <td className="px-6 py-4 text-center sticky right-0 bg-white group-hover:bg-slate-50 transition-colors z-10 shadow-[-4px_0_8px_rgba(0,0,0,0.02)]">
                         <div className="relative inline-block text-left">
                           <button 
-                            onClick={() => setActiveMenu(activeMenu === op.id ? null : op.id)}
+                            onClick={(e) => {
+                              if (activeMenu === op.id) {
+                                setActiveMenu(null);
+                              } else {
+                                const rect = e.currentTarget.getBoundingClientRect();
+                                setMenuPosition({ top: rect.bottom + window.scrollY, left: rect.right - 160 + window.scrollX });
+                                setActiveMenu(op.id);
+                              }
+                            }}
                             className="p-1.5 hover:bg-slate-200 rounded-full text-slate-400 hover:text-slate-700 transition-colors"
                           >
                             <MoreVertical className="h-4 w-4" />
                           </button>
                           
-                          {activeMenu === op.id && (
+                          {activeMenu === op.id && typeof document !== 'undefined' && createPortal(
                             <>
                               <div className="fixed inset-0 z-40" onClick={() => setActiveMenu(null)}></div>
-                              <div className="absolute right-0 z-50 mt-1 w-40 origin-top-right rounded-xl bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none overflow-hidden">
+                              <div
+                                className="absolute z-50 mt-1 w-40 origin-top-right rounded-xl bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none overflow-hidden"
+                                style={{ top: menuPosition.top, left: menuPosition.left }}
+                              >
                                 <div className="py-1">
                                   {op.status === 'pendente' && (
                                     <>
@@ -1010,7 +1023,8 @@ export default function OperatorsPage({ organizationId }: { organizationId?: str
                                   )}
                                 </div>
                               </div>
-                            </>
+                            </>,
+                            document.body
                           )}
                         </div>
                       </td>

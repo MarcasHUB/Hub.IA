@@ -86,11 +86,26 @@ export default function OnboardingWizardPage() {
   const [nomeFantasia, setNomeFantasia] = useState('');
   const [cidade, setCidade] = useState('');
   const [estado, setEstado] = useState('');
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
+
+  // Formulário: Dados Gerais
   const [site, setSite] = useState('');
+  const [emailCorporativo, setEmailCorporativo] = useState('');
+  const [telefone, setTelefone] = useState('');
+  const [whatsapp, setWhatsapp] = useState('');
+  const [cep, setCep] = useState('');
+  const [logradouro, setLogradouro] = useState('');
+  const [numero, setNumero] = useState('');
+  const [complemento, setComplemento] = useState('');
+  const [bairro, setBairro] = useState('');
 
   // Formulário: Perfil
-  const [perfis, setPerfis] = useState<string[]>([]);
-  const [tipoEmpresa, setTipoEmpresa] = useState<string[]>([]);
+  const [perfilRede, setPerfilRede] = useState('');
+  const [tipoEmpresa, setTipoEmpresa] = useState('');
+  const [perfilComercial, setPerfilComercial] = useState('');
+  const [tipoCobertura, setTipoCobertura] = useState('');
+  const [cnaePrincipal, setCnaePrincipal] = useState('');
   const [raio, setRaio] = useState('');
   const [resolvedSegments, setResolvedSegments] = useState<ResolvedInviteSegment[]>([]);
   const [globalSegments, setGlobalSegments] = useState<any[]>([]);
@@ -99,7 +114,7 @@ export default function OnboardingWizardPage() {
   const [userName, setUserName] = useState('');
   const [userEmail, setUserEmail] = useState('');
   const [userPass, setUserPass] = useState('');
-  const [userRole, setUserRole] = useState('Administrador');
+  const [userRole, setUserRole] = useState('');
 
   useEffect(() => {
     const fetchSegments = async () => {
@@ -212,8 +227,13 @@ export default function OnboardingWizardPage() {
     void fetchInvite(token);
   }, [token]);
 
-  const toggleTipo = (t: string) => {
-    setTipoEmpresa(prev => prev.includes(t) ? prev.filter(x => x !== t) : [...prev, t]);
+
+  const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setLogoFile(file);
+      setLogoPreview(URL.createObjectURL(file));
+    }
   };
 
   const handleFinish = async () => {
@@ -228,10 +248,25 @@ export default function OnboardingWizardPage() {
           fullName: userName,
           role: userRole,
           orgTradeName: nomeFantasia || razaoSocial,
+          razaoSocial: razaoSocial,
+          cnpj: cnpj,
+          website: site || null,
+          emailCorporativo,
+          telefone,
+          whatsapp,
+          cep,
+          logradouro,
+          numero,
+          complemento,
+          bairro,
           city: cidade,
           state: estado,
-          website: site || null,
-          cnpj: cnpj,
+          profileType: perfilRede === 'Comprador e Fornecedor' ? 'both' : (perfilRede === 'Comprador' ? 'buyer' : (perfilRede === 'Fornecedor' ? 'supplier' : undefined)),
+          tipoEmpresa,
+          perfilComercial,
+          tipoCobertura,
+          raioAtendimentoKm: raio,
+          cnaePrincipal,
           segments: resolvedSegments.map(segment => segment.name) // Envia nomes por compatibilidade
         }
       });
@@ -256,7 +291,24 @@ export default function OnboardingWizardPage() {
         throw new Error(data.error);
       }
 
-      setStep(4);
+      const orgId = data?.data?.organizationId;
+      if (orgId && logoFile) {
+        try {
+          const { uploadPublicImage } = await import('@/shared/utils/uploadImage');
+          const { objectPath } = await uploadPublicImage({
+            bucket: 'organization-logos',
+            folderPath: `organizations/${orgId}`,
+            file: logoFile
+          });
+          await supabase.from('organizations').update({ logo_url: objectPath }).eq('id', orgId);
+          window.dispatchEvent(new CustomEvent('hubia:company-logo-updated', { detail: { logo_url: objectPath } }));
+        } catch(e) {
+          console.error('Erro upload logo:', e);
+          alert('Conta criada, mas não foi possível salvar a logo. Você pode adicioná-la mais tarde em Minha Empresa.');
+        }
+      }
+
+      setStep(5);
     } catch (e: any) {
       console.error('[Onboarding] Erro Técnico:', e);
       let userMsg = 'Não foi possível concluir seu cadastro. Tente novamente.';
@@ -514,68 +566,55 @@ export default function OnboardingWizardPage() {
               </div>
             )}
 
-            {/* ETAPA 2 */}
+                        {/* ETAPA 2 - DADOS GERAIS */}
             {step === 2 && (
               <div className="space-y-6 animate-in slide-in-from-right-4 duration-300">
                 <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
                   <div className="h-10 w-10 rounded-xl bg-indigo-50 flex items-center justify-center shrink-0">
-                    <Briefcase className="h-5 w-5 text-indigo-600" />
+                    <Building2 className="h-5 w-5 text-indigo-600" />
                   </div>
                   <div>
-                    <h2 className="text-lg sm:text-xl font-bold text-slate-900">Sobre sua empresa</h2>
-                    <p className="text-xs sm:text-sm text-slate-500">Defina os papéis que você exercerá na rede.</p>
+                    <h2 className="text-lg sm:text-xl font-bold text-slate-900">Dados Gerais</h2>
+                    <p className="text-xs sm:text-sm text-slate-500">Informações complementares de contato e endereço.</p>
                   </div>
                 </div>
 
-                <div className="space-y-4">
-                  <label className="text-xs font-bold text-slate-700">Como sua empresa atua?</label>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    {['Apenas Compradora', 'Apenas Vendedora', 'Compradora e Vendedora'].map(p => (
-                      <button
-                        key={p}
-                        onClick={() => setPerfis([p])}
-                        className={`p-3 text-sm font-semibold rounded-xl border text-left transition-all ${perfis.includes(p) ? 'border-indigo-600 bg-indigo-50/50 text-indigo-700' : 'border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50'}`}
-                      >
-                        {p}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="space-y-4 mt-6">
-                  <label className="text-xs font-bold text-slate-700">Tipo de Empresa (Marque quantas quiser)</label>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                    {['Fabricante', 'Distribuidor', 'Revendedor', 'Importador', 'Prestador de Serviço', 'Exportador'].map(p => (
-                      <button
-                        key={p}
-                        onClick={() => toggleTipo(p)}
-                        className={`p-2.5 text-xs font-semibold rounded-xl border text-center transition-all ${tipoEmpresa.includes(p) ? 'border-indigo-600 bg-indigo-50/50 text-indigo-700' : 'border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50'}`}
-                      >
-                        {p}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="space-y-4 mt-6 border-t border-slate-100 pt-6">
-                  <label className="text-xs font-bold text-slate-700">Raio de Operação</label>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                    {['100km', '250km', '500km', 'Nacional'].map(r => (
-                      <button
-                        key={r}
-                        onClick={() => setRaio(r)}
-                        className={`p-2.5 text-xs font-semibold rounded-xl border text-center transition-all ${raio === r ? 'border-indigo-600 bg-indigo-50/50 text-indigo-700' : 'border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50'}`}
-                      >
-                        {r === 'Nacional' ? 'Território Nacional' : `Até ${r}`}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6 border-t border-slate-100 pt-6">
-                  <div className="space-y-2 col-span-2 sm:col-span-1">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-1.5 md:col-span-2">
                     <label className="text-xs font-bold text-slate-700">Site (Opcional)</label>
                     <Input value={site} onChange={e => setSite(e.target.value)} placeholder="www.suaempresa.com.br" />
+                  </div>
+                  <div className="space-y-1.5 md:col-span-2">
+                    <label className="text-xs font-bold text-slate-700">E-mail Corporativo</label>
+                    <Input value={emailCorporativo} onChange={e => setEmailCorporativo(e.target.value)} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-700">Telefone</label>
+                    <Input value={telefone} onChange={e => setTelefone(e.target.value)} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-700">WhatsApp</label>
+                    <Input value={whatsapp} onChange={e => setWhatsapp(e.target.value)} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-700">CEP</label>
+                    <Input value={cep} onChange={e => setCep(e.target.value)} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-700">Bairro</label>
+                    <Input value={bairro} onChange={e => setBairro(e.target.value)} />
+                  </div>
+                  <div className="space-y-1.5 md:col-span-2">
+                    <label className="text-xs font-bold text-slate-700">Logradouro</label>
+                    <Input value={logradouro} onChange={e => setLogradouro(e.target.value)} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-700">Número</label>
+                    <Input value={numero} onChange={e => setNumero(e.target.value)} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-700">Complemento (Opcional)</label>
+                    <Input value={complemento} onChange={e => setComplemento(e.target.value)} />
                   </div>
                 </div>
 
@@ -583,15 +622,15 @@ export default function OnboardingWizardPage() {
                   <Button variant="outline" onClick={() => setStep(1)} className="font-bold w-full sm:w-auto">
                     <ChevronLeft className="h-4 w-4 mr-1" /> Voltar
                   </Button>
-                  <Button onClick={() => setStep(3)} disabled={perfis.length === 0} className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-8 shadow-md w-full sm:w-auto">
+                  <Button onClick={() => setStep(4)} className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-8 shadow-md w-full sm:w-auto">
                     Próximo <ChevronRight className="h-4 w-4 ml-1" />
                   </Button>
                 </div>
               </div>
             )}
 
-            {/* ETAPA 3 */}
-            {step === 3 && (
+            {/* ETAPA 3 - ATUAÇÃO */}
+            {step === 5 && (
               <div className="space-y-6 animate-in slide-in-from-right-4 duration-300">
                 <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
                   <div className="h-10 w-10 rounded-xl bg-indigo-50 flex items-center justify-center shrink-0">
@@ -617,12 +656,8 @@ export default function OnboardingWizardPage() {
                     <Input type="password" value={userPass} onChange={e => setUserPass(e.target.value)} />
                   </div>
                   <div className="space-y-1.5 md:col-span-2">
-                    <label className="text-xs font-bold text-slate-700">Função</label>
-                    <select value={userRole} onChange={e => setUserRole(e.target.value)} className="w-full h-10 px-3 py-2 text-sm bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                      <option>Administrador</option>
-                      <option>Comercial</option>
-                      <option>Engenharia</option>
-                    </select>
+                    <label className="text-xs font-bold text-slate-700">Cargo / Função</label>
+                    <Input value={userRole} onChange={e => setUserRole(e.target.value)} placeholder="Ex.: Comprador, Gerente Comercial, Engenheiro, Diretor" />
                   </div>
                 </div>
 
@@ -638,7 +673,7 @@ export default function OnboardingWizardPage() {
             )}
 
             {/* ETAPA 4 - SUCESSO */}
-            {step === 4 && (
+            {step === 5 && (
               <div className="flex flex-col items-center justify-center text-center py-12 animate-in zoom-in-95 duration-500">
                 <div className="h-20 w-20 rounded-full bg-emerald-100 flex items-center justify-center mb-6 ring-8 ring-emerald-50 shrink-0">
                   <CheckCircle2 className="h-10 w-10 text-emerald-500" />
