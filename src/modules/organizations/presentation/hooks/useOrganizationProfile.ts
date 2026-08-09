@@ -120,7 +120,7 @@ export function useOrganizationProfile(organizationId: string | null) {
     latitude: data.latitude,
     longitude: data.longitude,
     tipo_empresa: data.tipo_empresa || data.profile_type || '',
-    geographic_coverage_type: (data.geographic_coverage_type ?? data.tipo_cobertura ?? null) as GeographicCoverageType | null,
+    geographic_coverage_type: (data.geographic_coverage_type ?? null) as GeographicCoverageType | null,
     raio_atendimento_km: data.raio_atendimento_km ?? parseLegacyRadius(data.service_radius) ?? null,
     cnae_principal: data.cnae_principal || '',
     commercialProfile: data.perfil_comercial || '',

@@ -48,7 +48,7 @@ export interface OrganizationUpdatePayload {
   longitude: number | null;
   tipo_empresa: string;
   perfil_comercial: string;
-  geographic_coverage_type: GeographicCoverageType | null;
+  geographic_coverage_type?: GeographicCoverageType | null;
   raio_atendimento_km: number | null;
   cnae_principal: string;
 }
@@ -60,9 +60,9 @@ export interface OrganizationUpdatePayload {
  */
 export function normalizeCoverageRadius(value: string | number | null | undefined): number | null {
   if (value === null || value === undefined) return null;
-  
+
   const normalized = String(value).trim();
-  
+
   // Vazio ou espaços em branco
   if (!normalized) return null;
 
@@ -78,11 +78,37 @@ export function normalizeCoverageRadius(value: string | number | null | undefine
 }
 
 /**
+ * Normaliza o tipo de cobertura geográfica para os enums técnicos aceitos pelo banco.
+ */
+export function normalizeCoverageType(value: any): GeographicCoverageType | null | undefined {
+  if (value === null || value === '') return null;
+  if (value === undefined) return undefined;
+
+  const str = String(value).trim().toLowerCase();
+  switch (str) {
+    case 'local':
+    case 'regional':
+    case 'state':
+    case 'national':
+    case 'international':
+      return str as GeographicCoverageType;
+    case 'estadual':
+    case 'todo o estado':
+      return 'state';
+    case 'nacional':
+    case 'todo o brasil':
+      return 'national';
+    default:
+      return undefined;
+  }
+}
+
+/**
  * Mapeia os dados brutos do formulário para o payload tipado que será enviado ao banco de dados (Supabase).
  * É uma função pura e não injeta efeitos colaterais.
  */
 export function mapOrganizationProfileToUpdate(formData: OrganizationProfileFormData): OrganizationUpdatePayload {
-  return {
+  const payload: OrganizationUpdatePayload = {
     name: formData.razao_social,
     razao_social: formData.razao_social,
     nome_fantasia: formData.nome_fantasia,
@@ -104,8 +130,14 @@ export function mapOrganizationProfileToUpdate(formData: OrganizationProfileForm
     longitude: formData.longitude ? parseFloat(formData.longitude) : null,
     tipo_empresa: formData.tipo_empresa,
     perfil_comercial: formData.commercialProfile,
-    geographic_coverage_type: formData.geographicCoverageType,
     raio_atendimento_km: normalizeCoverageRadius(formData.coverageRadius),
     cnae_principal: formData.cnae_principal,
   };
+
+  const coverage = normalizeCoverageType(formData.geographicCoverageType);
+  if (coverage !== undefined) {
+    payload.geographic_coverage_type = coverage;
+  }
+
+  return payload;
 }
