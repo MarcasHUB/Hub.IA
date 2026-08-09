@@ -102,6 +102,7 @@ export function CompanyProfileForm({
   const [isUploading, setIsUploading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
+  const [cepError, setCepError] = useState('');
   const [saved, setSaved] = useState(false);
   const [internalIsSuperAdmin, setInternalIsSuperAdmin] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -188,6 +189,7 @@ export function CompanyProfileForm({
       fetchCNPJ(maskedValue);
     }
     if (field === 'cep' && typeof maskedValue === 'string') {
+      setCepError('');
       fetchCEP(maskedValue);
     }
     if (field === 'nome_fantasia' && typeof maskedValue === 'string') {
@@ -203,7 +205,12 @@ export function CompanyProfileForm({
     try {
       const response = await fetch(`https://brasilapi.com.br/api/cep/v2/${cleanCEP}`);
       if (!response.ok) {
-         setSaveError('Não foi possível consultar este CEP. Revise o endereço manualmente.');
+         if (response.status === 404) {
+           console.warn(`CEP não encontrado: ${cleanCEP}`);
+           setCepError('CEP não encontrado. Verifique o número informado.');
+         } else {
+           setSaveError('Não foi possível consultar este CEP. Revise o endereço manualmente.');
+         }
          return;
       }
 
@@ -218,6 +225,7 @@ export function CompanyProfileForm({
       }));
 
       setSaveError('');
+      setCepError('');
     } catch (error) {
       console.error("Erro ao buscar CEP na BrasilAPI:", error);
       setSaveError('Não foi possível consultar este CEP. Revise o endereço manualmente.');
@@ -418,6 +426,11 @@ export function CompanyProfileForm({
                 onUploadLogo={handleUploadLogo}
               />
               <hr className="border-slate-100" />
+              {cepError && (
+                <div className="bg-red-50 text-red-600 text-xs font-medium px-3 py-2 rounded-lg border border-red-100 animate-in fade-in">
+                  {cepError}
+                </div>
+              )}
               <CompanyAddressSection
                 form={form}
                 onChange={handleChange}
