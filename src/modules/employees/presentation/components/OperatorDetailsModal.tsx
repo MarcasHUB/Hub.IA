@@ -1,5 +1,5 @@
 import { XCircle, Mail, Phone, Briefcase, MapPin, Calendar, Clock, Layers, ShieldCheck, User } from 'lucide-react';
-import { Operator, operatorFullName, OperatorPerfil, OperatorStatus } from '../../domain/entities/Operator';
+import { Operator, resolveOperatorName, OperatorPerfil, OperatorStatus } from '../../domain/entities/Operator';
 
 interface OperatorDetailsModalProps {
   operator: Operator;
@@ -64,13 +64,17 @@ export function OperatorDetailsModal({ operator, onClose, onEdit, onInactivate, 
         {/* Header */}
         <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-slate-100">
           <div className="flex items-center gap-4">
-            <div className="h-12 w-12 rounded-full bg-gradient-to-br from-indigo-500 to-violet-500 flex items-center justify-center shrink-0 shadow-sm">
-              <span className="text-lg font-black text-white leading-none">
-                {operator.nome[0]}{operator.sobrenome?.[0] || ''}
-              </span>
-            </div>
+            {operator.avatar_url ? (
+              <img src={operator.avatar_url} alt={resolveOperatorName(operator)} className="h-12 w-12 rounded-full object-cover shrink-0 shadow-sm border border-slate-200" />
+            ) : (
+              <div className="h-12 w-12 rounded-full bg-gradient-to-br from-indigo-500 to-violet-500 flex items-center justify-center shrink-0 shadow-sm">
+                <span className="text-lg font-black text-white leading-none">
+                  {operator.nome?.[0] || ''}{operator.sobrenome?.[0] || ''}
+                </span>
+              </div>
+            )}
             <div>
-              <h3 className="text-lg font-extrabold text-slate-900">{operatorFullName(operator)}</h3>
+              <h3 className="text-lg font-extrabold text-slate-900">{resolveOperatorName(operator)}</h3>
               <div className="flex items-center gap-2 mt-1">
                 <StatusBadge status={operator.status} />
                 <PerfilBadge perfil={operator.perfil} />

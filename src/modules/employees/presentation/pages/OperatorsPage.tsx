@@ -13,7 +13,7 @@ import { Input } from '@/shared/components/ui/Input';
 import { ClearableInput } from '@/shared/components/ui/ClearableInput';
 import { Card, CardContent } from '@/shared/components/ui/Card';
 import { EntityCard } from '@/shared/components/ui/EntityCard';
-import { Operator, OperatorPerfil, OperatorStatus, operatorFullName, MacroProfile, MACRO_PROFILES } from '@/modules/employees/domain/entities/Operator';
+import { Operator, OperatorPerfil, OperatorStatus, resolveOperatorName, MacroProfile, MACRO_PROFILES } from '@/modules/employees/domain/entities/Operator';
 import { SupabaseOperatorRepository } from '../../infrastructure/repositories/SupabaseOperatorRepository';
 import { SupabaseCategoryRepository } from '@/modules/categories/infrastructure/repositories/SupabaseCategoryRepository';
 import { SupabaseDelegationRepository } from '../../infrastructure/repositories/SupabaseDelegationRepository';
@@ -285,7 +285,7 @@ function InviteModal({ onClose, onInvite, operators, organizationId }: { onClose
                     {operators
                       .filter(op => op.status !== 'cancelado' && (op.perfil === 'gestor' || op.perfil === 'administrador'))
                       .map(op => (
-                        <option key={op.id} value={op.id}>{operatorFullName(op)}</option>
+                        <option key={op.id} value={op.id}>{resolveOperatorName(op)}</option>
                       ))
                     }
                   </select>
@@ -552,7 +552,7 @@ export default function OperatorsPage({ organizationId }: { organizationId?: str
   };
 
   const baseFiltered = operators.filter(op =>
-    operatorFullName(op).toLowerCase().includes(search.toLowerCase()) ||
+    resolveOperatorName(op).toLowerCase().includes(search.toLowerCase()) ||
     op.email.toLowerCase().includes(search.toLowerCase())
   );
 
@@ -861,7 +861,7 @@ export default function OperatorsPage({ organizationId }: { organizationId?: str
               <EntityCard
                 key={op.id}
                 type="operador"
-                title={operatorFullName(op)}
+                title={resolveOperatorName(op)}
                 subtitle={op.email}
                 status="pendente"
                 onCopyLink={() => handleCopyLink(op)}
@@ -910,14 +910,18 @@ export default function OperatorsPage({ organizationId }: { organizationId?: str
                     <tr key={op.id} className={`group transition-colors ${op.status === 'cancelado' ? 'bg-slate-50/50 opacity-60 grayscale' : 'hover:bg-slate-50/50 bg-white'}`}>
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
-                          <div className="h-9 w-9 rounded-full bg-gradient-to-br from-indigo-500 to-violet-500 flex items-center justify-center shrink-0 shadow-sm">
-                            <span className="text-[11px] font-black text-white leading-none">
-                              {op.nome?.[0] || ''}{op.sobrenome?.[0] || ''}
-                            </span>
-                          </div>
+                          {op.avatar_url ? (
+                            <img src={op.avatar_url} alt={resolveOperatorName(op)} className="h-9 w-9 rounded-full object-cover shrink-0 shadow-sm border border-slate-200" />
+                          ) : (
+                            <div className="h-9 w-9 rounded-full bg-gradient-to-br from-indigo-500 to-violet-500 flex items-center justify-center shrink-0 shadow-sm">
+                              <span className="text-[11px] font-black text-white leading-none">
+                                {op.nome?.[0] || ''}{op.sobrenome?.[0] || ''}
+                              </span>
+                            </div>
+                          )}
                           <div>
                             <button onClick={() => setDetailsOperator(op)} className="font-bold text-slate-900 text-left hover:text-indigo-600 transition-colors">
-                              {operatorFullName(op)}
+                              {resolveOperatorName(op)}
                             </button>
                             <p className="text-[10px] text-slate-400 flex items-center gap-1 truncate max-w-[150px] sm:max-w-[200px] lg:max-w-xs" title={op.email}>
                               <Mail className="h-3 w-3 shrink-0" /> <span className="truncate">{op.email}</span>

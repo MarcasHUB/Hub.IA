@@ -140,7 +140,10 @@ export class SupabaseOperatorRepository implements IOperatorRepository {
         gestor_id: op?.gestor_id || undefined,
         created_at: op?.created_at || new Date().toISOString(),
         updated_at: op?.updated_at || new Date().toISOString(),
-        categories: op?.operator_categories ? op.operator_categories.map((c: any) => c.category_id) : []
+        categories: op?.operator_categories ? op.operator_categories.map((c: any) => c.category_id) : [],
+        avatar_url: profile?.avatar_url || undefined,
+        display_name: profile?.display_name || undefined,
+        full_name: profile?.full_name || undefined
       } as Operator);
     }
 
@@ -148,9 +151,13 @@ export class SupabaseOperatorRepository implements IOperatorRepository {
     if (operatorsData) {
       for (const op of operatorsData) {
         if (!usedEmails.has(op.email) && !operators.some(o => o.id === op.id)) {
+          const profile = profilesData?.find(p => p.id === op.id || p.user_id === op.id);
           operators.push({
             ...op,
-            categories: op.operator_categories ? op.operator_categories.map((c: any) => c.category_id) : []
+            categories: op.operator_categories ? op.operator_categories.map((c: any) => c.category_id) : [],
+            avatar_url: profile?.avatar_url || undefined,
+            display_name: profile?.display_name || undefined,
+            full_name: profile?.full_name || undefined
           } as Operator);
         }
       }

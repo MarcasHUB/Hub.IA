@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/infrastructure/supabase/client';
 import { Building2, Search, PackageOpen, Shield, Users, CheckCircle, XCircle, Edit2, ToggleLeft, ToggleRight } from 'lucide-react';
+import { resolveOrganizationLogoUrl } from '@/shared/utils/logoUtils';
 import { Button } from '@/shared/components/ui/Button';
 import { ClearableInput } from '@/shared/components/ui/ClearableInput';
 import { InviteCompanyModal } from '../../../suppliers/presentation/components/InviteCompanyModal';
@@ -217,7 +218,7 @@ export default function OrganizationsListPage() {
                     <div className="p-5 flex flex-col flex-1">
                       <div className="flex items-start gap-3 mb-4 h-[48px]">
                         {org.logo_url ? (
-                          <img src={org.logo_url} alt="Logo" className="h-12 w-12 rounded-xl object-contain bg-slate-50 border border-slate-100 shrink-0" />
+                          <img src={resolveOrganizationLogoUrl(org.logo_url, org.id) || ''} alt="Logo" className="h-12 w-12 rounded-xl object-contain bg-slate-50 border border-slate-100 shrink-0" />
                         ) : (
                           <div className="h-12 w-12 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600 font-bold text-lg shrink-0">
                             {org.trade_name.substring(0, 2).toUpperCase()}
