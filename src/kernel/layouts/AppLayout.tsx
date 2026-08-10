@@ -205,14 +205,19 @@ export function AppLayout() {
 
           if (orgData) {
             const orgName = orgData.nome_fantasia || orgData.name || "Empresa";
+            const resolvedLogo = resolveOrganizationLogoUrl(
+              orgData.logo_url,
+              activeOrganizationId,
+            );
+
+            console.log("HEADER ACTIVE ORG", activeOrganizationId);
+            console.log("HEADER ORG DATA", orgData);
+            console.log("HEADER RAW LOGO", orgData.logo_url);
+            console.log("HEADER RESOLVED LOGO", resolvedLogo);
+
             if (isMounted) {
               setCompanyName(orgName);
-              setCompanyLogo(
-                resolveOrganizationLogoUrl(
-                  orgData.logo_url,
-                  activeOrganizationId,
-                ),
-              );
+              setCompanyLogo(resolvedLogo);
             }
             // Persistir também pro resto do app em modo compatibilidade
             localStorage.setItem("supplyhub_company_name", orgName);

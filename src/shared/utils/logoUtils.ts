@@ -1,22 +1,28 @@
-export function resolveOrganizationLogoUrl(logoUrl: string | null | undefined, organizationId?: string): string | null {
+import { supabase } from "@/infrastructure/supabase/client";
+
+export function resolveOrganizationLogoUrl(
+  logoUrl: string | null | undefined,
+  organizationId?: string,
+): string | null {
   if (!logoUrl) {
     return null;
   }
 
-  // Se já for uma URL completa (ex: http, https, data:image), retorna direto
-  if (logoUrl.startsWith('http') || logoUrl.startsWith('data:')) {
+  if (
+    logoUrl.startsWith("http") ||
+    logoUrl.startsWith("data:") ||
+    logoUrl.startsWith("blob:")
+  ) {
     return logoUrl;
   }
 
-  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-  
-  if (logoUrl.startsWith('organizations/')) {
-    return `${supabaseUrl}/storage/v1/object/public/organization-logos/${logoUrl}`;
-  }
+  // Se já tem organizations/ no inicio, usa direto
+  const path = logoUrl.startsWith("organizations/")
+    ? logoUrl
+    : organizationId
+      ? `organizations/${organizationId}/${logoUrl}`
+      : logoUrl;
 
-  if (organizationId) {
-    return `${supabaseUrl}/storage/v1/object/public/organization-logos/organizations/${organizationId}/${logoUrl}`;
-  }
-  
-  return null;
+  return supabase.storage.from("organization-logos").getPublicUrl(path).data
+    .publicUrl;
 }

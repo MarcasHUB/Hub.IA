@@ -8,7 +8,8 @@ import { CompanyAddressSection } from './sections/CompanyAddressSection';
 import { supabase } from '../../../../infrastructure/supabase/client';
 import { OrganizationProfileData } from '../hooks/useOrganizationProfile';
 import { GeographicCoverageType } from '../../domain/types/GeographicCoverageType';
-import { ORGANIZATION_LOGO_BUCKET, resolveOrganizationLogoUrl } from '../../application/utils/logoUtils';
+import { ORGANIZATION_LOGO_BUCKET } from '../../application/utils/logoUtils';
+import { resolveOrganizationLogoUrl } from '@/shared/utils/logoUtils';
 import { calculateOrganizationProfileCompletion } from '../../application/utils/profileCompletion';
 import { useQueryClient } from '@tanstack/react-query';
 import { organizationProfileKeys } from '../hooks/useOrganizationProfile';
@@ -118,6 +119,10 @@ export function CompanyProfileForm({
 
   useEffect(() => {
     if (initialData && !initialized) {
+      console.log('COMPANY PROFILE ORG', organizationId);
+      console.log('COMPANY PROFILE RAW LOGO', initialData.logo_url);
+      console.log('COMPANY PROFILE RESOLVED LOGO', resolveOrganizationLogoUrl(initialData.logo_url));
+
       setForm({
         razao_social: initialData.name || '',
         nome_fantasia: initialData.trade_name || '',
@@ -368,6 +373,8 @@ export function CompanyProfileForm({
       if (displayUrl) {
         setPreviewUrl(displayUrl);
       }
+
+      window.dispatchEvent(new CustomEvent('hubia:company-logo-updated', { detail: { logo_url: objectPath } }));
 
       queryClient.invalidateQueries({ queryKey: organizationProfileKeys.detail(organizationId) });
 
