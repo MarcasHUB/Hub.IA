@@ -292,6 +292,7 @@ export default function CompanyProfileView({ organizationId }: CompanyProfileVie
   const location = useLocation();
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [isOrgAdmin, setIsOrgAdmin] = useState(false);
+  const [isOrgAuditor, setIsOrgAuditor] = useState(false);
   const [companyName, setCompanyName] = useState('SupplyHub B2B');
 
   useEffect(() => {
@@ -307,6 +308,9 @@ export default function CompanyProfileView({ organizationId }: CompanyProfileVie
         
         if (userRole?.role === 'organization_admin' || opData?.perfil === 'administrador') {
            setIsOrgAdmin(true);
+        }
+        if (opData?.perfil === 'auditor') {
+           setIsOrgAuditor(true);
         }
       }
     };
@@ -363,7 +367,7 @@ export default function CompanyProfileView({ organizationId }: CompanyProfileVie
                 <h3 className="px-3 text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">{section.title}</h3>
                 {(() => {
                   let items = section.items;
-                  if (section.title === 'GOVERNANÇA' && (isOrgAdmin || isSuperAdmin)) {
+                  if (section.title === 'GOVERNANÇA' && (isOrgAdmin || isOrgAuditor)) {
                     items = [...items, { id: 'compliance', label: 'Compliance', icon: ShieldCheck, href: '/empresa/compliance' }];
                   }
                   return items.map(tab => {

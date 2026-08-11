@@ -7,6 +7,7 @@ export interface AttachmentRiskAssessment {
 
 export function classifyAttachmentRisk(file: File): AttachmentRiskAssessment {
   const fileName = file.name.toLowerCase();
+  const normalizedName = fileName.replace(/[_.\-\[\]()]/g, ' ');
   const reasons: string[] = [];
   let riskScore = 0;
   let riskLevel: 'low' | 'medium' | 'high' = 'low';
@@ -34,7 +35,7 @@ export function classifyAttachmentRisk(file: File): AttachmentRiskAssessment {
 
   let hasHighRisk = false;
   for (const pattern of highRiskPatterns) {
-    if (pattern.test(fileName)) {
+    if (pattern.test(normalizedName)) {
       hasHighRisk = true;
       reasons.push(`filename:${pattern.toString().replace(/\//g, '').replace(/\\b/g, '')}`);
     }
@@ -43,7 +44,7 @@ export function classifyAttachmentRisk(file: File): AttachmentRiskAssessment {
   let hasMediumRisk = false;
   if (!hasHighRisk) {
     for (const pattern of mediumRiskPatterns) {
-      if (pattern.test(fileName)) {
+      if (pattern.test(normalizedName)) {
         hasMediumRisk = true;
         reasons.push(`filename:${pattern.toString().replace(/\//g, '').replace(/\\b/g, '')}`);
       }
