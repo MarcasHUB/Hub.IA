@@ -93,7 +93,7 @@ export class SupabaseChatRepository {
     };
   }
 
-  async uploadAttachment(conversationId: string, senderOrgId: string, file: File, senderUserId?: string): Promise<ChatMessage> {
+  async uploadAttachment(conversationId: string, senderOrgId: string, file: File, senderUserId?: string, complianceData?: any): Promise<ChatMessage> {
     const fileExt = file.name.split('.').pop();
     const fileName = `${conversationId}/${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
 
@@ -106,7 +106,7 @@ export class SupabaseChatRepository {
       throw uploadError;
     }
 
-    const metadata = {
+    const metadata: any = {
       type: 'attachment',
       version: 1,
       attachment: {
@@ -117,9 +117,27 @@ export class SupabaseChatRepository {
       }
     };
 
+    if (complianceData) {
+      metadata.compliance = complianceData;
+    }
+
     const content = ``; // The RPC accepts an empty string if it's an attachment. We will use an empty string.
 
     return this.sendMessage(conversationId, senderOrgId, content, senderUserId, metadata);
+  }
+
+  async registerUploadCancellation(conversationId: string, file: File, complianceData: any): Promise<void> {
+    const { error } = await supabase.rpc('register_compliance_cancelled_event', {
+      p_conversation_id: conversationId,
+      p_file_name: file.name,
+      p_mime_type: file.type || 'application/octet-stream',
+      p_risk_score: complianceData.riskScore,
+      p_risk_level: complianceData.riskLevel,
+      p_reasons: complianceData.reasons || []
+    });
+    if (error) {
+      console.error('Failed to register cancellation event', error);
+    }
   }
   async listConversationsForCurrentOrganization(activeOrgId: string): Promise<any[]> {
     const { data, error } = await supabase

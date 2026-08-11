@@ -8,6 +8,7 @@ import {
 import { useChatDrawer } from '../context/ChatDrawerContext';
 import { useNotifications } from '@/modules/notifications/presentation/context/NotificationContext';
 import { checkCompliance } from '../../domain/compliance/ComplianceFilter';
+import { classifyAttachmentRisk } from '../../application/utils/classifyAttachmentRisk';
 import { QuotationTypeModal } from '@/modules/quotations/presentation/components/QuotationTypeModal';
 
 // ─── Interfaces ──────────────────────────────────────────────────────────────
@@ -67,6 +68,8 @@ export function ChatDrawer() {
 
   const [soundEnabled, setSoundEnabled] = useState(localStorage.getItem('hubia_chat_sound_enabled') !== 'false');
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [compliancePendingFile, setCompliancePendingFile] = useState<File | null>(null);
+  const [compliancePendingAssessment, setCompliancePendingAssessment] = useState<any>(null);
   const notifiedMessageIdsRef = useRef<Set<string>>(new Set());
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -201,15 +204,56 @@ export function ChatDrawer() {
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file && partner && activeConversationId && activeOrgId) {
-      // Cria uma mensagem mockando o envio do arquivo temporário seria legal, mas vamos enviar direto
-      try {
-        await chatRepository.uploadAttachment(activeConversationId, activeOrgId, file, userId);
-      } catch (err: any) {
-        console.error('Failed to upload file', err);
-        setComplianceError(`Erro ao enviar anexo: ${err?.message || 'Erro interno'}`);
-      }
+    if (!file || !partner || !activeConversationId || !activeOrgId) return;
+
+    const assessment = classifyAttachmentRisk(file);
+
+    if (assessment.flagged) {
+      setCompliancePendingFile(file);
+      setCompliancePendingAssessment(assessment);
+      return; // Wait for user confirmation
     }
+
+    try {
+      await chatRepository.uploadAttachment(activeConversationId, activeOrgId, file, userId, {
+         flagged: false,
+         riskScore: assessment.riskScore,
+         riskLevel: assessment.riskLevel,
+         userConfirmed: false,
+         reasons: assessment.reasons
+      });
+    } catch (err: any) {
+      console.error('Failed to upload file', err);
+      setComplianceError(`Erro ao enviar anexo: ${err?.message || 'Erro interno'}`);
+    }
+  };
+
+  const confirmComplianceUpload = async () => {
+    if (!compliancePendingFile || !compliancePendingAssessment || !activeConversationId || !activeOrgId) return;
+    
+    try {
+      await chatRepository.uploadAttachment(activeConversationId, activeOrgId, compliancePendingFile, userId, {
+         flagged: compliancePendingAssessment.flagged,
+         riskScore: compliancePendingAssessment.riskScore,
+         riskLevel: compliancePendingAssessment.riskLevel,
+         userConfirmed: true,
+         reasons: compliancePendingAssessment.reasons
+      });
+    } catch (err: any) {
+      console.error('Failed to upload file', err);
+      setComplianceError(`Erro ao enviar anexo: ${err?.message || 'Erro interno'}`);
+    } finally {
+      setCompliancePendingFile(null);
+      setCompliancePendingAssessment(null);
+    }
+  };
+
+  const cancelComplianceUpload = async () => {
+    if (compliancePendingFile && compliancePendingAssessment && activeConversationId) {
+      await chatRepository.registerUploadCancellation(activeConversationId, compliancePendingFile, compliancePendingAssessment);
+    }
+    setCompliancePendingFile(null);
+    setCompliancePendingAssessment(null);
   };
 
   // Abre a cotação a mercado ou direta
@@ -554,6 +598,32 @@ export function ChatDrawer() {
                 <button onClick={() => setComplianceError(null)} className="text-red-400 hover:text-red-600">
                   <X className="h-3 w-3" />
                 </button>
+              </div>
+            )}
+
+            {/* Modal de Pre-flight Compliance */}
+            {compliancePendingFile && compliancePendingAssessment && (
+              <div className="mx-4 mb-2 p-3 bg-amber-50 border border-amber-200 rounded-xl shadow-sm animate-in fade-in slide-in-from-bottom-2">
+                <div className="flex items-start gap-3">
+                  <div className="bg-amber-100 p-2 rounded-full shrink-0">
+                    <ShieldAlert className="h-5 w-5 text-amber-600" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-bold text-amber-900 text-sm">Atenção: Arquivo potencialmente sensível</p>
+                    <p className="text-xs text-amber-700 mt-1 mb-2">
+                      O arquivo <strong>{compliancePendingFile.name}</strong> pode conter informações confidenciais (Risco: {compliancePendingAssessment.riskLevel.toUpperCase()}).
+                      O envio deste documento será auditado e registrado no compliance da sua organização.
+                    </p>
+                    <div className="flex gap-2 mt-2">
+                      <button onClick={cancelComplianceUpload} className="px-3 py-1.5 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 text-xs font-bold rounded-lg shadow-sm transition-colors">
+                        Cancelar Envio
+                      </button>
+                      <button onClick={confirmComplianceUpload} className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-lg shadow-sm transition-colors">
+                        Enviar mesmo assim
+                      </button>
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
 

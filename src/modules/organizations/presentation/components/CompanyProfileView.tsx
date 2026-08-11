@@ -13,6 +13,7 @@ import DelegationsPage from '../../../employees/presentation/pages/DelegationsPa
 import AccessLogsPage from '../../../employees/presentation/pages/AccessLogsPage';
 import OperatorsPage from '../../../employees/presentation/pages/OperatorsPage';
 import { supabase } from '@/infrastructure/supabase/client';
+import { complianceRepository, ComplianceEvent } from '../../infrastructure/repositories/SupabaseComplianceRepository';
 
 export interface CompanyProfileViewProps {
   organizationId: string;
@@ -187,6 +188,104 @@ function DadosEmpresaTab({ organizationId, isOrgAdmin, isSuperAdmin }: { organiz
   );
 }
 
+function ComplianceTab({ organizationId }: { organizationId: string }) {
+  const [events, setEvents] = useState<ComplianceEvent[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    complianceRepository.getEvents(organizationId).then(data => {
+      setEvents(data);
+    }).catch(console.error).finally(() => setLoading(false));
+  }, [organizationId]);
+
+  if (loading) return <div className="p-8 flex justify-center text-slate-500">Carregando compliance...</div>;
+
+  const totalEvents = events.length;
+  const flaggedEvents = events.filter(e => e.event_type === 'attachment_flagged').length;
+  const cancelledEvents = events.filter(e => e.event_type === 'upload_cancelled').length;
+  const highRisk = events.filter(e => e.risk_level === 'high').length;
+
+  return (
+    <div className="space-y-6 max-w-5xl">
+       <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-200">
+         <div className="flex items-center gap-3 mb-2">
+            <ShieldCheck className="h-6 w-6 text-indigo-600" />
+            <h2 className="text-xl font-bold text-slate-800">Compliance & Segurança</h2>
+         </div>
+         <p className="text-slate-600 mb-8">
+            Acompanhe eventos de segurança, anexos sensíveis e bloqueios de DLP na sua organização.
+         </p>
+         
+         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+            <Card>
+              <CardContent className="p-4">
+                <p className="text-sm font-semibold text-slate-500">Total de Eventos</p>
+                <p className="text-2xl font-bold mt-2">{totalEvents}</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <p className="text-sm font-semibold text-slate-500">Envios Confirmados</p>
+                <p className="text-2xl font-bold mt-2 text-amber-600">{flaggedEvents}</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <p className="text-sm font-semibold text-slate-500">Envios Cancelados</p>
+                <p className="text-2xl font-bold mt-2 text-green-600">{cancelledEvents}</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <p className="text-sm font-semibold text-slate-500">Alto Risco</p>
+                <p className="text-2xl font-bold mt-2 text-red-600">{highRisk}</p>
+              </CardContent>
+            </Card>
+         </div>
+
+         <h3 className="font-bold text-slate-800 mb-4">Registro de Eventos</h3>
+         {events.length === 0 ? (
+           <p className="text-sm text-slate-400">Nenhum evento registrado no período.</p>
+         ) : (
+           <div className="overflow-x-auto">
+             <table className="w-full text-sm text-left border-collapse">
+               <thead>
+                 <tr className="border-b border-slate-200 bg-slate-50">
+                   <th className="p-3 font-semibold text-slate-600">Data</th>
+                   <th className="p-3 font-semibold text-slate-600">Usuário</th>
+                   <th className="p-3 font-semibold text-slate-600">Destino</th>
+                   <th className="p-3 font-semibold text-slate-600">Arquivo</th>
+                   <th className="p-3 font-semibold text-slate-600">Risco</th>
+                   <th className="p-3 font-semibold text-slate-600">Situação</th>
+                 </tr>
+               </thead>
+               <tbody className="divide-y divide-slate-100">
+                 {events.map(ev => (
+                   <tr key={ev.id} className="hover:bg-slate-50 transition-colors">
+                     <td className="p-3 text-slate-500 whitespace-nowrap">{new Date(ev.created_at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}</td>
+                     <td className="p-3 text-slate-700">{ev.sender_user?.full_name || ev.sender_user_id}</td>
+                     <td className="p-3 text-slate-700">{ev.recipient_organization?.name || 'Desconhecido'}</td>
+                     <td className="p-3 text-slate-700 font-medium max-w-[200px] truncate" title={ev.file_name || ''}>{ev.file_name}</td>
+                     <td className="p-3">
+                       <span className={`px-2 py-1 rounded text-xs font-bold ${ev.risk_level === 'high' ? 'bg-red-100 text-red-700' : ev.risk_level === 'medium' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-700'}`}>
+                         {ev.risk_level.toUpperCase()}
+                       </span>
+                     </td>
+                     <td className="p-3">
+                        <span className={`px-2 py-1 rounded text-xs font-bold ${ev.event_type === 'upload_cancelled' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
+                          {ev.event_type === 'upload_cancelled' ? 'Cancelado' : 'Enviado'}
+                        </span>
+                     </td>
+                   </tr>
+                 ))}
+               </tbody>
+             </table>
+           </div>
+         )}
+       </div>
+    </div>
+  );
+}
 
 // ─── CompanyProfileView ─────────────────────────────────────────────────────────
 export default function CompanyProfileView({ organizationId }: CompanyProfileViewProps) {
@@ -221,13 +320,14 @@ export default function CompanyProfileView({ organizationId }: CompanyProfileVie
     fetchOrgName();
   }, [organizationId]);
 
-  const activeTab: Tab = (() => {
+  const activeTab: Tab | 'compliance' = (() => {
     if (location.pathname.includes('/colaboradores') || location.pathname.includes('/operadores')) return 'colaboradores';
     if (location.pathname.includes('/solicitantes')) return 'solicitantes';
     if (location.pathname.includes('/permissoes')) return 'permissoes';
     if (location.pathname.includes('/aprovacoes')) return 'aprovacoes';
     if (location.pathname.includes('/delegacoes')) return 'delegacoes';
     if (location.pathname.includes('/logs')) return 'logs';
+    if (location.pathname.includes('/compliance')) return 'compliance';
     return 'dados';
   })();
 
@@ -261,7 +361,12 @@ export default function CompanyProfileView({ organizationId }: CompanyProfileVie
             {EMPRESA_SECTIONS.map((section, idx) => (
               <div key={idx} className="space-y-1">
                 <h3 className="px-3 text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">{section.title}</h3>
-                {section.items.map(tab => {
+                {(() => {
+                  let items = section.items;
+                  if (section.title === 'GOVERNANÇA' && (isOrgAdmin || isSuperAdmin)) {
+                    items = [...items, { id: 'compliance', label: 'Compliance', icon: ShieldCheck, href: '/empresa/compliance' }];
+                  }
+                  return items.map(tab => {
                   const Icon = tab.icon;
                   const isActive = activeTab === tab.id;
                   return (
@@ -278,7 +383,8 @@ export default function CompanyProfileView({ organizationId }: CompanyProfileVie
                       {tab.label}
                     </Link>
                   );
-                })}
+                });
+                })()}
               </div>
             ))}
           </aside>
@@ -306,6 +412,7 @@ export default function CompanyProfileView({ organizationId }: CompanyProfileVie
                 <p className="text-slate-600">Gestão de alçadas de aprovação (Em breve).</p>
               </div>
             )}
+            {activeTab === 'compliance' && <ComplianceTab organizationId={organizationId} />}
             {activeTab === 'delegacoes' && <DelegationsPage organizationId={organizationId} />}
             {activeTab === 'logs' && <AccessLogsPage organizationId={organizationId} />}
           </main>
