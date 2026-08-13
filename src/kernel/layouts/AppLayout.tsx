@@ -245,9 +245,13 @@ export function AppLayout() {
             .select("display_name, full_name")
             .eq("user_id", user.id)
             .maybeSingle();
+            
+          const metaNome = user.user_metadata?.nome ? `${user.user_metadata.nome} ${user.user_metadata.sobrenome || ''}`.trim() : null;
+          
           opNome =
             profData?.display_name?.trim() ||
             profData?.full_name?.trim() ||
+            metaNome ||
             user.email ||
             "Usuário não identificado";
 
@@ -270,7 +274,7 @@ export function AppLayout() {
             const { getCompactRoleLabel } =
               await import("@/shared/utils/roleUtils");
             currentProfile = getCompactRoleLabel(
-              roleData?.role || opData?.perfil || "operator",
+              roleData?.role || opData?.perfil || user.user_metadata?.perfil || "operator",
             );
 
             if (

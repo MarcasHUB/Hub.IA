@@ -26,10 +26,22 @@ export default function SuppliersListPage() {
   useEffect(() => {
     async function load() {
        try {
-         const orgId = localStorage.getItem('supplyhub_organization_id') || '00000000-0000-0000-0000-000000000000';
-         setTenantId(orgId);
-         
          const { supabase } = await import('@/infrastructure/supabase/client');
+         
+         let orgId = localStorage.getItem('supplyhub_organization_id');
+         if (!orgId || orgId === '00000000-0000-0000-0000-000000000000') {
+           const { data: { session } } = await supabase.auth.getSession();
+           if (session?.user?.id) {
+             const { data: profile } = await supabase.from('profiles').select('organization_id').eq('user_id', session.user.id).maybeSingle();
+             if (profile?.organization_id) {
+               orgId = profile.organization_id;
+               localStorage.setItem('supplyhub_organization_id', orgId as string);
+             }
+           }
+         }
+         if (!orgId) orgId = '00000000-0000-0000-0000-000000000000';
+         
+         setTenantId(orgId);
 
          const { data: invs } = await supabase
             .from('invitations')
