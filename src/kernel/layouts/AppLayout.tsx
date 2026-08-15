@@ -18,8 +18,12 @@ import { useChatDrawer } from "@/modules/messages/presentation/context/ChatDrawe
 import { ChatDrawer } from "@/modules/messages/presentation/components/ChatDrawer";
 import { QuotationTypeModal } from "@/modules/quotations/presentation/components/QuotationTypeModal";
 import { resolveOrganizationLogoUrl } from "@/shared/utils/logoUtils";
-import { getAuthenticatedIdentity } from "@/modules/auth/application/services/getAuthenticatedIdentity";
 import { getCompactRoleLabel } from "@/shared/utils/roleUtils";
+import { useQueryClient } from "@tanstack/react-query";
+import { useAuthenticatedIdentity } from "@/modules/auth/presentation/hooks/useAuthenticatedIdentity";
+import { usePrivateSession } from "@/modules/auth/presentation/context/PrivateSessionBoundary";
+import { privateQueryKeys } from "@/modules/auth/application/query/privateQueryKeys";
+import { isCurrentCompanyProfileEvent } from "@/modules/auth/application/services/privateSessionState";
 
 const APP_VERSION = "1.0.1-build";
 console.log(`[SupplyHub] AppLayout loaded - Version: ${APP_VERSION}`);
@@ -87,157 +91,80 @@ export function AppLayout() {
     clearCart,
   } = useQuotationCart();
   const { isChatOpen, openInbox } = useChatDrawer();
+  const queryClient = useQueryClient();
+  const { transitionTo } = usePrivateSession();
+  const { data: identity, isLoading: identityLoading, isError: identityError } = useAuthenticatedIdentity();
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
 
-  const [companyLogo, setCompanyLogo] = useState<string | null>(null);
-  const [companyName, setCompanyName] = useState<string>("Hub.IA");
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
-  const [operatorProfile, setOperatorProfile] =
-    useState<string>("Carregando...");
-  const [operatorName, setOperatorName] = useState<string>("Usuário");
-
-  const [authReady, setAuthReady] = useState(false);
-  const [profileReady, setProfileReady] = useState(false);
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [isPlatformAdmin, setIsPlatformAdmin] = useState(false);
+  const companyLogo = resolveOrganizationLogoUrl(
+    identity?.organizationLogoUrl || null,
+    identity?.organizationId,
+  );
+  const companyName = identity?.organizationName || "Hub.IA";
+  const avatarUrl = identity?.avatarUrl || null;
+  const operatorName = identity?.fullName || "Usuário";
+  const operatorProfile = identity
+    ? identity.isPlatformAdmin
+      ? "ADMINISTRADOR GLOBAL"
+      : getCompactRoleLabel(identity.appRole || identity.operatorProfile || "operator")
+    : "Carregando...";
+  const isPlatformAdmin = Boolean(identity?.isPlatformAdmin);
+  const authReady = !identityLoading && Boolean(identity);
+  const profileReady = authReady;
 
   useEffect(() => {
-    let isMounted = true;
+    if (identityError) navigate("/login?reason=identity_inconsistent");
+  }, [identityError, navigate]);
 
-    const loadAuth = async (retryCount = 0) => {
-      try {
-        if (isMounted) setProfileReady(false);
+  useEffect(() => {
+    if (!identity) return;
 
-        // getUser() garante validação real do token contra o servidor,
-        // aguardando refresh se necessário (diferente de getSession que pega do storage)
-        const {
-          data: { user },
-          error: userError,
-        } = await supabase.auth.getUser();
-
-        if (userError || !user) {
-          if (isMounted) {
-            setIsAdmin(false);
-            setAuthReady(true);
-            setProfileReady(true);
-            navigate("/login?reason=session_expired");
-          }
-          return;
-        }
-
-        if (isMounted) setAuthReady(true);
-
-        const identity = await getAuthenticatedIdentity();
-        const resolvedLogo = resolveOrganizationLogoUrl(
-          identity.organizationLogoUrl,
-          identity.organizationId,
-        );
-
-        if (isMounted) {
-          const admin = identity.isPlatformAdmin || identity.operatorProfile === "administrador";
-          setCompanyName(identity.organizationName);
-          setCompanyLogo(resolvedLogo);
-          setAvatarUrl(identity.avatarUrl);
-          setOperatorName(identity.fullName);
-          setOperatorProfile(
-            identity.isPlatformAdmin
-              ? "ADMINISTRADOR GLOBAL"
-              : getCompactRoleLabel(identity.appRole || identity.operatorProfile || "operator"),
-          );
-          setIsPlatformAdmin(identity.isPlatformAdmin);
-          setIsAdmin(admin);
-        }
-      } catch (err: any) {
-        console.error("Erro ao verificar perfil:", err);
-        // Se for erro de rede/fetch ao abrir o navegador (muito comum no Edge Startup Boost)
-        // Tentamos novamente após 1 segundo (máximo 2 tentativas)
-        if (
-          retryCount < 2 &&
-          (err.message?.includes("Failed to fetch") ||
-            err.message?.includes("NetworkError"))
-        ) {
-          setTimeout(() => {
-            if (isMounted) loadAuth(retryCount + 1);
-          }, 1000);
-          return; // Não finaliza o estado de loading ainda
-        }
-        if (isMounted) {
-          setIsAdmin(false);
-          setIsPlatformAdmin(false);
-          navigate("/login?reason=identity_inconsistent");
-        }
-      } finally {
-        if (isMounted) {
-          setAuthReady(true);
-          setProfileReady(true);
-        }
-      }
+    const refreshCurrentIdentity = () => {
+      void queryClient.invalidateQueries({
+        queryKey: privateQueryKeys.identity(identity.userId),
+      });
+      void queryClient.invalidateQueries({
+        queryKey: privateQueryKeys.organizationProfile(identity.userId, identity.organizationId),
+      });
     };
-
-    loadAuth();
-
-    // Supabase auth listener para reagir a login / logoff / refresh / troca de aba (se session sync ativado)
-    const { data: authListener } = supabase.auth.onAuthStateChange(
-      (event, _session) => {
-        if (
-          event === "SIGNED_IN" ||
-          event === "TOKEN_REFRESHED" ||
-          event === "USER_UPDATED"
-        ) {
-          loadAuth();
-        } else if (event === "SIGNED_OUT") {
-          if (isMounted) {
-            setIsAdmin(false);
-            setAuthReady(true);
-            setProfileReady(true);
-          }
-        }
-      },
-    );
 
     // Restauracao de BFCache (botão Voltar / Restaurar sessão Edge)
     const handlePageShow = (e: PageTransitionEvent) => {
-      if (e.persisted) {
-        loadAuth();
-      }
+      if (e.persisted) refreshCurrentIdentity();
     };
 
     // Restauracao de visibilidade (ex: mudou de aba e voltou)
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible") {
-        loadAuth();
+        refreshCurrentIdentity();
       }
     };
 
     // Edge normal costuma restaurar abas antes da rede estar pronta
     const handleOnline = () => {
-      loadAuth();
+      refreshCurrentIdentity();
     };
 
-    const handleLogoUpdate = (e: Event) => {
-      const customEvent = e as CustomEvent;
-      if (customEvent.detail && customEvent.detail.logo_url) {
-        setCompanyLogo(resolveOrganizationLogoUrl(customEvent.detail.logo_url));
-      }
+    const handleCompanyProfileUpdate = (event: Event) => {
+      const detail = (event as CustomEvent).detail;
+      if (!isCurrentCompanyProfileEvent(detail, identity.userId, identity.organizationId)) return;
+      refreshCurrentIdentity();
     };
 
     window.addEventListener("pageshow", handlePageShow);
     document.addEventListener("visibilitychange", handleVisibilityChange);
     window.addEventListener("online", handleOnline);
-    window.addEventListener("hubia:company-logo-updated", handleLogoUpdate);
+    window.addEventListener("hubia:company-logo-updated", handleCompanyProfileUpdate);
+    window.addEventListener("company_profile_updated", handleCompanyProfileUpdate);
 
     return () => {
-      isMounted = false;
-      authListener.subscription.unsubscribe();
       window.removeEventListener("pageshow", handlePageShow);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       window.removeEventListener("online", handleOnline);
-      window.removeEventListener(
-        "hubia:company-logo-updated",
-        handleLogoUpdate,
-      );
+      window.removeEventListener("hubia:company-logo-updated", handleCompanyProfileUpdate);
+      window.removeEventListener("company_profile_updated", handleCompanyProfileUpdate);
     };
-  }, []);
+  }, [identity, queryClient]);
 
   const dynamicNavItems = useMemo(() => {
     const baseItems = [
@@ -248,25 +175,6 @@ export function AppLayout() {
     ];
 
     return baseItems;
-  }, []);
-
-  useEffect(() => {
-    // Forçar limpeza de org-1 legado do localStorage
-    localStorage.removeItem("supplyhub_organization_id");
-
-    const handleUpdate = () => {
-      setCompanyLogo(
-        resolveOrganizationLogoUrl(localStorage.getItem("supplyhub_company_logo")),
-      );
-      setCompanyName(
-        localStorage.getItem("supplyhub_company_name") || "Hub.IA",
-      );
-      // Aqui não atualizamos mais o Operador do localStorage para evitar piscar dados antigos
-      // A responsabilidade de manter o operador agora é do loadAuth (profiles)
-    };
-    window.addEventListener("company_profile_updated", handleUpdate);
-    return () =>
-      window.removeEventListener("company_profile_updated", handleUpdate);
   }, []);
 
   const handleFinishQuotation = () => {
@@ -552,26 +460,8 @@ export function AppLayout() {
             {/* Botão Sair */}
             <button
               onClick={async () => {
-                // Clear state memory
-                setIsAdmin(false);
-                setAuthReady(false);
-                setProfileReady(false);
-
-                // Clear app-specific items, preserving Supabase tokens
-                localStorage.removeItem("supplyhub_razao_social");
-                localStorage.removeItem("supplyhub_company_name");
-                localStorage.removeItem("supplyhub_company_logo");
-                localStorage.removeItem("supplyhub_organization_id");
-                localStorage.removeItem("supplyhub_logged_operator");
-                localStorage.removeItem("supplyhub_session_token");
-                localStorage.removeItem("supplyhub_sessions_v2");
-                localStorage.removeItem("supplyhub_user_avatar");
-                localStorage.removeItem("supplyhub_cnpj");
-                localStorage.removeItem("supplyhub_email_corp");
-                localStorage.removeItem("supplyhub_telefone");
-                localStorage.removeItem("supplyhub_gestor_principal");
-
                 try {
+                  await transitionTo(null);
                   await supabase.auth.signOut();
                 } catch (e) {
                   console.error("Logout err:", e);

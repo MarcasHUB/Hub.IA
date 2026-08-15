@@ -212,7 +212,7 @@ export const router = createBrowserRouter([
       },
       {
         path: '/empresa/comercial',
-        element: <SuspenseWrapper><MinhaEmpresaPage /></SuspenseWrapper>,
+        element: <CapabilityGuard capability="company:view"><SuspenseWrapper><MinhaEmpresaPage /></SuspenseWrapper></CapabilityGuard>,
       },
       {
         path: '/empresa/colaboradores',
@@ -224,15 +224,15 @@ export const router = createBrowserRouter([
       },
       {
         path: '/empresa/solicitantes',
-        element: <SuspenseWrapper><MinhaEmpresaPage /></SuspenseWrapper>,
+        element: <CapabilityGuard capability="operators:view"><SuspenseWrapper><MinhaEmpresaPage /></SuspenseWrapper></CapabilityGuard>,
       },
       {
         path: '/empresa/permissoes',
-        element: <SuspenseWrapper><MinhaEmpresaPage /></SuspenseWrapper>,
+        element: <CapabilityGuard capability="operators:manage"><SuspenseWrapper><MinhaEmpresaPage /></SuspenseWrapper></CapabilityGuard>,
       },
       {
         path: '/empresa/aprovacoes',
-        element: <SuspenseWrapper><MinhaEmpresaPage /></SuspenseWrapper>,
+        element: <CapabilityGuard capability="operators:manage"><SuspenseWrapper><MinhaEmpresaPage /></SuspenseWrapper></CapabilityGuard>,
       },
       {
         path: '/empresa/delegacoes',
@@ -240,6 +240,10 @@ export const router = createBrowserRouter([
       },
       {
         path: '/empresa/logs',
+        element: <CapabilityGuard capability="logs:view"><SuspenseWrapper><MinhaEmpresaPage /></SuspenseWrapper></CapabilityGuard>,
+      },
+      {
+        path: '/empresa/compliance',
         element: <CapabilityGuard capability="logs:view"><SuspenseWrapper><MinhaEmpresaPage /></SuspenseWrapper></CapabilityGuard>,
       },
       {

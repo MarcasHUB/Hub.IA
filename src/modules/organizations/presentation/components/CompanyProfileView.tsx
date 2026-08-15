@@ -14,35 +14,41 @@ import AccessLogsPage from '../../../employees/presentation/pages/AccessLogsPage
 import OperatorsPage from '../../../employees/presentation/pages/OperatorsPage';
 import { complianceRepository, ComplianceEvent } from '../../infrastructure/repositories/SupabaseComplianceRepository';
 import { useAuthenticatedIdentity } from '@/modules/auth/presentation/hooks/useAuthenticatedIdentity';
+import { hasCapability, type Capability } from '@/core/config/permissions';
+import type { CanonicalRole } from '@/core/config/roles';
 // â”€â”€â”€ Tipos â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 type Tab = 'dados' | 'comercial' | 'colaboradores' | 'solicitantes' | 'permissoes' | 'aprovacoes' | 'delegacoes' | 'logs';
+type CompanyTab = Tab | 'compliance';
 
-const EMPRESA_SECTIONS = [
+const EMPRESA_SECTIONS: Array<{
+  title: string;
+  items: Array<{ id: CompanyTab; label: string; icon: typeof Building2; href: string; capability: Capability }>;
+}> = [
   {
     title: 'DADOS DA EMPRESA',
     items: [
-      { id: 'dados', label: 'Dados da Empresa', icon: Building2, href: '/empresa' },
+      { id: 'dados', label: 'Dados da Empresa', icon: Building2, href: '/empresa', capability: 'company:view' },
     ]
   },
   {
     title: 'PESSOAS',
     items: [
-      { id: 'colaboradores', label: 'Colaboradores', icon: Users, href: '/empresa/colaboradores' },
-      { id: 'solicitantes', label: 'Solicitantes', icon: UserCheck, href: '/empresa/solicitantes' },
+      { id: 'colaboradores', label: 'Colaboradores', icon: Users, href: '/empresa/colaboradores', capability: 'operators:view' },
+      { id: 'solicitantes', label: 'Solicitantes', icon: UserCheck, href: '/empresa/solicitantes', capability: 'operators:view' },
     ]
   },
   {
     title: 'GOVERNANÇA',
     items: [
-      { id: 'permissoes', label: 'Permissões', icon: Shield, href: '/empresa/permissoes' },
-      { id: 'aprovacoes', label: 'Aprovações', icon: CheckCircle2, href: '/empresa/aprovacoes' },
+      { id: 'permissoes', label: 'Permissões', icon: Shield, href: '/empresa/permissoes', capability: 'operators:manage' },
+      { id: 'aprovacoes', label: 'Aprovações', icon: CheckCircle2, href: '/empresa/aprovacoes', capability: 'operators:manage' },
     ]
   },
   {
     title: 'OPERAÇÃO',
     items: [
-      { id: 'delegacoes', label: 'Delegações', icon: ArrowLeftRight, href: '/empresa/delegacoes' },
-      { id: 'logs', label: 'Logs', icon: ScrollText, href: '/empresa/logs' },
+      { id: 'delegacoes', label: 'Delegações', icon: ArrowLeftRight, href: '/empresa/delegacoes', capability: 'delegations:view' },
+      { id: 'logs', label: 'Logs', icon: ScrollText, href: '/empresa/logs', capability: 'logs:view' },
     ]
   }
 ];
@@ -100,7 +106,7 @@ import { useSaveOrganizationProfile } from '../hooks/useSaveOrganizationProfile'
 import { CompanyProfileForm } from './CompanyProfileForm';
 import { useQueryClient } from '@tanstack/react-query';
 
-function DadosEmpresaTab({ organizationId, isOrgAdmin }: { organizationId: string; isOrgAdmin: boolean }) {
+function DadosEmpresaTab({ authUserId, organizationId, isOrgAdmin }: { authUserId: string; organizationId: string; isOrgAdmin: boolean }) {
   const { 
     organization, 
     cnaes, 
@@ -110,14 +116,17 @@ function DadosEmpresaTab({ organizationId, isOrgAdmin }: { organizationId: strin
     coverageStates, 
     isLoading,
     isError
-  } = useOrganizationProfile();
+  } = useOrganizationProfile(authUserId, organizationId);
 
   const queryClient = useQueryClient();
   const { saveProfile } = useSaveOrganizationProfile();
 
   const handleSave = async (formData: any) => {
     await saveProfile(organizationId, formData);
-    queryClient.invalidateQueries({ queryKey: organizationProfileKeys.mine });
+    await queryClient.invalidateQueries({ queryKey: organizationProfileKeys.mine(authUserId, organizationId) });
+    window.dispatchEvent(new CustomEvent('company_profile_updated', {
+      detail: { authUserId, organizationId },
+    }));
   };
 
   if (isLoading) return <div className="p-8 flex justify-center text-slate-500">Carregando dados da empresa...</div>;
@@ -153,6 +162,7 @@ function DadosEmpresaTab({ organizationId, isOrgAdmin }: { organizationId: strin
       </div>
       
       <CompanyProfileForm 
+        authUserId={authUserId}
         organizationId={organizationId}
         initialData={organization}
         initialCnaes={cnaes}
@@ -291,6 +301,9 @@ export default function CompanyProfileView() {
   const isOrgAdmin = identity?.operatorProfile === 'administrador';
   const isOrgAuditor = identity?.operatorProfile === 'auditor';
   const companyName = identity?.organizationName || 'Minha Empresa';
+  const canonicalRole: CanonicalRole | null = identity?.isPlatformAdmin
+    ? 'platform_admin'
+    : identity?.operatorProfile || null;
 
   const activeTab: Tab | 'compliance' = (() => {
     if (location.pathname.includes('/colaboradores') || location.pathname.includes('/operadores')) return 'colaboradores';
@@ -334,15 +347,22 @@ export default function CompanyProfileView() {
 
           {/* Sidebar de navegação */}
           <aside className="w-56 shrink-0 space-y-6">
-            {EMPRESA_SECTIONS.map((section, idx) => (
-              <div key={idx} className="space-y-1">
+            {EMPRESA_SECTIONS.map((section) => {
+              const items = section.items.filter((item) => hasCapability(canonicalRole, item.capability));
+              if (section.title === 'GOVERNANÇA' && (isOrgAdmin || isOrgAuditor)) {
+                items.push({
+                  id: 'compliance',
+                  label: 'Compliance',
+                  icon: ShieldCheck,
+                  href: '/empresa/compliance',
+                  capability: 'logs:view',
+                });
+              }
+              if (items.length === 0) return null;
+              return (
+              <div key={section.title} className="space-y-1">
                 <h3 className="px-3 text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">{section.title}</h3>
-                {(() => {
-                  let items = section.items;
-                  if (section.title === 'GOVERNANÇA' && (isOrgAdmin || isOrgAuditor)) {
-                    items = [...items, { id: 'compliance', label: 'Compliance', icon: ShieldCheck, href: '/empresa/compliance' }];
-                  }
-                  return items.map(tab => {
+                {items.map(tab => {
                   const Icon = tab.icon;
                   const isActive = activeTab === tab.id;
                   return (
@@ -359,15 +379,15 @@ export default function CompanyProfileView() {
                       {tab.label}
                     </Link>
                   );
-                });
-                })()}
+                })}
               </div>
-            ))}
+              );
+            })}
           </aside>
 
           {/* Área de conteúdo */}
           <main className="flex-1 min-w-0">
-            {activeTab === 'dados' && <DadosEmpresaTab organizationId={organizationId} isOrgAdmin={isOrgAdmin} />}
+            {activeTab === 'dados' && <DadosEmpresaTab authUserId={identity.userId} organizationId={organizationId} isOrgAdmin={isOrgAdmin} />}
             
             {activeTab === 'colaboradores' && <OperatorsPage />}
             {activeTab === 'solicitantes' && (

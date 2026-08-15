@@ -93,6 +93,13 @@ INSERT INTO auth.users (
     'authenticated', 'authenticated', 'chaparia-admin@local.invalid', NULL,
     now(), '{"provider":"email","providers":["email"]}'::jsonb, '{}'::jsonb,
     now(), now()
+  ),
+  (
+    '00000000-0000-0000-0000-000000000000',
+    'c7b12fd6-48e2-4e8c-9a3e-79ebcf7bf814',
+    'authenticated', 'authenticated', 'chaparia-buyer@local.invalid', NULL,
+    now(), '{"provider":"email","providers":["email"]}'::jsonb, '{}'::jsonb,
+    now(), now()
   )
 ON CONFLICT (id) DO NOTHING;
 
@@ -122,6 +129,12 @@ INSERT INTO public.profiles (
     'e34a4a69-2b0f-4ad3-8942-9eb5be752f6c',
     '4e45c319-82d3-4cb7-b5f1-107290445325',
     'Chaparia Admin Local', 'chaparia-admin@local.invalid', 'active', false
+  ),
+  (
+    'c7b12fd6-48e2-4e8c-9a3e-79ebcf7bf814',
+    'c7b12fd6-48e2-4e8c-9a3e-79ebcf7bf814',
+    '4e45c319-82d3-4cb7-b5f1-107290445325',
+    'Chaparia Buyer Local', 'chaparia-buyer@local.invalid', 'active', false
   )
 ON CONFLICT (id) DO NOTHING;
 
@@ -142,6 +155,16 @@ INSERT INTO public.operators (
     '2b8ac705-c356-430d-9788-0e60e7821724',
     '9e2e4d9c-9a9b-42cb-81cb-b2c861335af1',
     'Tenant', 'Auditor', 'tenant-auditor@local.invalid', 'auditor', 'ativo'
+  ),
+  (
+    'e34a4a69-2b0f-4ad3-8942-9eb5be752f6c',
+    '4e45c319-82d3-4cb7-b5f1-107290445325',
+    'Chaparia', 'Admin', 'chaparia-admin@local.invalid', 'administrador', 'ativo'
+  ),
+  (
+    'c7b12fd6-48e2-4e8c-9a3e-79ebcf7bf814',
+    '4e45c319-82d3-4cb7-b5f1-107290445325',
+    'Chaparia', 'Buyer', 'chaparia-buyer@local.invalid', 'comprador', 'ativo'
   )
 ON CONFLICT (id) DO NOTHING;
 
@@ -161,6 +184,16 @@ VALUES
     '2b8ac705-c356-430d-9788-0e60e7821724',
     '9e2e4d9c-9a9b-42cb-81cb-b2c861335af1',
     'auditor'
+  ),
+  (
+    'e34a4a69-2b0f-4ad3-8942-9eb5be752f6c',
+    '4e45c319-82d3-4cb7-b5f1-107290445325',
+    'admin'
+  ),
+  (
+    'c7b12fd6-48e2-4e8c-9a3e-79ebcf7bf814',
+    '4e45c319-82d3-4cb7-b5f1-107290445325',
+    'buyer'
   )
 ON CONFLICT (user_id, organization_id, role) DO NOTHING;
 

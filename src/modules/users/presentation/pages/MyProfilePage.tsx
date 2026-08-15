@@ -5,6 +5,7 @@ import { Button } from '@/shared/components/ui/Button';
 import { UserRound, Mail, Phone, Briefcase, Building, AlertCircle } from 'lucide-react';
 import { AppLayout } from '@/kernel/layouts/AppLayout';
 import { uploadPublicImage } from '@/shared/utils/uploadImage';
+import { privateQueryKeys } from '@/modules/auth/application/query/privateQueryKeys';
 
 export function MyProfilePage() {
   const queryClient = useQueryClient();
@@ -114,13 +115,8 @@ export function MyProfilePage() {
 
       setSuccess(true);
       
-      // Update local storage for immediate header update
-      if (avatarUrl) localStorage.setItem('supplyhub_user_avatar', avatarUrl);
-      else localStorage.removeItem('supplyhub_user_avatar');
-      
       if (userId) {
-        queryClient.invalidateQueries({ queryKey: ['authenticated-profile', userId] });
-        queryClient.invalidateQueries({ queryKey: ['operator-profile', userId] });
+        queryClient.invalidateQueries({ queryKey: privateQueryKeys.identity(userId) });
       }
       
       // Force reload layout to show updated name completely

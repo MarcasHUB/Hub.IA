@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../../../../infrastructure/supabase/client';
 import { GeographicCoverageType } from '../../domain/types/GeographicCoverageType';
+import { privateQueryKeys } from '@/modules/auth/application/query/privateQueryKeys';
 
 export function normalizeStringArray(value: unknown): string[] {
   if (Array.isArray(value)) {
@@ -55,20 +56,25 @@ export interface OrganizationProfileData {
   profile_completion?: number;
 }
 export const organizationProfileKeys = {
-  mine: ['organization-profile', 'mine'] as const,
+  mine: (authUserId: string, organizationId: string) =>
+    privateQueryKeys.organizationProfile(authUserId, organizationId),
 };
 
-export function useOrganizationProfile() {
+export function useOrganizationProfile(authUserId: string, organizationId: string) {
   // 1. Dados principais da empresa
   const mainQuery = useQuery({
-    queryKey: organizationProfileKeys.mine,
+    queryKey: organizationProfileKeys.mine(authUserId, organizationId),
     queryFn: async () => {
       const { data, error } = await supabase.rpc('get_my_organization_profile');
 
       if (error) throw error;
       if (!data || typeof data !== 'object') throw new Error('ORGANIZATION_PROFILE_UNAVAILABLE');
+      if ((data as { id?: string }).id !== organizationId) {
+        throw new Error('ORGANIZATION_PROFILE_SCOPE_MISMATCH');
+      }
       return data as any;
     },
+    enabled: Boolean(authUserId && organizationId),
   });
 
   // 2. Catálogo (Pode falhar sem quebrar o resto)

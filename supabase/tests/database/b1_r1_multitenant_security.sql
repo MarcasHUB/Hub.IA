@@ -1,7 +1,7 @@
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 
 BEGIN;
-SELECT extensions.plan(28);
+SELECT extensions.plan(29);
 
 -- Fixtures adicionais, exclusivamente transacionais.
 INSERT INTO public.organizations (id, name, slug, cnpj, status)
@@ -108,6 +108,11 @@ SELECT extensions.is(
 
 -- Comprador: cancela somente solicitacao propria.
 SELECT set_config('request.jwt.claim.sub', 'aaaaaaaa-0000-0000-0000-000000000001', true);
+SELECT extensions.throws_ok(
+  $$ SELECT public.get_my_operators() $$,
+  'P0001', 'FORBIDDEN',
+  'comprador nao le operadores e recebe erro explicito'
+);
 SELECT extensions.lives_ok(
   $$ SELECT public.cancel_connection_request('60000000-0000-0000-0000-000000000001') $$,
   'comprador cancela solicitacao criada por ele'

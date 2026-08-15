@@ -11,6 +11,7 @@ import { Card, CardContent } from '@/shared/components/ui/Card';
 import { Segment } from '@/modules/employees/domain/entities/Segment';
 import { SupabaseSegmentRepository } from '../../infrastructure/repositories/SupabaseSegmentRepository';
 import { useAuthenticatedIdentity } from '@/modules/auth/presentation/hooks/useAuthenticatedIdentity';
+import { privateQueryKeys } from '@/modules/auth/application/query/privateQueryKeys';
 
 // ─── Modal de Segmento ────────────────────────────────────────────────────────
 function SegmentModal({
@@ -107,12 +108,14 @@ export default function SegmentsPage() {
   const queryClient = useQueryClient();
   const { data: identity } = useAuthenticatedIdentity();
   const orgId = identity?.organizationId || '';
+  const authUserId = identity?.userId || '';
+  const segmentsKey = privateQueryKeys.segments(authUserId || 'signed-out', orgId || 'none');
   const repo = new SupabaseSegmentRepository();
 
   const { data: segments = [] } = useQuery({
-    queryKey: ['segments', orgId],
+    queryKey: segmentsKey,
     queryFn: () => repo.listSegments(orgId),
-    enabled: Boolean(orgId),
+    enabled: Boolean(authUserId && orgId),
   });
 
   const saveMutation = useMutation({
@@ -129,7 +132,7 @@ export default function SegmentsPage() {
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['segments', orgId] });
+      queryClient.invalidateQueries({ queryKey: segmentsKey });
       setModal({ open: false });
     }
   });
@@ -141,7 +144,7 @@ export default function SegmentsPage() {
       return repo.updateSegment(id, { status: seg.status === 'ativo' ? 'inativo' : 'ativo' });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['segments', orgId] });
+      queryClient.invalidateQueries({ queryKey: segmentsKey });
     }
   });
 

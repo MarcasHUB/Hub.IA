@@ -9,6 +9,7 @@ import { Input } from '@/shared/components/ui/Input';
 import { Button } from '@/shared/components/ui/Button';
 import { SupabaseLogRepository } from '../../infrastructure/repositories/SupabaseLogRepository';
 import { useAuthenticatedIdentity } from '@/modules/auth/presentation/hooks/useAuthenticatedIdentity';
+import { privateQueryKeys } from '@/modules/auth/application/query/privateQueryKeys';
 
 export default function AccessLogsPage() {
   const [activeTab, setActiveTab] = useState<'acesso' | 'operacao'>('acesso');
@@ -25,11 +26,12 @@ export default function AccessLogsPage() {
   const logRepo = new SupabaseLogRepository();
   const { data: identity } = useAuthenticatedIdentity();
   const orgId = identity?.organizationId || '';
+  const authUserId = identity?.userId || '';
 
   const { data: logsData, isLoading: loading } = useQuery({
-    queryKey: ['logs', orgId],
+    queryKey: privateQueryKeys.logs(authUserId || 'signed-out', orgId || 'none'),
     queryFn: () => logRepo.listLogs(orgId),
-    enabled: Boolean(orgId),
+    enabled: Boolean(authUserId && orgId),
   });
 
   const accessLogs = logsData?.accessLogs || [];

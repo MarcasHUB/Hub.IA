@@ -15,6 +15,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { organizationProfileKeys } from '../hooks/useOrganizationProfile';
 import { uploadPublicImage } from '../../../../shared/utils/uploadImage';
 export interface CompanyProfileFormProps {
+  authUserId: string;
   organizationId: string;
   initialData: OrganizationProfileData | null;
   initialCnaes: string[];
@@ -54,6 +55,7 @@ const applyMask = (field: string, value: string) => {
 };
 
 export function CompanyProfileForm({
+  authUserId,
   organizationId,
   initialData,
   initialCnaes,
@@ -186,10 +188,6 @@ export function CompanyProfileForm({
     if (field === 'cep' && typeof maskedValue === 'string') {
       setCepError('');
       fetchCEP(maskedValue);
-    }
-    if (field === 'nome_fantasia' && typeof maskedValue === 'string') {
-      localStorage.setItem('supplyhub_company_name', maskedValue);
-      window.dispatchEvent(new Event('storage'));
     }
   };
 
@@ -364,9 +362,13 @@ export function CompanyProfileForm({
         setPreviewUrl(displayUrl);
       }
 
-      window.dispatchEvent(new CustomEvent('hubia:company-logo-updated', { detail: { logo_url: objectPath } }));
+      window.dispatchEvent(new CustomEvent('hubia:company-logo-updated', {
+        detail: { authUserId, organizationId },
+      }));
 
-      queryClient.invalidateQueries({ queryKey: organizationProfileKeys.mine });
+      queryClient.invalidateQueries({
+        queryKey: organizationProfileKeys.mine(authUserId, organizationId),
+      });
 
     } catch (error: any) {
       console.error('Erro ao enviar logo:', error);

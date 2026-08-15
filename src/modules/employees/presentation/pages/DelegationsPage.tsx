@@ -11,6 +11,7 @@ import { SupabaseDelegationRepository } from '../../infrastructure/repositories/
 import { SupabaseOperatorRepository } from '../../infrastructure/repositories/SupabaseOperatorRepository';
 import { DelegationModal } from '../components/DelegationModal';
 import { useAuthenticatedIdentity } from '@/modules/auth/presentation/hooks/useAuthenticatedIdentity';
+import { privateQueryKeys } from '@/modules/auth/application/query/privateQueryKeys';
 
 type FilterType = 'all' | 'active' | 'future' | 'ended';
 
@@ -24,17 +25,20 @@ export default function DelegationsPage() {
 
   const { data: identity } = useAuthenticatedIdentity();
   const orgId = identity?.organizationId || '';
+  const authUserId = identity?.userId || '';
+  const operatorsKey = privateQueryKeys.operators(authUserId || 'signed-out', orgId || 'none');
+  const delegationsKey = privateQueryKeys.delegations(authUserId || 'signed-out', orgId || 'none');
 
   const { data: operators = [], isLoading: loadingOps } = useQuery({
-    queryKey: ['operators', orgId],
+    queryKey: operatorsKey,
     queryFn: () => opRepo.listOperators(),
-    enabled: Boolean(orgId),
+    enabled: Boolean(authUserId && orgId),
   });
 
   const { data: delegations = [], isLoading: loadingDels } = useQuery({
-    queryKey: ['delegations', orgId],
+    queryKey: delegationsKey,
     queryFn: () => delRepo.listDelegations(orgId),
-    enabled: Boolean(orgId),
+    enabled: Boolean(authUserId && orgId),
   });
 
   const loading = loadingOps || loadingDels;
@@ -42,7 +46,7 @@ export default function DelegationsPage() {
   const cancelMutation = useMutation({
     mutationFn: (id: string) => delRepo.cancelDelegation(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['delegations', orgId] });
+      queryClient.invalidateQueries({ queryKey: delegationsKey });
     }
   });
 
@@ -94,7 +98,7 @@ export default function DelegationsPage() {
           onClose={() => setShowModal(false)}
           onSuccess={() => {
             setShowModal(false);
-            queryClient.invalidateQueries({ queryKey: ['delegations', orgId] });
+            queryClient.invalidateQueries({ queryKey: delegationsKey });
           }}
         />
       )}

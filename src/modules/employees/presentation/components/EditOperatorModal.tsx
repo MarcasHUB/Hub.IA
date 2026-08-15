@@ -6,16 +6,19 @@ import { Operator, OperatorPerfil, MacroProfile, MACRO_PROFILES } from '../../do
 import { SupabaseOperatorRepository } from '../../infrastructure/repositories/SupabaseOperatorRepository';
 import { SupabaseCategoryRepository } from '@/modules/categories/infrastructure/repositories/SupabaseCategoryRepository';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
+import { privateQueryKeys } from '@/modules/auth/application/query/privateQueryKeys';
 
 interface EditOperatorModalProps {
+  authUserId: string;
   operator: Operator;
   orgId: string;
   operators: Operator[];
   onClose: () => void;
 }
 
-export function EditOperatorModal({ operator, orgId, operators, onClose }: EditOperatorModalProps) {
+export function EditOperatorModal({ authUserId, operator, orgId, operators, onClose }: EditOperatorModalProps) {
   const queryClient = useQueryClient();
+  const operatorsKey = privateQueryKeys.operators(authUserId, orgId);
   
   const initialMacro = (): MacroProfile => {
     if (operator.cargo?.includes('[APP] Solicitante')) return 'Solicitante';
@@ -39,7 +42,7 @@ export function EditOperatorModal({ operator, orgId, operators, onClose }: EditO
   });
 
   const { data: categoriesList = [] } = useQuery({
-    queryKey: ['organization-categories', orgId],
+    queryKey: privateQueryKeys.categories(authUserId, orgId),
     queryFn: async () => {
       const repo = new SupabaseCategoryRepository();
       return repo.findAll(orgId);
@@ -47,7 +50,7 @@ export function EditOperatorModal({ operator, orgId, operators, onClose }: EditO
   });
 
   const { data: operatorProfile, isLoading: isProfileLoading } = useQuery({
-    queryKey: ['operator-profile', operator.id],
+    queryKey: privateQueryKeys.operatorProfile(authUserId, orgId, operator.id),
     queryFn: async () => {
       if (operator.status === 'pendente') return null;
       const { supabase } = await import('@/infrastructure/supabase/client');
@@ -110,7 +113,7 @@ export function EditOperatorModal({ operator, orgId, operators, onClose }: EditO
         }
 
         // We completely replace the operator in cache
-        queryClient.setQueryData(['operators', orgId], (old: Operator[] | undefined) => {
+        queryClient.setQueryData(operatorsKey, (old: Operator[] | undefined) => {
           if (!old) return [];
           const withoutOld = old.filter(item => item.id !== operator.id);
           const newOpObj: Operator = {
@@ -154,7 +157,7 @@ export function EditOperatorModal({ operator, orgId, operators, onClose }: EditO
         await repo.updateOperator(operator.id, payload as any);
 
         // Atualização otimista no cache
-        queryClient.setQueryData(['operators', orgId], (old: Operator[] | undefined) => {
+        queryClient.setQueryData(operatorsKey, (old: Operator[] | undefined) => {
           if (!old) return [];
           return old.map(item => item.id === operator.id ? { 
             ...item, 
@@ -165,7 +168,7 @@ export function EditOperatorModal({ operator, orgId, operators, onClose }: EditO
       }
 
       setSuccess(true);
-      queryClient.invalidateQueries({ queryKey: ['operators'] });
+      queryClient.invalidateQueries({ queryKey: operatorsKey });
       
       setTimeout(() => {
         onClose();

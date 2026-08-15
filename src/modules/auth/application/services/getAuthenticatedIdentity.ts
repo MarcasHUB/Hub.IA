@@ -25,14 +25,19 @@ interface IdentityContextRow {
   organization_logo_url: string | null;
 }
 
-export async function getAuthenticatedIdentity(): Promise<AuthenticatedIdentity> {
+export async function getAuthenticatedIdentity(expectedUserId?: string): Promise<AuthenticatedIdentity> {
   const { data: userData, error: userError } = await supabase.auth.getUser();
   if (userError || !userData.user) throw new Error('AUTH_SESSION_INVALID');
 
   const { data: rawData, error } = await supabase.rpc('get_current_identity_context');
   const data = (Array.isArray(rawData) ? rawData[0] : rawData) as IdentityContextRow | null;
 
-  if (error || !data || data.user_id !== userData.user.id) {
+  if (
+    error
+    || !data
+    || data.user_id !== userData.user.id
+    || (expectedUserId && data.user_id !== expectedUserId)
+  ) {
     throw new Error('AUTH_IDENTITY_INCONSISTENT');
   }
 

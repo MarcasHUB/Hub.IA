@@ -22,6 +22,7 @@ import { OperatorDetailsModal } from '../components/OperatorDetailsModal';
 
 import { supabase } from '@/infrastructure/supabase/client';
 import { useAuthenticatedIdentity } from '@/modules/auth/presentation/hooks/useAuthenticatedIdentity';
+import { privateQueryKeys } from '@/modules/auth/application/query/privateQueryKeys';
 
 // ─── Badges ───────────────────────────────────────────────────────────────────
 const STATUS_CONFIG: Record<OperatorStatus, { label: string; dot: string; badge: string }> = {
@@ -65,7 +66,7 @@ function PerfilBadge({ perfil }: { perfil: OperatorPerfil }) {
 
 // ─── Modal de Convite ─────────────────────────────────────────────────────────
 
-function InviteModal({ onClose, onInvite, operators, organizationId }: { onClose: () => void; onInvite: (op: Operator) => void, operators: Operator[], organizationId: string }) {
+function InviteModal({ onClose, onInvite, operators, authUserId, organizationId }: { onClose: () => void; onInvite: (op: Operator) => void, operators: Operator[], authUserId: string; organizationId: string }) {
   const [form, setForm] = useState({
     nome: '', sobrenome: '', email: '', telefone: '',
     macroProfile: 'Comprador' as MacroProfile,
@@ -85,7 +86,7 @@ function InviteModal({ onClose, onInvite, operators, organizationId }: { onClose
   const orgId = organizationId;
   
   const { data: categories = [] } = useQuery({
-    queryKey: ['categories', orgId],
+    queryKey: privateQueryKeys.categories(authUserId, orgId),
     queryFn: async () => {
       const repo = new SupabaseCategoryRepository();
       return await repo.findAll(orgId);
@@ -473,6 +474,10 @@ export default function OperatorsPage() {
   const queryClient = useQueryClient();
   const { data: identity } = useAuthenticatedIdentity();
   const orgId = identity?.organizationId || '';
+  const authUserId = identity?.userId || '';
+  const operatorsKey = privateQueryKeys.operators(authUserId || 'signed-out', orgId || 'none');
+  const categoriesKey = privateQueryKeys.categories(authUserId || 'signed-out', orgId || 'none');
+  const delegationsKey = privateQueryKeys.delegations(authUserId || 'signed-out', orgId || 'none');
   const isSuperAdmin = false;
   const canManageOperators = identity?.operatorProfile === 'administrador';
   const remoteLoggedOperator = identity ? ({
@@ -485,30 +490,30 @@ export default function OperatorsPage() {
   const [deleteConfirmationText, setDeleteConfirmationText] = useState('');
 
   const { data: operators = [], isLoading: isLoadingOps } = useQuery({
-    queryKey: ['operators', orgId],
+    queryKey: operatorsKey,
     queryFn: async () => {
       const repo = new SupabaseOperatorRepository();
       return repo.listOperators();
     },
-    enabled: Boolean(orgId),
+    enabled: Boolean(authUserId && orgId),
   });
 
   const { data: categories = [] } = useQuery({
-    queryKey: ['categories', orgId],
+    queryKey: categoriesKey,
     queryFn: async () => {
       const repo = new SupabaseCategoryRepository();
       return repo.findAll(orgId);
     },
-    enabled: Boolean(orgId),
+    enabled: Boolean(authUserId && orgId),
   });
 
   const { data: delegations = [] } = useQuery({
-    queryKey: ['delegations', orgId],
+    queryKey: delegationsKey,
     queryFn: async () => {
       const delRepo = new SupabaseDelegationRepository();
       return delRepo.listDelegations(orgId);
     },
-    enabled: Boolean(orgId),
+    enabled: Boolean(authUserId && orgId),
   });
 
   const [showInvite, setShowInvite] = useState(false);
@@ -554,7 +559,7 @@ export default function OperatorsPage() {
   });
 
   const handleInvite = () => {
-    queryClient.invalidateQueries({ queryKey: ['operators', orgId] });
+    queryClient.invalidateQueries({ queryKey: operatorsKey });
     setShowInvite(false);
   };
 
@@ -603,9 +608,9 @@ export default function OperatorsPage() {
       return;
     }
     
-    const previousOperators = queryClient.getQueryData<Operator[]>(['operators', orgId]);
+    const previousOperators = queryClient.getQueryData<Operator[]>(operatorsKey);
     
-    queryClient.setQueryData(['operators', orgId], (old: Operator[] | undefined) => {
+    queryClient.setQueryData(operatorsKey, (old: Operator[] | undefined) => {
       if (!old) return [];
       return old.filter(item => item.id !== op.id);
     });
@@ -618,10 +623,10 @@ export default function OperatorsPage() {
       console.error(err);
       alert("Erro ao cancelar o convite.");
       if (previousOperators) {
-        queryClient.setQueryData(['operators', orgId], previousOperators);
+        queryClient.setQueryData(operatorsKey, previousOperators);
       }
     } finally {
-      await queryClient.invalidateQueries({ queryKey: ['operators'] });
+      await queryClient.invalidateQueries({ queryKey: operatorsKey });
     }
   };
 
@@ -636,9 +641,9 @@ export default function OperatorsPage() {
       return;
     }
     
-    const previousOperators = queryClient.getQueryData<Operator[]>(['operators', orgId]);
+    const previousOperators = queryClient.getQueryData<Operator[]>(operatorsKey);
     
-    queryClient.setQueryData(['operators', orgId], (old: Operator[] | undefined) => {
+    queryClient.setQueryData(operatorsKey, (old: Operator[] | undefined) => {
       if (!old) return [];
       return old.map(item => item.id === op.id ? { ...item, status: newStatus } : item);
     });
@@ -650,10 +655,10 @@ export default function OperatorsPage() {
       console.error(err);
       alert(`Erro ao ${actionName} o operador.`);
       if (previousOperators) {
-        queryClient.setQueryData(['operators', orgId], previousOperators);
+        queryClient.setQueryData(operatorsKey, previousOperators);
       }
     } finally {
-      await queryClient.invalidateQueries({ queryKey: ['operators'] });
+      await queryClient.invalidateQueries({ queryKey: operatorsKey });
     }
   };
 
@@ -702,11 +707,11 @@ export default function OperatorsPage() {
       }
 
       await queryClient.invalidateQueries({
-        queryKey: ['operators', orgId],
+        queryKey: operatorsKey,
       });
 
       await queryClient.refetchQueries({
-        queryKey: ['operators', orgId],
+        queryKey: operatorsKey,
       });
 
       setOperatorToDelete(null);
@@ -731,9 +736,10 @@ export default function OperatorsPage() {
 
   return (
     <div className="space-y-6 font-sans">
-      {canManageOperators && showInvite && <InviteModal onClose={() => setShowInvite(false)} onInvite={handleInvite} operators={operators} organizationId={orgId} />}
+      {canManageOperators && showInvite && <InviteModal onClose={() => setShowInvite(false)} onInvite={handleInvite} operators={operators} authUserId={authUserId} organizationId={orgId} />}
       {canManageOperators && editingOperator && (
         <EditOperatorModal 
+          authUserId={authUserId}
           operator={editingOperator} 
           orgId={orgId} 
           operators={operators}

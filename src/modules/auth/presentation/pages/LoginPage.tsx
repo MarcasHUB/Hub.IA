@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { getAuthenticatedIdentity } from '../../application/services/getAuthenticatedIdentity';
 import { Button } from '@/shared/components/ui/Button';
 import { Input } from '@/shared/components/ui/Input';
 import { Label } from '@/shared/components/ui/Label';
 import { supabase } from '@/infrastructure/supabase/client';
+import { usePrivateSession } from '../context/PrivateSessionBoundary';
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : 'Erro ao realizar login';
@@ -18,6 +18,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [cooldown, setCooldown] = useState(0);
+  const { transitionTo } = usePrivateSession();
 
   useEffect(() => {
     if (cooldown <= 0) return;
@@ -53,6 +54,7 @@ export default function LoginPage() {
     clearLegacyIdentityCache();
 
     try {
+      await transitionTo(null);
       const { data, error } = await supabase.auth.signInWithPassword({
         email: email.trim().toLowerCase(),
         password,
@@ -60,15 +62,11 @@ export default function LoginPage() {
       if (error) throw error;
       if (!data.user) throw new Error('AUTH_SESSION_INVALID');
 
-      const identity = await getAuthenticatedIdentity();
-      localStorage.setItem('supplyhub_company_name', identity.organizationName);
-      if (identity.organizationLogoUrl) {
-        localStorage.setItem('supplyhub_company_logo', identity.organizationLogoUrl);
-      }
-
+      await transitionTo(data.user.id);
       navigate('/dashboard');
     } catch (error) {
       await supabase.auth.signOut({ scope: 'local' });
+      await transitionTo(null);
       clearLegacyIdentityCache();
       setErrorMsg(errorMessage(error));
     } finally {

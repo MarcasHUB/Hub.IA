@@ -1,4 +1,4 @@
-import type { CanonicalRole } from './roles';
+import type { CanonicalRole } from './roles.ts';
 
 export type Capability =
   | 'company:view'
