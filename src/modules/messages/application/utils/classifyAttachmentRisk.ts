@@ -7,7 +7,7 @@ export interface AttachmentRiskAssessment {
 
 export function classifyAttachmentRisk(file: File): AttachmentRiskAssessment {
   const fileName = file.name.toLowerCase();
-  const normalizedName = fileName.replace(/[_.\-\[\]()]/g, ' ');
+  const normalizedName = fileName.replace(/[-_.[\]()]/g, ' ');
   const reasons: string[] = [];
   let riskScore = 0;
   let riskLevel: 'low' | 'medium' | 'high' = 'low';

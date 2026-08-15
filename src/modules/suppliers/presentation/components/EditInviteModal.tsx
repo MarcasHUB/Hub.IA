@@ -4,6 +4,7 @@ import { Input } from '@/shared/components/ui/Input';
 import { Button } from '@/shared/components/ui/Button';
 import { supabase } from '@/infrastructure/supabase/client';
 import { maskCNPJ } from '@/shared/utils/formatters';
+import { getUserFacingConnectionError } from '../../application/services/companyConnectionFlow';
 
 interface EditInviteModalProps {
   isOpen: boolean;
@@ -13,15 +14,6 @@ interface EditInviteModalProps {
 }
 
 export function EditInviteModal({ isOpen, onClose, onSuccess, partner }: EditInviteModalProps) {
-  const [tenantId, setTenantId] = useState<string>('');
-
-  React.useEffect(() => {
-    try {
-      const orgId = localStorage.getItem('supplyhub_organization_id') || '00000000-0000-0000-0000-000000000000';
-      setTenantId(orgId);
-    } catch (e) {}
-  }, []);
-  
   const [newCompName, setNewCompName] = useState('');
   const [newCompDoc, setNewCompDoc] = useState('');
   const [newCompEmail, setNewCompEmail] = useState('');
@@ -105,7 +97,7 @@ export function EditInviteModal({ isOpen, onClose, onSuccess, partner }: EditInv
       }).eq('id', partner.id).select().single();
 
       if (inviteError) {
-        alert(`Erro ao atualizar convite no banco: ${inviteError.message}`);
+        alert(getUserFacingConnectionError(inviteError, 'Não foi possível atualizar o convite. Tente novamente.'));
         setIsSubmitting(false);
         return;
       }

@@ -26,11 +26,11 @@ import { LinkSupplierModal } from '../components/LinkSupplierModal';
 import { supabase } from '@/infrastructure/supabase/client';
 import { CategoryModal } from '../../../categories/presentation/pages/CategoriesPage';
 import { Category } from '../../../categories/domain/entities/Category';
+import { useAuthenticatedIdentity } from '@/modules/auth/presentation/hooks/useAuthenticatedIdentity';
 
 const repo = new SupabaseProductRepository();
 const productSupplierRepo = new SupabaseProductSupplierRepository();
 const categoryRepo = new SupabaseCategoryRepository();
-const tenantId = localStorage.getItem('supplyhub_organization_id') || '00000000-0000-0000-0000-000000000000';
 
 export default function ProductFormPage({
   productId,
@@ -42,11 +42,12 @@ export default function ProductFormPage({
   onSaveSuccess?: () => void;
 } = {}) {
   const navigate = useNavigate();
+  const { data: identity } = useAuthenticatedIdentity();
+  const tenantId = identity?.organizationId || '';
   const { id: routeId } = useParams();
   const id = productId || routeId;
   const isEditing = Boolean(id);
-  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
-  const canEditGlobalMaterial = isSuperAdmin === true;
+  const canEditGlobalMaterial = identity?.isPlatformAdmin === true;
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -167,20 +168,6 @@ export default function ProductFormPage({
         }
       } catch(e) {
         console.error("Failed to load organization profile", e);
-      }
-
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-           const { data: profile } = await supabase.from('profiles').select('is_super_admin').eq('user_id', user.id).maybeSingle();
-           const { data: roles } = await supabase.from('user_roles').select('role').eq('user_id', user.id);
-           const hasGlobalRole = roles?.some(r => r.role === 'super_admin' || r.role === 'platform_admin');
-           if (profile?.is_super_admin || hasGlobalRole) {
-              setIsSuperAdmin(true);
-           }
-        }
-      } catch(e) {
-        console.error("Failed to load super admin status", e);
       }
 
       if (isEditing && id) {

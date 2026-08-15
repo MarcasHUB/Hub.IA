@@ -2,6 +2,7 @@ import React, { Suspense, lazy } from 'react';
 import { createBrowserRouter, Outlet, Navigate } from 'react-router-dom';
 import { AppLayout } from '../layouts/AppLayout';
 import { AuthLayout } from '../layouts/AuthLayout';
+import { CapabilityGuard, IdentityGuard } from './CapabilityGuard';
 import LandingPage from '../../modules/landing/presentation/pages/LandingPage'; // imported directly for speed
 
 const GlobalAdminPage = lazy(() => import('../../modules/admin/presentation/pages/GlobalAdminPage'));
@@ -99,7 +100,7 @@ export const router = createBrowserRouter([
     element: <SuspenseWrapper><AcceptInvitePage /></SuspenseWrapper>,
   },
   {
-    element: <AppLayout />,
+    element: <IdentityGuard><AppLayout /></IdentityGuard>,
     children: [
       {
         path: '/dashboard',
@@ -119,7 +120,7 @@ export const router = createBrowserRouter([
       },
       {
         path: '/suppliers/network',
-        element: <SuspenseWrapper><NetworkPage /></SuspenseWrapper>,
+        element: <CapabilityGuard capability="network:view"><SuspenseWrapper><NetworkPage /></SuspenseWrapper></CapabilityGuard>,
       },
       {
         path: '/products',
@@ -167,11 +168,11 @@ export const router = createBrowserRouter([
       },
       {
         path: '/admin',
-        element: <SuspenseWrapper><GlobalAdminPage /></SuspenseWrapper>,
+        element: <CapabilityGuard capability="platform:admin"><SuspenseWrapper><GlobalAdminPage /></SuspenseWrapper></CapabilityGuard>,
       },
       {
         path: '/admin/empresas',
-        element: <SuspenseWrapper><GlobalAdminPage /></SuspenseWrapper>,
+        element: <CapabilityGuard capability="platform:admin"><SuspenseWrapper><GlobalAdminPage /></SuspenseWrapper></CapabilityGuard>,
       },
       {
         path: '/admin/empresas/:id',
@@ -183,31 +184,31 @@ export const router = createBrowserRouter([
       },
       {
         path: '/admin/materiais',
-        element: <SuspenseWrapper><GlobalAdminPage /></SuspenseWrapper>,
+        element: <CapabilityGuard capability="platform:admin"><SuspenseWrapper><GlobalAdminPage /></SuspenseWrapper></CapabilityGuard>,
       },
       {
         path: '/admin/categorias',
-        element: <SuspenseWrapper><GlobalAdminPage /></SuspenseWrapper>,
+        element: <CapabilityGuard capability="platform:admin"><SuspenseWrapper><GlobalAdminPage /></SuspenseWrapper></CapabilityGuard>,
       },
       {
         path: '/admin/segmentos',
-        element: <SuspenseWrapper><GlobalAdminPage /></SuspenseWrapper>,
+        element: <CapabilityGuard capability="platform:admin"><SuspenseWrapper><GlobalAdminPage /></SuspenseWrapper></CapabilityGuard>,
       },
       {
         path: '/admin/campo',
-        element: <SuspenseWrapper><GlobalAdminPage /></SuspenseWrapper>,
+        element: <CapabilityGuard capability="platform:admin"><SuspenseWrapper><GlobalAdminPage /></SuspenseWrapper></CapabilityGuard>,
       },
       {
         path: '/admin/app-campo',
-        element: <SuspenseWrapper><GlobalAdminPage /></SuspenseWrapper>,
+        element: <CapabilityGuard capability="platform:admin"><SuspenseWrapper><GlobalAdminPage /></SuspenseWrapper></CapabilityGuard>,
       },
       {
         path: '/empresa',
-        element: <SuspenseWrapper><MinhaEmpresaPage /></SuspenseWrapper>,
+        element: <CapabilityGuard capability="company:view"><SuspenseWrapper><MinhaEmpresaPage /></SuspenseWrapper></CapabilityGuard>,
       },
       {
         path: '/empresa/:id',
-        element: <SuspenseWrapper><MinhaEmpresaPage /></SuspenseWrapper>,
+        element: <Navigate to="/empresa" replace />,
       },
       {
         path: '/empresa/comercial',
@@ -215,11 +216,11 @@ export const router = createBrowserRouter([
       },
       {
         path: '/empresa/colaboradores',
-        element: <SuspenseWrapper><MinhaEmpresaPage /></SuspenseWrapper>,
+        element: <CapabilityGuard capability="operators:view"><SuspenseWrapper><MinhaEmpresaPage /></SuspenseWrapper></CapabilityGuard>,
       },
       {
         path: '/empresa/operadores', // backward compat
-        element: <SuspenseWrapper><MinhaEmpresaPage /></SuspenseWrapper>,
+        element: <CapabilityGuard capability="operators:view"><SuspenseWrapper><MinhaEmpresaPage /></SuspenseWrapper></CapabilityGuard>,
       },
       {
         path: '/empresa/solicitantes',
@@ -235,15 +236,15 @@ export const router = createBrowserRouter([
       },
       {
         path: '/empresa/delegacoes',
-        element: <SuspenseWrapper><MinhaEmpresaPage /></SuspenseWrapper>,
+        element: <CapabilityGuard capability="delegations:view"><SuspenseWrapper><MinhaEmpresaPage /></SuspenseWrapper></CapabilityGuard>,
       },
       {
         path: '/empresa/logs',
-        element: <SuspenseWrapper><MinhaEmpresaPage /></SuspenseWrapper>,
+        element: <CapabilityGuard capability="logs:view"><SuspenseWrapper><MinhaEmpresaPage /></SuspenseWrapper></CapabilityGuard>,
       },
       {
         path: '/empresa/empresas',
-        element: <SuspenseWrapper><OrganizationsListPage /></SuspenseWrapper>,
+        element: <Navigate to="/admin/empresas" replace />,
       }
     ]
   }

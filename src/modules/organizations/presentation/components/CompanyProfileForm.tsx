@@ -105,11 +105,10 @@ export function CompanyProfileForm({
   const [saveError, setSaveError] = useState('');
   const [cepError, setCepError] = useState('');
   const [saved, setSaved] = useState(false);
-  const [internalIsSuperAdmin, setInternalIsSuperAdmin] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
-  const effectiveIsSuperAdmin = isSuperAdmin || internalIsSuperAdmin;
+  const effectiveIsSuperAdmin = isSuperAdmin;
 
   useEffect(() => {
     return () => {
@@ -172,15 +171,6 @@ export function CompanyProfileForm({
         if (data) setAvailableCertifications(data);
       });
 
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (user) {
-        supabase.from('profiles').select('is_super_admin').eq('user_id', user.id).single().then(({ data }) => {
-          if (data?.is_super_admin) {
-            setInternalIsSuperAdmin(true);
-          }
-        });
-      }
-    });
   }, [organizationId]);
 
   const handleChange = (field: string, value: any) => {
@@ -376,7 +366,7 @@ export function CompanyProfileForm({
 
       window.dispatchEvent(new CustomEvent('hubia:company-logo-updated', { detail: { logo_url: objectPath } }));
 
-      queryClient.invalidateQueries({ queryKey: organizationProfileKeys.detail(organizationId) });
+      queryClient.invalidateQueries({ queryKey: organizationProfileKeys.mine });
 
     } catch (error: any) {
       console.error('Erro ao enviar logo:', error);

@@ -9,6 +9,7 @@ import { QuotationTypeModal } from '@/modules/quotations/presentation/components
 import { useQuotationCart } from '@/modules/quotations/presentation/context/QuotationCartContext';
 import { SupabaseProductRepository } from '../../infrastructure/repositories/SupabaseProductRepository';
 import ProductFormPage from './ProductFormPage';
+import { useAuthenticatedIdentity } from '@/modules/auth/presentation/hooks/useAuthenticatedIdentity';
 
 const repo = new SupabaseProductRepository();
 
@@ -33,20 +34,20 @@ interface Product {
 }
 
 export default function ProductsListPage() {
+  const { data: identity } = useAuthenticatedIdentity();
   const navigate = useNavigate();
   const [products, setProducts] = useState<Product[]>([]);
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
 
   // Tenant ID mockado temporariamente (em produção virá do auth context)
-  const tenantId = '00000000-0000-0000-0000-000000000000';
+  const tenantId = identity?.organizationId || '';
   const [isSupplier, setIsSupplier] = useState(false);
 
   async function loadProducts() {
     try {
       const { supabase } = await import('@/infrastructure/supabase/client');
-      const localTenant = localStorage.getItem('supplyhub_organization_id');
-      if (localTenant) {
-        const { data: orgData } = await supabase.from('organizations').select('profile_type').eq('id', localTenant).maybeSingle();
+      if (tenantId) {
+        const { data: orgData } = await supabase.from('organizations').select('profile_type').eq('id', tenantId).maybeSingle();
         if (orgData?.profile_type === 'seller' || orgData?.profile_type === 'both') {
           setIsSupplier(true);
         }
@@ -79,8 +80,8 @@ export default function ProductsListPage() {
   }
 
   useEffect(() => {
-    loadProducts();
-  }, []);
+    if (tenantId) loadProducts();
+  }, [tenantId]);
   
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState<'ALL' | 'ACTIVE' | 'INACTIVE'>('ALL');

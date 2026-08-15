@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useLocation, Link, useParams, useNavigate } from 'react-router-dom';
+import { useLocation, Link } from 'react-router-dom';
 import {
   Building2, Upload, FileText, CheckCircle2, ChevronRight, Save, Store, Truck, BadgeDollarSign, ShieldCheck, Mail, MapPin,
   Users, Layers, ArrowLeftRight, ScrollText,
@@ -12,12 +12,8 @@ import { Card, CardContent } from '@/shared/components/ui/Card';
 import DelegationsPage from '../../../employees/presentation/pages/DelegationsPage';
 import AccessLogsPage from '../../../employees/presentation/pages/AccessLogsPage';
 import OperatorsPage from '../../../employees/presentation/pages/OperatorsPage';
-import { supabase } from '@/infrastructure/supabase/client';
 import { complianceRepository, ComplianceEvent } from '../../infrastructure/repositories/SupabaseComplianceRepository';
-
-export interface CompanyProfileViewProps {
-  organizationId: string;
-}
+import { useAuthenticatedIdentity } from '@/modules/auth/presentation/hooks/useAuthenticatedIdentity';
 // â”€â”€â”€ Tipos â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 type Tab = 'dados' | 'comercial' | 'colaboradores' | 'solicitantes' | 'permissoes' | 'aprovacoes' | 'delegacoes' | 'logs';
 
@@ -104,7 +100,7 @@ import { useSaveOrganizationProfile } from '../hooks/useSaveOrganizationProfile'
 import { CompanyProfileForm } from './CompanyProfileForm';
 import { useQueryClient } from '@tanstack/react-query';
 
-function DadosEmpresaTab({ organizationId, isOrgAdmin, isSuperAdmin }: { organizationId: string; isOrgAdmin: boolean; isSuperAdmin: boolean }) {
+function DadosEmpresaTab({ organizationId, isOrgAdmin }: { organizationId: string; isOrgAdmin: boolean }) {
   const { 
     organization, 
     cnaes, 
@@ -114,14 +110,14 @@ function DadosEmpresaTab({ organizationId, isOrgAdmin, isSuperAdmin }: { organiz
     coverageStates, 
     isLoading,
     isError
-  } = useOrganizationProfile(organizationId);
+  } = useOrganizationProfile();
 
   const queryClient = useQueryClient();
   const { saveProfile } = useSaveOrganizationProfile();
 
   const handleSave = async (formData: any) => {
     await saveProfile(organizationId, formData);
-    queryClient.invalidateQueries({ queryKey: organizationProfileKeys.detail(organizationId) });
+    queryClient.invalidateQueries({ queryKey: organizationProfileKeys.mine });
   };
 
   if (isLoading) return <div className="p-8 flex justify-center text-slate-500">Carregando dados da empresa...</div>;
@@ -165,8 +161,8 @@ function DadosEmpresaTab({ organizationId, isOrgAdmin, isSuperAdmin }: { organiz
         initialCertifications={certifications}
         initialCoverageStates={coverageStates}
         onSave={handleSave}
-        readOnly={!isOrgAdmin && !isSuperAdmin}
-        isSuperAdmin={isSuperAdmin}
+        readOnly={!isOrgAdmin}
+        isSuperAdmin={false}
       />
 
       {/* Card de aviso Hub.IA */}
@@ -288,41 +284,13 @@ function ComplianceTab({ organizationId }: { organizationId: string }) {
 }
 
 // ─── CompanyProfileView ─────────────────────────────────────────────────────────
-export default function CompanyProfileView({ organizationId }: CompanyProfileViewProps) {
+export default function CompanyProfileView() {
   const location = useLocation();
-  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
-  const [isOrgAdmin, setIsOrgAdmin] = useState(false);
-  const [isOrgAuditor, setIsOrgAuditor] = useState(false);
-  const [companyName, setCompanyName] = useState('SupplyHub B2B');
-
-  useEffect(() => {
-    const checkAdmin = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { data: profile } = await supabase.from('profiles').select('is_super_admin').eq('user_id', user.id).single();
-        setIsSuperAdmin(profile?.is_super_admin === true);
-        
-        // Also check organization_admin role
-        const { data: userRole } = await supabase.from('user_roles').select('role').eq('user_id', user.id).eq('organization_id', organizationId).maybeSingle();
-        const { data: opData } = await supabase.from('operators').select('perfil').eq('id', user.id).eq('organization_id', organizationId).maybeSingle();
-        
-        if (userRole?.role === 'organization_admin' || opData?.perfil === 'administrador') {
-           setIsOrgAdmin(true);
-        }
-        if (opData?.perfil === 'auditor') {
-           setIsOrgAuditor(true);
-        }
-      }
-    };
-    checkAdmin();
-  }, [organizationId]);
-
-  useEffect(() => {
-    const fetchOrgName = async () => {
-      setCompanyName(localStorage.getItem('supplyhub_company_name') || 'Minha Empresa');
-    };
-    fetchOrgName();
-  }, [organizationId]);
+  const { data: identity, isLoading } = useAuthenticatedIdentity();
+  const organizationId = identity?.organizationId || '';
+  const isOrgAdmin = identity?.operatorProfile === 'administrador';
+  const isOrgAuditor = identity?.operatorProfile === 'auditor';
+  const companyName = identity?.organizationName || 'Minha Empresa';
 
   const activeTab: Tab | 'compliance' = (() => {
     if (location.pathname.includes('/colaboradores') || location.pathname.includes('/operadores')) return 'colaboradores';
@@ -334,6 +302,10 @@ export default function CompanyProfileView({ organizationId }: CompanyProfileVie
     if (location.pathname.includes('/compliance')) return 'compliance';
     return 'dados';
   })();
+
+  if (isLoading || !identity) {
+    return <div className="p-8 flex justify-center text-slate-500">Carregando identidade da empresa...</div>;
+  }
 
   return (
     <div className="flex-1 bg-slate-50 min-h-full flex flex-col font-sans">
@@ -395,9 +367,9 @@ export default function CompanyProfileView({ organizationId }: CompanyProfileVie
 
           {/* Área de conteúdo */}
           <main className="flex-1 min-w-0">
-            {activeTab === 'dados' && <DadosEmpresaTab organizationId={organizationId} isOrgAdmin={isOrgAdmin} isSuperAdmin={isSuperAdmin} />}
+            {activeTab === 'dados' && <DadosEmpresaTab organizationId={organizationId} isOrgAdmin={isOrgAdmin} />}
             
-            {activeTab === 'colaboradores' && <OperatorsPage organizationId={organizationId} />}
+            {activeTab === 'colaboradores' && <OperatorsPage />}
             {activeTab === 'solicitantes' && (
               <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-200">
                 <h2 className="text-xl font-bold text-slate-800 mb-4">Solicitantes</h2>
@@ -417,8 +389,8 @@ export default function CompanyProfileView({ organizationId }: CompanyProfileVie
               </div>
             )}
             {activeTab === 'compliance' && <ComplianceTab organizationId={organizationId} />}
-            {activeTab === 'delegacoes' && <DelegationsPage organizationId={organizationId} />}
-            {activeTab === 'logs' && <AccessLogsPage organizationId={organizationId} />}
+            {activeTab === 'delegacoes' && <DelegationsPage />}
+            {activeTab === 'logs' && <AccessLogsPage />}
           </main>
         </div>
       </div>

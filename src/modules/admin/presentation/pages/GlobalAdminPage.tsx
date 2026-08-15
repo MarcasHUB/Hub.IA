@@ -1,7 +1,6 @@
-import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Shield, ShieldAlert, Building2, Layers, Smartphone, Loader2 } from 'lucide-react';
-import { supabase } from '@/infrastructure/supabase/client';
+import { useAuthenticatedIdentity } from '@/modules/auth/presentation/hooks/useAuthenticatedIdentity';
 
 import OrganizationsListPage from '../../../organizations/presentation/pages/OrganizationsListPage';
 import ProductsListPage from '../../../products/presentation/pages/ProductsListPage';
@@ -28,35 +27,7 @@ const ADMIN_SECTIONS = [
 
 export default function GlobalAdminPage() {
   const location = useLocation();
-  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    checkAccess();
-  }, []);
-
-  const checkAccess = async () => {
-    setIsLoading(true);
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        setIsLoading(false);
-        return;
-      }
-
-      const { data: currentUser } = await supabase
-        .from('profiles')
-        .select('is_super_admin')
-        .eq('user_id', user.id)
-        .single();
-
-      setIsSuperAdmin(currentUser?.is_super_admin === true);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const { data: identity, isLoading } = useAuthenticatedIdentity();
 
   type Tab = 'empresas' | 'materiais' | 'categorias' | 'segmentos' | 'campo';
 
@@ -76,7 +47,7 @@ export default function GlobalAdminPage() {
     );
   }
 
-  if (!isSuperAdmin) {
+  if (!identity?.isPlatformAdmin) {
     return (
       <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
         <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-md shadow-sm">

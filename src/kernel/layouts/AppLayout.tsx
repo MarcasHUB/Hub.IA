@@ -18,6 +18,8 @@ import { useChatDrawer } from "@/modules/messages/presentation/context/ChatDrawe
 import { ChatDrawer } from "@/modules/messages/presentation/components/ChatDrawer";
 import { QuotationTypeModal } from "@/modules/quotations/presentation/components/QuotationTypeModal";
 import { resolveOrganizationLogoUrl } from "@/shared/utils/logoUtils";
+import { getAuthenticatedIdentity } from "@/modules/auth/application/services/getAuthenticatedIdentity";
+import { getCompactRoleLabel } from "@/shared/utils/roleUtils";
 
 const APP_VERSION = "1.0.1-build";
 console.log(`[SupplyHub] AppLayout loaded - Version: ${APP_VERSION}`);
@@ -87,15 +89,9 @@ export function AppLayout() {
   const { isChatOpen, openInbox } = useChatDrawer();
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
 
-  const [companyLogo, setCompanyLogo] = useState<string | null>(
-    resolveOrganizationLogoUrl(
-      localStorage.getItem("supplyhub_company_logo"),
-      localStorage.getItem("supplyhub_organization_id") || undefined,
-    ),
-  );
-  const [companyName, setCompanyName] = useState<string>(
-    localStorage.getItem("supplyhub_company_name") || "Hub.IA",
-  );
+  const [companyLogo, setCompanyLogo] = useState<string | null>(null);
+  const [companyName, setCompanyName] = useState<string>("Hub.IA");
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [operatorProfile, setOperatorProfile] =
     useState<string>("Carregando...");
   const [operatorName, setOperatorName] = useState<string>("Usuário");
@@ -103,7 +99,7 @@ export function AppLayout() {
   const [authReady, setAuthReady] = useState(false);
   const [profileReady, setProfileReady] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
-  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  const [isPlatformAdmin, setIsPlatformAdmin] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -131,190 +127,25 @@ export function AppLayout() {
 
         if (isMounted) setAuthReady(true);
 
-        // Verifica dados do profile (nome real e flag de super admin)
-        const { data: globalUser } = await supabase
-          .from("profiles")
-          .select("full_name, display_name, avatar_url, is_super_admin")
-          .eq("user_id", user.id)
-          .single();
-
-        console.log("USER AUTH", user);
-        console.log("GLOBAL USER", globalUser);
-        console.log("IS SUPER ADMIN", globalUser?.is_super_admin);
-
-        // Carregar todas as possíveis memberships do usuário logado
-        let memberships: string[] = [];
-
-        try {
-          const { data: opData } = await supabase
-            .from("operators")
-            .select("organization_id")
-            .eq("id", user.id);
-          if (opData)
-            memberships.push(
-              ...opData.map((o: any) => o.organization_id).filter(Boolean),
-            );
-        } catch {}
-
-        try {
-          const { data: roleData } = await supabase
-            .from("user_roles")
-            .select("organization_id")
-            .eq("user_id", user.id);
-          if (roleData)
-            memberships.push(
-              ...roleData.map((r: any) => r.organization_id).filter(Boolean),
-            );
-        } catch {}
-
-        try {
-          const { data: profileData } = await supabase
-            .from("profiles")
-            .select("organization_id")
-            .eq("user_id", user.id);
-          if (profileData)
-            memberships.push(
-              ...profileData.map((p: any) => p.organization_id).filter(Boolean),
-            );
-        } catch {}
-
-        // Remove duplicatas
-        memberships = Array.from(new Set(memberships));
-
-        // Obter o tenant preferido do storage
-        const storedOrgId = localStorage.getItem("supplyhub_organization_id");
-        let activeOrganizationId = null;
-
-        if (storedOrgId && memberships.includes(storedOrgId)) {
-          activeOrganizationId = storedOrgId;
-        } else if (memberships.length > 0) {
-          activeOrganizationId = memberships[0];
-          localStorage.setItem(
-            "supplyhub_organization_id",
-            activeOrganizationId,
-          );
-        }
-
-        // Buscar dados da organização ativa
-        if (activeOrganizationId) {
-          const { data: orgData } = await supabase
-            .from("organizations")
-            .select("nome_fantasia, name, logo_url")
-            .eq("id", activeOrganizationId)
-            .maybeSingle();
-
-          if (orgData) {
-            const orgName = orgData.nome_fantasia || orgData.name || "Empresa";
-            const resolvedLogo = resolveOrganizationLogoUrl(
-              orgData.logo_url,
-              activeOrganizationId,
-            );
-
-            console.log("HEADER ACTIVE ORG", activeOrganizationId);
-            console.log("HEADER ORG DATA", orgData);
-            console.log("HEADER RAW LOGO", orgData.logo_url);
-            console.log("HEADER RESOLVED LOGO", resolvedLogo);
-
-            if (isMounted) {
-              setCompanyName(orgName);
-              setCompanyLogo(resolvedLogo);
-            }
-            // Persistir também pro resto do app em modo compatibilidade
-            localStorage.setItem("supplyhub_company_name", orgName);
-            if (orgData.logo_url) {
-              localStorage.setItem("supplyhub_company_logo", orgData.logo_url);
-            } else {
-              localStorage.removeItem("supplyhub_company_logo");
-            }
-          }
-        } else {
-          // Caso não tenha nenhuma organização
-          if (isMounted) {
-            setCompanyName("Empresa");
-            setCompanyLogo(null);
-          }
-        }
+        const identity = await getAuthenticatedIdentity();
+        const resolvedLogo = resolveOrganizationLogoUrl(
+          identity.organizationLogoUrl,
+          identity.organizationId,
+        );
 
         if (isMounted) {
-          let currentProfile = "Operador";
-          let opNome = "";
-
-          // Busca perfil pessoal primeiro de profiles
-          const { data: profData } = await supabase
-            .from("profiles")
-            .select("display_name, full_name")
-            .eq("user_id", user.id)
-            .maybeSingle();
-            
-          const metaNome = user.user_metadata?.nome ? `${user.user_metadata.nome} ${user.user_metadata.sobrenome || ''}`.trim() : null;
-          
-          opNome =
-            profData?.display_name?.trim() ||
-            profData?.full_name?.trim() ||
-            metaNome ||
-            user.email ||
-            "Usuário não identificado";
-
-          if (activeOrganizationId) {
-            // Buscar role especifica da organizacao ativa
-            const { data: roleData } = await supabase
-              .from("user_roles")
-              .select("role")
-              .eq("user_id", user.id)
-              .eq("organization_id", activeOrganizationId)
-              .maybeSingle();
-            const { data: opData } = await supabase
-              .from("operators")
-              .select("perfil")
-              .eq("id", user.id)
-              .eq("organization_id", activeOrganizationId)
-              .maybeSingle();
-
-            // Importa e usa a funcao getCompactRoleLabel que criamos
-            const { getCompactRoleLabel } =
-              await import("@/shared/utils/roleUtils");
-            currentProfile = getCompactRoleLabel(
-              roleData?.role || opData?.perfil || user.user_metadata?.perfil || "operator",
-            );
-
-            if (
-              roleData?.role === "organization_admin" ||
-              opData?.perfil === "administrador"
-            ) {
-              setIsAdmin(true);
-            } else {
-              setIsAdmin(false);
-            }
-          }
-
-          if (globalUser?.is_super_admin) {
-            currentProfile = "ADMINISTRADOR GLOBAL";
-            setIsSuperAdmin(true);
-            setIsAdmin(true);
-          } else {
-            setIsSuperAdmin(false);
-          }
-
-          setOperatorProfile(currentProfile);
-
-          // Nome do operador autenticado (nunca usar nome da empresa aqui)
-          const nameToSet =
-            globalUser?.display_name ||
-            globalUser?.full_name ||
-            opNome ||
-            user.email ||
-            "Usuário não identificado";
-          setOperatorName(nameToSet);
-
-          // Avatar
-          if (globalUser?.avatar_url) {
-            localStorage.setItem(
-              "supplyhub_user_avatar",
-              globalUser.avatar_url,
-            );
-          } else {
-            localStorage.removeItem("supplyhub_user_avatar");
-          }
+          const admin = identity.isPlatformAdmin || identity.operatorProfile === "administrador";
+          setCompanyName(identity.organizationName);
+          setCompanyLogo(resolvedLogo);
+          setAvatarUrl(identity.avatarUrl);
+          setOperatorName(identity.fullName);
+          setOperatorProfile(
+            identity.isPlatformAdmin
+              ? "ADMINISTRADOR GLOBAL"
+              : getCompactRoleLabel(identity.appRole || identity.operatorProfile || "operator"),
+          );
+          setIsPlatformAdmin(identity.isPlatformAdmin);
+          setIsAdmin(admin);
         }
       } catch (err: any) {
         console.error("Erro ao verificar perfil:", err);
@@ -330,7 +161,11 @@ export function AppLayout() {
           }, 1000);
           return; // Não finaliza o estado de loading ainda
         }
-        if (isMounted) setIsAdmin(false);
+        if (isMounted) {
+          setIsAdmin(false);
+          setIsPlatformAdmin(false);
+          navigate("/login?reason=identity_inconsistent");
+        }
       } finally {
         if (isMounted) {
           setAuthReady(true);
@@ -382,15 +217,7 @@ export function AppLayout() {
     const handleLogoUpdate = (e: Event) => {
       const customEvent = e as CustomEvent;
       if (customEvent.detail && customEvent.detail.logo_url) {
-        const orgId =
-          localStorage.getItem("supplyhub_organization_id") || undefined;
-        setCompanyLogo(
-          resolveOrganizationLogoUrl(customEvent.detail.logo_url, orgId),
-        );
-        localStorage.setItem(
-          "supplyhub_company_logo",
-          customEvent.detail.logo_url,
-        );
+        setCompanyLogo(resolveOrganizationLogoUrl(customEvent.detail.logo_url));
       }
     };
 
@@ -425,21 +252,11 @@ export function AppLayout() {
 
   useEffect(() => {
     // Forçar limpeza de org-1 legado do localStorage
-    if (localStorage.getItem("supplyhub_organization_id") === "org-1") {
-      localStorage.setItem(
-        "supplyhub_organization_id",
-        "00000000-0000-0000-0000-000000000000",
-      );
-    }
+    localStorage.removeItem("supplyhub_organization_id");
 
     const handleUpdate = () => {
-      const orgId =
-        localStorage.getItem("supplyhub_organization_id") || undefined;
       setCompanyLogo(
-        resolveOrganizationLogoUrl(
-          localStorage.getItem("supplyhub_company_logo"),
-          orgId,
-        ),
+        resolveOrganizationLogoUrl(localStorage.getItem("supplyhub_company_logo")),
       );
       setCompanyName(
         localStorage.getItem("supplyhub_company_name") || "Hub.IA",
@@ -451,39 +268,6 @@ export function AppLayout() {
     return () =>
       window.removeEventListener("company_profile_updated", handleUpdate);
   }, []);
-
-  // Verificação periódica de Sessão Única
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const savedOperator = localStorage.getItem("supplyhub_logged_operator");
-      if (!savedOperator) return;
-
-      const sessionToken = localStorage.getItem("supplyhub_session_token");
-
-      const rawSessions = localStorage.getItem("supplyhub_sessions_v2") || "[]";
-      const sessions = JSON.parse(rawSessions);
-
-      // Procurar nossa sessão
-      const currentSession = sessions.find(
-        (s: any) => s.token_hash === sessionToken,
-      );
-
-      if (currentSession && currentSession.status === "encerrada") {
-        // Desconectar o operador
-        localStorage.removeItem("supplyhub_logged_operator");
-        localStorage.removeItem("supplyhub_session_token");
-
-        // Limpar cookies/sessão Supabase
-        import("@/infrastructure/supabase/client").then(({ supabase }) => {
-          supabase.auth.signOut();
-        });
-
-        navigate("/login?reason=session_terminated");
-      }
-    }, 3000);
-
-    return () => clearInterval(interval);
-  }, [navigate]);
 
   const handleFinishQuotation = () => {
     setCartOpen(false);
@@ -653,7 +437,7 @@ export function AppLayout() {
                 </div>
               )}
 
-              {isSuperAdmin && (
+              {isPlatformAdmin && (
                 <>
                   <div className="h-4 w-px bg-slate-300 shrink-0" />
                   <Link
@@ -711,9 +495,9 @@ export function AppLayout() {
                 className="text-slate-400 hover:text-indigo-600 transition-colors"
                 title="Meus Dados"
               >
-                {localStorage.getItem("supplyhub_user_avatar") ? (
+                {avatarUrl ? (
                   <img
-                    src={localStorage.getItem("supplyhub_user_avatar")!}
+                    src={avatarUrl}
                     alt="Avatar"
                     className="w-8 h-8 rounded-full object-cover"
                   />
@@ -780,6 +564,8 @@ export function AppLayout() {
                 localStorage.removeItem("supplyhub_organization_id");
                 localStorage.removeItem("supplyhub_logged_operator");
                 localStorage.removeItem("supplyhub_session_token");
+                localStorage.removeItem("supplyhub_sessions_v2");
+                localStorage.removeItem("supplyhub_user_avatar");
                 localStorage.removeItem("supplyhub_cnpj");
                 localStorage.removeItem("supplyhub_email_corp");
                 localStorage.removeItem("supplyhub_telefone");

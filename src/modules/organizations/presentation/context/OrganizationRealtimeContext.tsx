@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useRef } from 'react';
 import { supabase } from '@/infrastructure/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
+import { useAuthenticatedIdentity } from '@/modules/auth/presentation/hooks/useAuthenticatedIdentity';
 
 interface OrganizationRealtimeContextType {
   // Expose useful states if necessary
@@ -17,13 +18,14 @@ export function useOrganizationRealtime() {
 }
 
 export function OrganizationRealtimeProvider({ children }: { children: React.ReactNode }) {
+  const { data: identity } = useAuthenticatedIdentity();
   const queryClient = useQueryClient();
   const channelRef = useRef<any>(null);
   const knownStatusesRef = useRef<Map<string, string>>(new Map());
   
   useEffect(() => {
     // 1. Obtém o ID da organização ativa no momento da montagem/re-render
-    const activeOrgId = localStorage.getItem('supplyhub_organization_id');
+    const activeOrgId = identity?.organizationId;
 
     // 2. Garante apenas uma assinatura. Remove se já existir para remontagens
     if (channelRef.current) {
@@ -57,7 +59,6 @@ export function OrganizationRealtimeProvider({ children }: { children: React.Rea
           if (activeOrgId === orgId && !isActive) {
             console.warn('Sua organização foi inativada. Sessão local bloqueada.');
             // Removemos o token/id do localStorage para impedir navegação operacional no tenant
-            localStorage.removeItem('supplyhub_organization_id');
             // Redireciona para tela de bloqueio (apenas emula logout do tenant local)
             window.location.href = '/login?reason=tenant_inactive';
             return;
@@ -90,7 +91,7 @@ export function OrganizationRealtimeProvider({ children }: { children: React.Rea
         channelRef.current = null;
       }
     };
-  }, [queryClient]);
+  }, [queryClient, identity?.organizationId]);
 
   return (
     <OrganizationRealtimeContext.Provider value={{}}>

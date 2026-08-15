@@ -89,23 +89,11 @@ export default function QuotationResponsePage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSuccess, setIsSuccess] = useState(false);
 
-  if (!details) {
-    return (
-      <div className="flex flex-col items-center justify-center py-20 text-slate-400">
-        <AlertTriangle className="h-14 w-14 mb-4 text-red-400 animate-bounce" />
-        <p className="font-bold text-slate-900">Cotação não encontrada!</p>
-        <p className="text-sm mt-1">A cotação solicitada não existe ou foi removida.</p>
-        <Button onClick={() => navigate('/quotations')} className="mt-4 bg-indigo-600 text-white">
-          Voltar para Cotações
-        </Button>
-      </div>
-    );
-  }
-
-  const item = details.items[0];
+  const item = details?.items[0];
 
   // Cálculo Dinâmico do Score e Classificação Hub.IA
   const computedStats = useMemo(() => {
+    if (!item) return { score: 0, rating: 'Bronze' as const };
     let score = 75; // Score inicial base
 
     // 1. Fator Preço Proposto
@@ -162,6 +150,19 @@ export default function QuotationResponsePage() {
 
     return { score: finalScore, rating };
   }, [proposedPrice, proposedDeliveryDate, proposedPaymentTerm, item]);
+
+  if (!details || !item) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-slate-400">
+        <AlertTriangle className="h-14 w-14 mb-4 text-red-400 animate-bounce" />
+        <p className="font-bold text-slate-900">Cotação não encontrada!</p>
+        <p className="text-sm mt-1">A cotação solicitada não existe ou foi removida.</p>
+        <Button onClick={() => navigate('/quotations')} className="mt-4 bg-indigo-600 text-white">
+          Voltar para Cotações
+        </Button>
+      </div>
+    );
+  }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

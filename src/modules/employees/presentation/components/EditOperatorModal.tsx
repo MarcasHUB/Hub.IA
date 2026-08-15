@@ -93,7 +93,6 @@ export function EditOperatorModal({ operator, orgId, operators, onClose }: EditO
           gestor_id: form.gestor_id || undefined,
           category_ids: form.todas_categorias ? [] : form.category_ids,
           todas_categorias: form.todas_categorias,
-          organization_id: orgId
         });
 
         if (newOpRes.success && newOpRes.token) {
@@ -239,7 +238,7 @@ export function EditOperatorModal({ operator, orgId, operators, onClose }: EditO
               {operator.status !== 'pendente' && (
                 <div className="p-3 bg-indigo-50/50 border border-indigo-100 rounded-lg">
                   <p className="text-xs text-indigo-800">
-                    <strong>Nota:</strong> Dados pessoais (Nome, Telefone, Cargo) são mantidos pelo próprio usuário. Para alterá-los, acesse <a href="/perfil" className="font-bold underline cursor-pointer">Meus Dados</a>.
+                    <strong>Nota:</strong> Dados pessoais (Nome, Telefone, Cargo) são mantidos pelo próprio usuário. Para alterá-los, acesse <a href="/meus-dados" className="font-bold underline cursor-pointer">Meus Dados</a>.
                   </p>
                 </div>
               )}

@@ -5,6 +5,7 @@ import { Input } from '@/shared/components/ui/Input';
 import { Operator } from '../../domain/entities/Operator';
 import { SupabaseOperatorRepository } from '../../infrastructure/repositories/SupabaseOperatorRepository';
 import { SupabaseDelegationRepository } from '../../infrastructure/repositories/SupabaseDelegationRepository';
+import { useAuthenticatedIdentity } from '@/modules/auth/presentation/hooks/useAuthenticatedIdentity';
 
 interface DelegationModalProps {
   onClose: () => void;
@@ -12,6 +13,7 @@ interface DelegationModalProps {
 }
 
 export function DelegationModal({ onClose, onSuccess }: DelegationModalProps) {
+  const { data: identity } = useAuthenticatedIdentity();
   const [operators, setOperators] = useState<Operator[]>([]);
   const [loadingOps, setLoadingOps] = useState(true);
 
@@ -33,8 +35,7 @@ export function DelegationModal({ onClose, onSuccess }: DelegationModalProps) {
   useEffect(() => {
     async function fetchOperators() {
       try {
-        const orgId = localStorage.getItem('supplyhub_organization_id') || '00000000-0000-0000-0000-000000000000';
-        const list = await opRepo.listOperators(orgId);
+        const list = await opRepo.listOperators();
         // Só permitir operadores com perfil ativo
         setOperators(list.filter(op => op.status === 'ativo' || op.status === 'ferias'));
       } catch (err) {
@@ -44,7 +45,7 @@ export function DelegationModal({ onClose, onSuccess }: DelegationModalProps) {
       }
     }
     fetchOperators();
-  }, []);
+  }, [identity?.organizationId]);
 
   const handleSave = async () => {
     setErrorMsg('');
@@ -70,7 +71,8 @@ export function DelegationModal({ onClose, onSuccess }: DelegationModalProps) {
 
     setSubmitting(true);
     try {
-      const orgId = localStorage.getItem('supplyhub_organization_id') || '00000000-0000-0000-0000-000000000000';
+      const orgId = identity?.organizationId;
+      if (!orgId) throw new Error('Identidade organizacional indisponível.');
 
       await delRepo.createDelegation({
         organization_id: orgId,

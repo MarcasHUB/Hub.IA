@@ -13,12 +13,11 @@ interface CompanyDetailsDrawerProps {
 }
 
 export function CompanyDetailsDrawer({ isOpen, onClose, partner }: CompanyDetailsDrawerProps) {
-  if (!isOpen || !partner) return null;
+  const { data: publicProfile, isLoading: isProfileLoading } = usePublicOrganizationProfile(partner?.organizationId || '');
 
+  if (!isOpen || !partner) return null;
   const isAccepted = partner.status === 'accepted';
   const isPending = partner.status !== 'accepted';
-
-  const { data: publicProfile, isLoading: isProfileLoading } = usePublicOrganizationProfile(partner.organizationId);
 
   const displayName = publicProfile?.tradeName || partner.name;
   const corporateName = publicProfile?.legalName || partner.name;

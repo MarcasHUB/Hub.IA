@@ -5,6 +5,7 @@ import {
   Sparkles, CheckSquare, X, Eye, RefreshCw
 } from 'lucide-react';
 import { SupabaseSignalRepository, HubIASignal, SignalCriticidade } from '../../infrastructure/repositories/SupabaseSignalRepository';
+import { useAuthenticatedIdentity } from '@/modules/auth/presentation/hooks/useAuthenticatedIdentity';
 
 type DateRange = '30' | '60' | '90';
 
@@ -69,7 +70,8 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
 
   const sigRepo = new SupabaseSignalRepository();
-  const orgId = localStorage.getItem('supplyhub_organization_id') || '00000000-0000-0000-0000-000000000000';
+  const { data: identity } = useAuthenticatedIdentity();
+  const orgId = identity?.organizationId || '';
 
   async function loadSignals() {
     setLoading(true);
@@ -86,8 +88,8 @@ export default function DashboardPage() {
   }
 
   useEffect(() => {
-    loadSignals();
-  }, []);
+    if (orgId) loadSignals();
+  }, [orgId]);
 
   const handleAction = async (id: string, status: 'lido' | 'resolvido' | 'ignorado') => {
     await sigRepo.updateSignalStatus(id, status);

@@ -55,48 +55,23 @@ export interface OrganizationProfileData {
   profile_completion?: number;
 }
 export const organizationProfileKeys = {
-  detail: (organizationId: string) => ['organization-profile', organizationId] as const,
+  mine: ['organization-profile', 'mine'] as const,
 };
 
-export function useOrganizationProfile(organizationId: string | null) {
+export function useOrganizationProfile() {
   // 1. Dados principais da empresa
   const mainQuery = useQuery({
-    queryKey: organizationProfileKeys.detail(organizationId!),
+    queryKey: organizationProfileKeys.mine,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('organizations')
-        .select(`
-          *,
-          empresa_certificacoes(certification_id, certifications(id, name)),
-          empresa_cnaes(cnae_code, is_primary),
-          empresa_estados_atendidos(state_code),
-          organization_segments(segment_id, segments(id, nome))
-        `)
-        .eq('id', organizationId!)
-        .single();
+      const { data, error } = await supabase.rpc('get_my_organization_profile');
 
       if (error) throw error;
-      return data;
+      if (!data || typeof data !== 'object') throw new Error('ORGANIZATION_PROFILE_UNAVAILABLE');
+      return data as any;
     },
-    enabled: Boolean(organizationId),
   });
 
   // 2. Catálogo (Pode falhar sem quebrar o resto)
-  const catalogQuery = useQuery({
-    queryKey: ['organization-catalog', organizationId],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('empresa_catalogo')
-        .select('*')
-        .eq('organization_id', organizationId!);
-
-      if (error) throw error;
-      return data;
-    },
-    enabled: Boolean(organizationId),
-    retry: false, // Don't block or retry excessively if catalog is unavailable or RLS blocks it
-  });
-
   // Process data safely with null fallbacks for fields
   const data = mainQuery.data;
   
@@ -144,14 +119,13 @@ export function useOrganizationProfile(organizationId: string | null) {
     segments,
     certifications,
     coverageStates,
-    catalog: catalogQuery.data || [],
+    catalog: data?.catalog || [],
     isLoading: mainQuery.isLoading,
-    isFetching: mainQuery.isFetching || catalogQuery.isFetching,
+    isFetching: mainQuery.isFetching,
     isError: mainQuery.isError,
     error: mainQuery.error,
     refetch: () => {
       mainQuery.refetch();
-      catalogQuery.refetch();
     },
   };
 }

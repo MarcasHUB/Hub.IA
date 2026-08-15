@@ -21,19 +21,7 @@ export class LocalStorageOrganizationConnectionRepository implements IOrganizati
         localStorage.setItem(this.KEY, JSON.stringify(all));
     }
 
-    async acceptInvite(id: string): Promise<void> {
-        // Mock
-    }
-
-    async rejectInvite(id: string): Promise<void> {
-        // Mock
-    }
-
-    async cancelInvite(id: string): Promise<void> {
-        // Mock
-    }
-
-    async createConnection(data: any): Promise<void> {
+    async createConnection(_data: { targetOrganizationId: string; message?: string }): Promise<void> {
         // Mock
     }
 }

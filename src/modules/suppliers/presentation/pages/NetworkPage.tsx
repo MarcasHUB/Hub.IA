@@ -5,40 +5,38 @@ import { ClearableInput } from '@/shared/components/ui/ClearableInput';
 import { InviteCompanyModal } from '../components/InviteCompanyModal';
 import { useNotifications } from '@/modules/notifications/presentation/context/NotificationContext';
 import NetworkCompanyModal, { NetworkOrg } from '../components/NetworkCompanyModal';
-import { EmailService } from '@/shared/utils/EmailService';
 import { usePublicOrganizationProfile } from '@/modules/organizations/presentation/hooks/usePublicOrganizationProfile';
 import { resolveOrganizationLogoUrl } from '@/shared/utils/logoUtils';
+import { getAuthenticatedIdentity } from '@/modules/auth/application/services/getAuthenticatedIdentity';
+import { SupabasePartnerConnectionRepository } from '../../infrastructure/repositories/SupabasePartnerConnectionRepository';
+import { getUserFacingConnectionError } from '../../application/services/companyConnectionFlow';
+import { hasCapability } from '@/core/config/permissions';
 
 // UUID raiz da organização Hub.IA (SupplyHub Ltda)
 const HUB_IA_ORG_ID = 'a0000000-0000-0000-0000-000000000001';
+const connectionRepository = new SupabasePartnerConnectionRepository();
 
 // ─── ConnectConfirmModal ───────────────────────────────────────────────────────
 
 interface ConnectConfirmProps {
   org: NetworkOrg;
   onClose: () => void;
-  onConfirm: (email: string, message: string) => Promise<void>;
+  onConfirm: (message: string) => Promise<void>;
 }
 
 function ConnectConfirmModal({ org, onClose, onConfirm }: ConnectConfirmProps) {
   const displayName = org.razao_social || org.nome_fantasia || org.name;
-  const defaultEmail = org.business_email || org.email_corporativo || '';
-  const [email, setEmail] = useState(defaultEmail);
   const [message, setMessage] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState('');
 
   const handleSend = async () => {
-    if (!email.trim() || !email.includes('@')) {
-      setError('Por favor, informe um e-mail corporativo válido.');
-      return;
-    }
     setIsSending(true);
     setError('');
     try {
-      await onConfirm(email.trim(), message.trim());
-    } catch (e: any) {
-      setError(e.message || 'Erro ao enviar convite.');
+      await onConfirm(message.trim());
+    } catch (e: unknown) {
+      setError(getUserFacingConnectionError(e, 'Não foi possível solicitar a conexão. Tente novamente.'));
     } finally {
       setIsSending(false);
     }
@@ -51,25 +49,13 @@ function ConnectConfirmModal({ org, onClose, onConfirm }: ConnectConfirmProps) {
         <div className="flex items-start justify-between">
           <div>
             <h3 className="text-lg font-bold text-slate-900">Conectar com {displayName}</h3>
-            <p className="text-sm text-slate-500 mt-1">Enviaremos um convite de parceria por e-mail.</p>
+            <p className="text-sm text-slate-500 mt-1">
+              Você está enviando uma solicitação de parceria para {displayName}.
+            </p>
           </div>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-700 transition-colors">
             <X className="h-5 w-5" />
           </button>
-        </div>
-
-        <div className="space-y-1.5">
-          <label className="text-xs font-bold text-slate-700">E-mail corporativo *</label>
-          <input
-            type="email"
-            value={email}
-            onChange={e => setEmail(e.target.value)}
-            placeholder="contato@empresa.com.br"
-            className="w-full h-10 px-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
-          />
-          {!defaultEmail && (
-            <p className="text-xs text-amber-600">Esta empresa não possui e-mail cadastrado. Informe o e-mail de contato.</p>
-          )}
         </div>
 
         <div className="space-y-1.5">
@@ -94,7 +80,7 @@ function ConnectConfirmModal({ org, onClose, onConfirm }: ConnectConfirmProps) {
             disabled={isSending}
             className="flex-1 h-10 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
           >
-            {isSending ? <><Loader2 className="h-4 w-4 animate-spin" /> Enviando...</> : <><Mail className="h-4 w-4" /> Enviar Convite</>}
+            {isSending ? <><Loader2 className="h-4 w-4 animate-spin" /> Solicitando...</> : <><Network className="h-4 w-4" /> Solicitar conexão</>}
           </button>
         </div>
       </div>
@@ -108,10 +94,14 @@ function CompanyCard({
   org,
   onConnect,
   onClick,
+  canRequestConnections,
+  canRespondConnections,
 }: {
   org: NetworkOrg;
   onConnect: (org: NetworkOrg) => void;
   onClick: (org: NetworkOrg) => void;
+  canRequestConnections: boolean;
+  canRespondConnections: boolean;
 }) {
   const { data: publicProfile, isLoading: isProfileLoading } = usePublicOrganizationProfile(org.id);
 
@@ -245,16 +235,16 @@ function CompanyCard({
               disabled
               className="w-full bg-slate-100 text-slate-500 font-bold text-[11px] px-2 h-9 flex items-center justify-center rounded-lg border border-slate-200 cursor-not-allowed"
             >
-              Convite enviado
+              Solicitação enviada
             </button>
-          ) : org.isPendingReceived ? (
+          ) : org.isPendingReceived && canRespondConnections ? (
             <button 
               onClick={(e) => { e.stopPropagation(); window.location.href = '/suppliers/list'; }}
               className="w-full bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white font-bold text-[11px] px-2 h-9 flex items-center justify-center transition-all rounded-lg border-none"
             >
               Responder convite
             </button>
-          ) : (
+          ) : canRequestConnections ? (
             <button 
               onClick={(e) => { e.stopPropagation(); onConnect(org); }}
               className="w-full bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white font-bold text-[11px] px-2 h-9 flex items-center justify-center transition-all rounded-lg border-none"
@@ -262,7 +252,7 @@ function CompanyCard({
               <Network className="h-3.5 w-3.5 mr-1.5" />
               Conectar
             </button>
-          )}
+          ) : null}
         </div>
       </div>
     </div>
@@ -278,33 +268,30 @@ export default function NetworkPage() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [selectedOrg, setSelectedOrg] = useState<NetworkOrg | null>(null);
   const [connectTarget, setConnectTarget] = useState<NetworkOrg | null>(null);
+  const [tenantId, setTenantId] = useState('');
+  const [canRequestConnections, setCanRequestConnections] = useState(false);
+  const [canRespondConnections, setCanRespondConnections] = useState(false);
   const { addMockNotification } = useNotifications();
 
-  const tenantId = localStorage.getItem('supplyhub_organization_id') || '';
   const isHubIA = tenantId === HUB_IA_ORG_ID;
 
   const loadOrgs = useCallback(async () => {
     setIsLoading(true);
     try {
+      const identity = await getAuthenticatedIdentity();
+      const activeTenantId = identity.organizationId;
+      const canonicalRole = identity.isPlatformAdmin ? 'platform_admin' : identity.operatorProfile;
+      setTenantId(activeTenantId);
+      setCanRequestConnections(hasCapability(canonicalRole, 'connections:request'));
+      setCanRespondConnections(hasCapability(canonicalRole, 'connections:respond'));
+
       // Busca todas as orgs ativas (aceita 'ativo' e 'active' para compatibilidade)
-      const { data: orgsData, error } = await supabase
-        .from('organizations')
-        .select(`
-          id, name, razao_social, nome_fantasia, cnpj, city, state, country,
-          logo_url, website, description, segment, business_email, email_corporativo,
-          phone, telefone, whatsapp, business_model, perfil_comercial, tipo_empresa, raio_atendimento_km,
-          profile_completion, created_at, status,
-          empresa_certificacoes(certifications(name))
-        `)
-        .in('status', ['ativo', 'active'])
-        .or('is_platform_internal.is.null,is_platform_internal.eq.false')
-        .neq('id', HUB_IA_ORG_ID)
-        .order('razao_social', { ascending: true });
+      const { data: orgsData, error } = await supabase.rpc('list_public_organizations');
 
       if (error) throw error;
 
-      const allOrgs = (orgsData || []).filter(o =>
-        !tenantId || tenantId === '00000000-0000-0000-0000-000000000000' || o.id !== tenantId
+      const allOrgs = (Array.isArray(orgsData) ? orgsData : []).filter((o: any) =>
+        o.id !== activeTenantId
       ).map((o: any) => {
         const certs = (o.empresa_certificacoes || [])
           .map((ec: any) => ec?.certifications?.name)
@@ -318,70 +305,31 @@ export default function NetworkPage() {
       });
 
       // Busca conexões aceitas bidirecionais
-      let partnerIds = new Set<string>();
-      let pendingSentIds = new Set<string>();
-      let pendingReceivedIds = new Set<string>();
-      let partnerDates = new Map<string, string>();
+      const connections = await connectionRepository.list();
+      const partnerIds = new Set<string>();
+      const pendingSentIds = new Set<string>();
+      const pendingReceivedIds = new Set<string>();
+      const partnerDates = new Map<string, string>();
 
-      if (tenantId && tenantId !== '00000000-0000-0000-0000-000000000000') {
-        const { data: connections, error: connectionsError } = await supabase
-          .from('connection_requests')
-          .select('requester_company_id, target_company_id, status, accepted_at')
-          .or(`requester_company_id.eq.${tenantId},target_company_id.eq.${tenantId}`);
-
-        (connections || []).forEach(conn => {
-          const isRequester = conn.requester_company_id === tenantId;
-          const partnerId = isRequester 
-            ? conn.target_company_id 
-            : conn.requester_company_id;
-            
-          if (conn.status === 'accepted') {
-            partnerIds.add(partnerId);
-            if (conn.accepted_at) {
-               partnerDates.set(partnerId, conn.accepted_at);
-            }
-          } else if (conn.status === 'pending') {
-            if (isRequester) {
-              pendingSentIds.add(partnerId);
-            } else {
-              pendingReceivedIds.add(partnerId);
-            }
-          }
-        });
-        
-        // Agora busca a data de convites aceitos caso não tenha vindo do connection_requests
-        const { data: invites } = await supabase
-          .from('invitations')
-          .select('organization_id, accepted_at')
-          .eq('status', 'aceito');
-          
-        (invites || []).forEach(inv => {
-          if (inv.organization_id && inv.accepted_at && !partnerDates.has(inv.organization_id)) {
-            partnerDates.set(inv.organization_id, inv.accepted_at);
-          }
-        });
-      }
+      connections.forEach((connection) => {
+        if (connection.connection_status === 'accepted') {
+          partnerIds.add(connection.partner_organization_id);
+          partnerDates.set(connection.partner_organization_id, connection.connected_at);
+        } else if (connection.direction === 'sent') {
+          pendingSentIds.add(connection.partner_organization_id);
+        } else {
+          pendingReceivedIds.add(connection.partner_organization_id);
+        }
+      });
 
       // Busca a quantidade de materiais de todas as empresas de uma vez
-      const { data: mats } = await supabase.from('organization_materials').select('organization_id');
       const matCounts: Record<string, number> = {};
-      if (mats) {
-        mats.forEach(m => {
-          matCounts[m.organization_id] = (matCounts[m.organization_id] || 0) + 1;
-        });
-      }
 
       // Busca a quantidade de segmentos de todas as empresas
-      const { data: segs } = await supabase.from('company_segments').select('organization_id');
       const segCounts: Record<string, number> = {};
-      if (segs) {
-        segs.forEach(s => {
-          segCounts[s.organization_id] = (segCounts[s.organization_id] || 0) + 1;
-        });
-      }
 
-      const mapped: NetworkOrg[] = allOrgs.map(o => {
-        let segCount = segCounts[o.id] || 0;
+      const mapped: NetworkOrg[] = allOrgs.map((o: any) => {
+        let segCount = Number(o.segment_count || segCounts[o.id] || 0);
         if (segCount === 0) {
           if (Array.isArray(o.segment)) segCount = o.segment.length;
           else if (typeof o.segment === 'string') segCount = 1;
@@ -393,7 +341,7 @@ export default function NetworkPage() {
           isPartner: partnerIds.has(o.id),
           isPendingSent: pendingSentIds.has(o.id),
           isPendingReceived: pendingReceivedIds.has(o.id),
-          materials_count: matCounts[o.id] || 0,
+          materials_count: Number(o.material_count || matCounts[o.id] || 0),
           segments_count: segCount,
           connection_date: partnerDates.get(o.id) || null,
         };
@@ -405,7 +353,7 @@ export default function NetworkPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [tenantId]);
+  }, []);
 
   useEffect(() => {
     loadOrgs();
@@ -428,7 +376,7 @@ export default function NetworkPage() {
   }, [loadOrgs]);
 
   // Filtra: remove apenas parceiros aceitos (isPartner) e oculta quem está com convite mas logado não é nem admin.
-  // Pending ficam na lista, o CompanyCard mostra "Convite enviado"
+  // Solicitações pendentes ficam na lista e são identificadas no card.
   const networkOrgs = useMemo(() =>
     orgs.filter(o => !o.isPartner),
     [orgs]
@@ -446,84 +394,30 @@ export default function NetworkPage() {
     });
   }, [networkOrgs, search]);
 
-  // Enviar convite de conexão
+  // Solicitar conexão
   const handleConnect = useCallback(async (org: NetworkOrg) => {
-    const email = org.business_email || org.email_corporativo;
-
-    if (!email) {
-      // Sem e-mail cadastrado → abre modal pedindo e-mail
-      setConnectTarget(org);
-      setSelectedOrg(null);
-      return;
-    }
-
-    // Tem e-mail → confirma via modal (pré-preenchido)
+    if (!canRequestConnections) return;
     setConnectTarget(org);
     setSelectedOrg(null);
-  }, []);
+  }, [canRequestConnections]);
 
-  const sendInvite = useCallback(async (targetOrg: NetworkOrg, email: string, message: string) => {
+  const sendConnectionRequest = useCallback(async (targetOrg: NetworkOrg, message: string) => {
     const displayName = targetOrg.razao_social || targetOrg.nome_fantasia || targetOrg.name;
-
-    const { data: existingInvite } = await supabase
-      .from('invitations')
-      .select('id')
-      .eq('organization_id', tenantId)
-      .eq('email', email)
-      .in('status', ['pendente', 'sent'])
-      .maybeSingle();
-
-    if (existingInvite) {
-      addMockNotification({
-        title: 'Convite já pendente',
-        message: `Já existe um convite aguardando aceite para ${displayName}.`,
-        type: 'connection_request_received',
-        is_read: false,
-      });
-      setConnectTarget(null);
-      return;
-    }
-
-    const tokenHash = crypto.randomUUID();
-    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
-
-    const { error } = await supabase.from('invitations').insert({
-      organization_id: tenantId,
-      name:        displayName,
-      company:     displayName,
-      email:       email,
-      document:    targetOrg.cnpj || '',
-      status:      'pendente',
-      token_hash:  tokenHash,
-      expires_at:  expiresAt,
-      city:        targetOrg.city || '',
-      state:       targetOrg.state || '',
-      message:     message,
-      segments:    [],
-    });
-
-    if (error) throw new Error(error.message);
-
-    // Envia e-mail de convite
-    try {
-      await EmailService.sendTransactionalEmail('supplier_invite', tokenHash);
-    } catch (emailErr) {
-      console.warn('[NetworkPage] E-mail de convite não enviado:', emailErr);
-    }
+    await connectionRepository.request(targetOrg.id, message);
 
     // Atualiza estado local sem recarregar tudo
     setOrgs(prev => prev.map(o =>
-      o.id === targetOrg.id ? { ...o, hasPendingInvite: true } : o
+      o.id === targetOrg.id ? { ...o, isPendingSent: true } : o
     ));
     setConnectTarget(null);
 
     addMockNotification({
-      title: 'Convite enviado!',
-      message: `Convite de parceria enviado para ${displayName}.`,
+      title: 'Solicitação enviada!',
+      message: `Solicitação de parceria enviada para ${displayName}.`,
       type: 'connection_request_received',
       is_read: false,
     });
-  }, [tenantId, addMockNotification]);
+  }, [addMockNotification]);
 
   return (
     <div className="flex-1 bg-slate-50 min-h-full flex flex-col font-sans">
@@ -625,6 +519,8 @@ export default function NetworkPage() {
                   org={o}
                   onConnect={handleConnect}
                   onClick={org => setSelectedOrg(org)}
+                  canRequestConnections={canRequestConnections}
+                  canRespondConnections={canRespondConnections}
                 />
               ))}
             </div>
@@ -637,10 +533,10 @@ export default function NetworkPage() {
         org={selectedOrg}
         isOpen={!!selectedOrg}
         onClose={() => setSelectedOrg(null)}
-        onConnect={(org) => {
+        onConnect={canRequestConnections ? (org) => {
           setSelectedOrg(null);
           handleConnect(org);
-        }}
+        } : undefined}
         onConnectSuccess={() => {
           loadOrgs();
         }}
@@ -651,7 +547,7 @@ export default function NetworkPage() {
         <ConnectConfirmModal
           org={connectTarget}
           onClose={() => setConnectTarget(null)}
-          onConfirm={(email, message) => sendInvite(connectTarget, email, message)}
+          onConfirm={(message) => sendConnectionRequest(connectTarget, message)}
         />
       )}
 

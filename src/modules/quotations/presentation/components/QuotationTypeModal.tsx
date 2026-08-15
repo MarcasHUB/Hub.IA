@@ -5,6 +5,7 @@ import { Input } from '@/shared/components/ui/Input';
 import { useQuotationCart } from '../context/QuotationCartContext';
 import { SupabaseSupplierRepository } from '@/modules/suppliers/infrastructure/repositories/SupabaseSupplierRepository';
 import { SupabaseProductSupplierRepository } from '@/modules/products/infrastructure/repositories/SupabaseProductSupplierRepository';
+import { useAuthenticatedIdentity } from '@/modules/auth/presentation/hooks/useAuthenticatedIdentity';
 
 interface QuotationTypeModalProps {
   isOpen: boolean;
@@ -31,13 +32,13 @@ interface QuotationTypeModalProps {
   selectedProductIds?: string[];
 }
 
-const tenantId = '00000000-0000-0000-0000-000000000000';
-
 export function QuotationTypeModal({
   isOpen,
   onClose,
   onSubmit,
 }: QuotationTypeModalProps) {
+  const { data: identity } = useAuthenticatedIdentity();
+  const tenantId = identity?.organizationId || '';
   const { items } = useQuotationCart();
 
   const [type, setType] = useState<'BID' | 'DIRECT'>('BID');

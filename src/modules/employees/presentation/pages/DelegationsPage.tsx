@@ -10,10 +10,11 @@ import { Delegation } from '../../domain/entities/Delegation';
 import { SupabaseDelegationRepository } from '../../infrastructure/repositories/SupabaseDelegationRepository';
 import { SupabaseOperatorRepository } from '../../infrastructure/repositories/SupabaseOperatorRepository';
 import { DelegationModal } from '../components/DelegationModal';
+import { useAuthenticatedIdentity } from '@/modules/auth/presentation/hooks/useAuthenticatedIdentity';
 
 type FilterType = 'all' | 'active' | 'future' | 'ended';
 
-export default function DelegationsPage({ organizationId }: { organizationId?: string }) {
+export default function DelegationsPage() {
   const queryClient = useQueryClient();
   const [filter, setFilter] = useState<FilterType>('all');
   const [showModal, setShowModal] = useState(false);
@@ -21,16 +22,19 @@ export default function DelegationsPage({ organizationId }: { organizationId?: s
   const delRepo = new SupabaseDelegationRepository();
   const opRepo = new SupabaseOperatorRepository();
 
-  const orgId = organizationId || localStorage.getItem('supplyhub_organization_id') || '00000000-0000-0000-0000-000000000000';
+  const { data: identity } = useAuthenticatedIdentity();
+  const orgId = identity?.organizationId || '';
 
   const { data: operators = [], isLoading: loadingOps } = useQuery({
     queryKey: ['operators', orgId],
-    queryFn: () => opRepo.listOperators(orgId),
+    queryFn: () => opRepo.listOperators(),
+    enabled: Boolean(orgId),
   });
 
   const { data: delegations = [], isLoading: loadingDels } = useQuery({
     queryKey: ['delegations', orgId],
     queryFn: () => delRepo.listDelegations(orgId),
+    enabled: Boolean(orgId),
   });
 
   const loading = loadingOps || loadingDels;

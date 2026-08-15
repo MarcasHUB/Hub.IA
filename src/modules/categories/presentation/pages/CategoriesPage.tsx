@@ -7,6 +7,7 @@ import { Card, CardContent } from '@/shared/components/ui/Card';
 import { Category, CategoryStatus } from '../../domain/entities/Category';
 import { SupabaseCategoryRepository } from '../../infrastructure/repositories/SupabaseCategoryRepository';
 import { supabase } from '@/infrastructure/supabase/client';
+import { useAuthenticatedIdentity } from '@/modules/auth/presentation/hooks/useAuthenticatedIdentity';
 
 export function CategoryModal({
   cat, tenantId = 'GLOBAL', onClose, onSave,
@@ -104,13 +105,14 @@ export function CategoryModal({
 }
 
 export function CategoriesPage() {
+  const { data: identity } = useAuthenticatedIdentity();
   const [categories, setCategories] = useState<Category[]>([]);
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState<'Todos' | 'Ativos' | 'Inativos'>('Todos');
   const [modalOpen, setModalOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Category | undefined>();
   const repo = new SupabaseCategoryRepository();
-  const tenantId = localStorage.getItem('supplyhub_organization_id') || '00000000-0000-0000-0000-000000000000';
+  const tenantId = identity?.organizationId || '';
 
   const [productCounts, setProductCounts] = useState<Record<string, number>>({});
   
@@ -137,8 +139,8 @@ export function CategoriesPage() {
   };
 
   useEffect(() => {
-    loadData();
-  }, []);
+    if (tenantId) loadData();
+  }, [tenantId]);
 
   const handleSave = async (c: Category) => {
     try {

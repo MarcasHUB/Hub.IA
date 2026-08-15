@@ -1,6 +1,7 @@
 import { supabase } from '../../../../infrastructure/supabase/client';
 import { Category, CategoryStatus } from '../../domain/entities/Category';
 import { ICategoryRepository } from '../../domain/repositories/ICategoryRepository';
+import { getAuthenticatedIdentity } from '@/modules/auth/application/services/getAuthenticatedIdentity';
 
 export class CategoryAlreadyExistsError extends Error {
   constructor(message: string = 'Já existe uma categoria com esse nome nesta empresa.') {
@@ -10,12 +11,8 @@ export class CategoryAlreadyExistsError extends Error {
 }
 
 export class SupabaseCategoryRepository implements ICategoryRepository {
-    private async resolveTenantId(tenantId: string): Promise<string> {
-        if (tenantId !== '00000000-0000-0000-0000-000000000000') return tenantId;
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return tenantId;
-        const { data } = await supabase.from('user_roles').select('organization_id').eq('user_id', user.id).limit(1).maybeSingle();
-        return data?.organization_id || tenantId;
+    private async resolveTenantId(_untrustedTenantId: string): Promise<string> {
+        return (await getAuthenticatedIdentity()).organizationId;
     }
 
     async findById(id: string, tenantId: string): Promise<Category | null> {

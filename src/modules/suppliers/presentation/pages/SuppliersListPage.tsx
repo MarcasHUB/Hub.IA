@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { 
   Network, Users, Mail, MailOpen, History, CheckCircle2, 
   XCircle, Clock, Building2, Search 
@@ -10,7 +10,10 @@ import { PartnerCard, Partner } from '../components/PartnerCard';
 import { InviteCompanyModal } from '../components/InviteCompanyModal';
 import { EditInviteModal } from '../components/EditInviteModal';
 import { CompanyDetailsDrawer } from '../components/CompanyDetailsDrawer';
-// SupabaseSupplierRepository removido pois utilizaremos apenas dados reais de convites (invitations)
+import { supabase } from '@/infrastructure/supabase/client';
+import { getAuthenticatedIdentity } from '@/modules/auth/application/services/getAuthenticatedIdentity';
+import { SupabasePartnerConnectionRepository } from '../../infrastructure/repositories/SupabasePartnerConnectionRepository';
+import { getUserFacingConnectionError } from '../../application/services/companyConnectionFlow';
 
 type Tab = 'parceiros' | 'convites_recebidos' | 'convites_enviados' | 'historico';
 type StatusFilter = 'Todos' | 'Ativos' | 'Inativos';
@@ -21,125 +24,83 @@ export default function SuppliersListPage() {
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [partnerToEdit, setPartnerToEdit] = useState<Partner | null>(null);
   const [partnerDetails, setPartnerDetails] = useState<Partner | null>(null);
-  const [tenantId, setTenantId] = useState<string>('');
+  const connectionRepository = useMemo(() => new SupabasePartnerConnectionRepository(), []);
+
+  const loadPartners = useCallback(async () => {
+    try {
+      const identity = await getAuthenticatedIdentity();
+      const [connections, invitationsResult] = await Promise.all([
+        connectionRepository.list(),
+        supabase
+          .from('invitations')
+          .select('id, company, name, document, segments, city, state, status, email, contact_name, message')
+          .eq('organization_id', identity.organizationId)
+          .eq('status', 'pendente'),
+      ]);
+
+      if (invitationsResult.error) throw invitationsResult.error;
+
+      const mappedConnections: Partner[] = connections.map((connection) => ({
+        id: connection.partner_organization_id,
+        organizationId: connection.partner_organization_id,
+        connectionId: connection.connection_id,
+        name: connection.partner_name || 'Empresa',
+        document: connection.partner_document || '-',
+        segment: connection.partner_segment || 'Não definido',
+        city: connection.partner_city || '-',
+        state: connection.partner_state || '-',
+        status: connection.connection_status === 'accepted'
+          ? 'accepted'
+          : connection.can_review_internal || connection.direction === 'received'
+            ? 'pending_received'
+            : 'pending_sent',
+        since: connection.connected_at ? new Date(connection.connected_at).toLocaleDateString('pt-BR') : undefined,
+        employeesRange: '-',
+        rating: 0,
+        responseTime: '-',
+        quotationsCount: 0,
+        products: [],
+        email: connection.partner_email || undefined,
+        phone: connection.partner_phone || undefined,
+        website: connection.partner_website || undefined,
+        message: connection.message || undefined,
+        perfil_comercial: connection.partner_commercial_profile || undefined,
+        tipo_empresa: connection.partner_company_type || undefined,
+        raio_atendimento_km: connection.partner_service_radius,
+        canReviewInternal: connection.can_review_internal,
+        canRespond: connection.can_respond,
+      }));
+
+      const mappedInvitations: Partner[] = (invitationsResult.data || []).map((invitation) => ({
+        id: invitation.id,
+        organizationId: '',
+        connectionId: '',
+        name: invitation.company || invitation.name || 'Empresa convidada',
+        document: invitation.document || '-',
+        segment: invitation.segments?.join(', ') || 'Não definido',
+        city: invitation.city || '-',
+        state: invitation.state || '-',
+        status: 'pending_sent',
+        employeesRange: '-',
+        rating: 0,
+        responseTime: '-',
+        quotationsCount: 0,
+        products: [],
+        email: invitation.email || undefined,
+        contact_name: invitation.contact_name || undefined,
+        message: invitation.message || undefined,
+      }));
+
+      setPartners([...mappedConnections, ...mappedInvitations]);
+    } catch (error) {
+      console.error('Erro ao carregar parceiros:', error);
+      setPartners([]);
+    }
+  }, [connectionRepository]);
 
   useEffect(() => {
-    async function load() {
-       try {
-         const { supabase } = await import('@/infrastructure/supabase/client');
-         
-         let orgId = localStorage.getItem('supplyhub_organization_id');
-         if (!orgId || orgId === '00000000-0000-0000-0000-000000000000') {
-           const { data: { session } } = await supabase.auth.getSession();
-           if (session?.user?.id) {
-             const { data: profile } = await supabase.from('profiles').select('organization_id').eq('user_id', session.user.id).maybeSingle();
-             if (profile?.organization_id) {
-               orgId = profile.organization_id;
-               localStorage.setItem('supplyhub_organization_id', orgId as string);
-             }
-           }
-         }
-         if (!orgId) orgId = '00000000-0000-0000-0000-000000000000';
-         
-         setTenantId(orgId);
-
-         const { data: invs } = await supabase
-            .from('invitations')
-            .select('*')
-            .eq('organization_id', orgId)
-            .in('status', ['pendente']);
-            
-         // Busca conexões bidirecionais
-         const { data: connections, error: connectionsError } = await supabase
-            .from('connection_requests')
-            .select('*')
-            .or(`requester_company_id.eq.${orgId},target_company_id.eq.${orgId}`)
-            .eq('status', 'accepted');
-            
-         const partnerIds = (connections || []).map((c: any) => 
-            c.requester_company_id === orgId ? c.target_company_id : c.requester_company_id
-         );
-            
-         const docs = (invs || []).map((i: any) => i.document).filter(Boolean);
-         const { data: orgs, error: organizationsError } = await supabase
-            .from('organizations')
-            .select(`
-              *,
-              empresa_certificacoes(certifications(name))
-            `)
-            .or(`cnpj.in.(${docs.length > 0 ? docs.map(d=>`"${d}"`).join(',') : '""'}),id.in.(${partnerIds.length > 0 ? partnerIds.map(p=>`"${p}"`).join(',') : '""'})`)
-            .or('is_platform_internal.is.null,is_platform_internal.eq.false');
-
-         const mappedConnections = (connections || []).map((conn: any) => {
-            const partnerOrganizationId = conn.requester_company_id === orgId 
-               ? conn.target_company_id 
-               : conn.requester_company_id;
-            const org = (orgs || []).find((o: any) => o.id === partnerOrganizationId);
-            return {
-               id: partnerOrganizationId,
-               organizationId: partnerOrganizationId,
-               connectionId: conn.id,
-               name: org?.razao_social || org?.nome_fantasia || org?.name || 'Empresa Desconhecida',
-               document: org?.cnpj || '-',
-               segment: org?.segment || 'Não definido',
-               city: org?.city || '-',
-               state: org?.state || '-',
-               status: 'accepted' as const,
-               employeesRange: '-',
-               rating: 0,
-               responseTime: '-',
-               quotationsCount: 0,
-               products: [],
-               email: org?.email_corporativo || org?.business_email,
-               contact_name: undefined,
-               message: undefined,
-               perfil_comercial: org?.perfil_comercial || org?.business_model,
-               tipo_empresa: org?.tipo_empresa,
-               certifications: org?.empresa_certificacoes ? org.empresa_certificacoes.map((ec: any) => ec?.certifications?.name).filter(Boolean).join(', ') : undefined,
-               raio_atendimento_km: org?.raio_atendimento_km,
-               score_hubia: undefined,
-               phone: org?.telefone || org?.phone,
-               website: org?.website
-            };
-         });
-         
-         const mappedInvites = (invs || []).map((inv: any) => {
-            const org = (orgs || []).find((o: any) => o.cnpj === inv.document);
-            return {
-              id: inv.id,
-              organizationId: org?.id || '',
-              name: org?.razao_social || org?.nome_fantasia || org?.name || inv.company || inv.name,
-              document: inv.document,
-              segment: org?.segment || ((inv.segments && inv.segments.length > 0) ? inv.segments.join(', ') : 'Não definido'),
-              city: org?.city || inv.city || '-',
-              state: org?.state || inv.state || '-',
-              status: inv.status === 'pendente' ? 'pending_sent' as const : (inv.status as any),
-              connectionId: '',
-              employeesRange: '-',
-              rating: 0,
-              responseTime: '-',
-              quotationsCount: 0,
-              products: [],
-              email: org?.email_corporativo || org?.business_email || inv.email,
-              contact_name: inv.contact_name,
-              message: inv.message,
-              perfil_comercial: org?.perfil_comercial || org?.business_model,
-              tipo_empresa: org?.tipo_empresa,
-              certifications: org?.empresa_certificacoes ? org.empresa_certificacoes.map((ec: any) => ec?.certifications?.name).filter(Boolean).join(', ') : undefined,
-              raio_atendimento_km: org?.raio_atendimento_km,
-              score_hubia: undefined,
-              phone: org?.telefone || org?.phone,
-              website: org?.website
-            };
-         });
-
-         setPartners([...mappedConnections, ...mappedInvites]);
-       } catch(e) {
-         console.error('Erro ao carregar parceiros:', e);
-       }
-    }
-    load();
-  }, []);
+    void loadPartners();
+  }, [loadPartners]);
 
   useEffect(() => {
     const handleStatusChanged = (e: Event) => {
@@ -190,148 +151,56 @@ export default function SuppliersListPage() {
 
   const handleRemove = async (id: string) => {
     try {
-      const { supabase } = await import('@/infrastructure/supabase/client');
-      await supabase.from('invitations').delete().eq('id', id);
-      const updated = partners.filter(p => p.id !== id);
-      setPartners(updated);
+      await connectionRepository.disconnect(id);
+      await loadPartners();
     } catch (e) {
       console.error('Erro ao desfazer parceria:', e);
     }
   };
   const handleAccept = async (id: string) => {
     try {
-      // Impede duplo clique e mostra loading indireto usando a interface
-      const originalPartners = [...partners];
-      setPartners(partners.map(p => p.id === id ? { ...p, status: 'accepted' as const, since: 'Processando...' } : p));
-      
-      const { supabase } = await import('@/infrastructure/supabase/client');
-      const { data, error } = await supabase.rpc('accept_company_invitation', {
-        p_invitation_id: id
-      });
-
-      if (error) {
-        console.error('Erro ao aceitar convite:', error);
-        alert('Falha ao aceitar convite: ' + error.message);
-        setPartners(originalPartners); // rollback UI
-        return;
+      const connection = partners.find((partner) => partner.connectionId === id);
+      if (!connection) throw new Error('Solicitação não encontrada.');
+      if (connection.canReviewInternal) {
+        await connectionRepository.reviewInternal(id, true);
+      } else {
+        await connectionRepository.respond(id, true);
       }
-      
-      // Recarrega tudo para sincronizar invitations e connection_requests
-      const orgId = localStorage.getItem('supplyhub_organization_id') || '00000000-0000-0000-0000-000000000000';
-      setTenantId(orgId);
-      
-      const { data: invs } = await supabase
-         .from('invitations')
-         .select('*')
-         .eq('organization_id', orgId)
-         .in('status', ['pendente']);
-         
-      const { data: connections } = await supabase
-         .from('connection_requests')
-         .select('*')
-         .or(`requester_company_id.eq.${orgId},target_company_id.eq.${orgId}`)
-         .eq('status', 'accepted');
-         
-      const partnerIds = (connections || []).map((c: any) => 
-         c.requester_company_id === orgId ? c.target_company_id : c.requester_company_id
-      );
-         
-      const docs = (invs || []).map((i: any) => i.document).filter(Boolean);
-      const { data: orgs } = await supabase
-         .from('organizations')
-         .select(`*, empresa_certificacoes(certifications(name))`)
-         .or(`cnpj.in.(${docs.length > 0 ? docs.map(d=>`"${d}"`).join(',') : '""'}),id.in.(${partnerIds.length > 0 ? partnerIds.map(p=>`"${p}"`).join(',') : '""'})`)
-         .in('status', ['ativo', 'active'])
-         .or('is_platform_internal.is.null,is_platform_internal.eq.false');
-         
-      const mappedConnections = (connections || []).map((conn: any) => {
-         const partnerOrganizationId = conn.requester_company_id === orgId 
-            ? conn.target_company_id 
-            : conn.requester_company_id;
-         const org = (orgs || []).find((o: any) => o.id === partnerOrganizationId);
-         return {
-           id: partnerOrganizationId,
-           organizationId: partnerOrganizationId,
-           connectionId: conn.id,
-           name: org?.razao_social || org?.nome_fantasia || org?.name || 'Empresa Desconhecida',
-           document: org?.cnpj || '-',
-           segment: org?.segment || 'Não definido',
-           city: org?.city || '-',
-           state: org?.state || '-',
-           status: 'accepted' as const,
-           employeesRange: '-',
-           rating: 0,
-           responseTime: '-',
-           quotationsCount: 0,
-           products: [],
-           email: org?.email_corporativo || org?.business_email,
-           contact_name: undefined,
-           message: undefined,
-           perfil_comercial: org?.perfil_comercial || org?.business_model,
-           tipo_empresa: org?.tipo_empresa,
-           certifications: org?.empresa_certificacoes ? org.empresa_certificacoes.map((ec: any) => ec?.certifications?.name).filter(Boolean).join(', ') : undefined,
-           raio_atendimento_km: org?.raio_atendimento_km,
-           score_hubia: undefined,
-           phone: org?.telefone || org?.phone,
-           website: org?.website
-         };
-      });
-      
-      const mappedInvites = (invs || []).map((inv: any) => {
-         const org = (orgs || []).find((o: any) => o.cnpj === inv.document);
-         return {
-           id: inv.id,
-           organizationId: org?.id || '',
-           name: org?.razao_social || org?.nome_fantasia || org?.name || inv.company || inv.name,
-           document: inv.document,
-           segment: org?.segment || ((inv.segments && inv.segments.length > 0) ? inv.segments.join(', ') : 'Não definido'),
-           city: org?.city || inv.city || '-',
-           state: org?.state || inv.state || '-',
-           status: inv.status === 'pendente' ? 'pending_sent' as const : (inv.status as any),
-           connectionId: '',
-           employeesRange: '-',
-           rating: 0,
-           responseTime: '-',
-           quotationsCount: 0,
-           products: [],
-           email: org?.email_corporativo || org?.business_email || inv.email,
-           contact_name: inv.contact_name,
-           message: inv.message,
-           perfil_comercial: org?.perfil_comercial || org?.business_model,
-           tipo_empresa: org?.tipo_empresa,
-           certifications: org?.empresa_certificacoes ? org.empresa_certificacoes.map((ec: any) => ec?.certifications?.name).filter(Boolean).join(', ') : undefined,
-           raio_atendimento_km: org?.raio_atendimento_km,
-           score_hubia: undefined,
-           phone: org?.telefone || org?.phone,
-           website: org?.website
-         };
-      });
-
-      setPartners([...mappedConnections, ...mappedInvites]);
-    } catch (e: any) {
+      await loadPartners();
+    } catch (e: unknown) {
       console.error('Erro de execução no aceite:', e);
-      alert('Falha ao processar aceite: ' + e.message);
+      alert(getUserFacingConnectionError(e, 'Não foi possível aceitar a solicitação. Tente novamente.'));
     }
   };
 
   const handleReject = async (id: string) => {
     try {
-      const { supabase } = await import('@/infrastructure/supabase/client');
-      await supabase.from('invitations').update({ status: 'recusado' }).eq('id', id);
-      const updated = partners.filter(p => p.id !== id);
-      setPartners(updated);
-    } catch (e) {
+      const connection = partners.find((partner) => partner.connectionId === id);
+      if (!connection) throw new Error('Solicitação não encontrada.');
+      if (connection.canReviewInternal) {
+        await connectionRepository.reviewInternal(id, false);
+      } else {
+        await connectionRepository.respond(id, false);
+      }
+      await loadPartners();
+    } catch (e: unknown) {
       console.error('Erro ao recusar convite:', e);
+      alert(getUserFacingConnectionError(e, 'Não foi possível recusar a solicitação. Tente novamente.'));
     }
   };
   const handleCancel = async (id: string) => {
     try {
-      const { supabase } = await import('@/infrastructure/supabase/client');
-      await supabase.from('invitations').update({ status: 'cancelado' }).eq('id', id);
-      const updated = partners.filter(p => p.id !== id);
-      setPartners(updated);
-    } catch (e) {
+      const connection = partners.find((partner) => partner.connectionId === id);
+      if (connection) {
+        await connectionRepository.cancel(id);
+      } else {
+        const { error } = await supabase.from('invitations').update({ status: 'cancelado' }).eq('id', id);
+        if (error) throw error;
+      }
+      await loadPartners();
+    } catch (e: unknown) {
       console.error('Erro ao cancelar convite:', e);
+      alert(getUserFacingConnectionError(e, 'Não foi possível cancelar a solicitação. Tente novamente.'));
     }
   };
 

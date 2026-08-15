@@ -39,15 +39,12 @@ export default function OrganizationsListPage() {
   const loadData = async () => {
     setIsLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('organizations')
-        .select('*, operators(id, status)')
-        .order('name');
+      const { data, error } = await supabase.rpc('admin_list_organizations_summary');
       
       if (error) throw error;
       
       if (data) {
-        setOrganizations(data.map(org => {
+        setOrganizations(data.map((org: any) => {
           const ops = org.operators || [];
           return {
             ...org,
@@ -60,7 +57,7 @@ export default function OrganizationsListPage() {
             status: org.status || 'ativo',
             logo_url: org.logo_url,
             segment: org.segment,
-            operatorCount: ops.length,
+            operatorCount: Number(org.operatorCount || ops.length),
             activeOperatorCount: ops.filter((o: any) => o.status === 'ativo').length,
             inactiveOperatorCount: ops.filter((o: any) => o.status === 'inativo' || o.status === 'cancelado').length,
           };
@@ -79,7 +76,10 @@ export default function OrganizationsListPage() {
 
   const toggleStatus = async (orgId: string, currentStatus: string) => {
     const newStatus = currentStatus === 'ativo' ? 'inativo' : 'ativo';
-    const { error } = await supabase.from('organizations').update({ status: newStatus }).eq('id', orgId);
+    const { error } = await supabase.rpc('admin_set_organization_status', {
+      p_target_organization_id: orgId,
+      p_status: newStatus,
+    });
     if (!error) {
       setOrganizations(prev => prev.map(o => o.id === orgId ? { ...o, status: newStatus } : o));
     }

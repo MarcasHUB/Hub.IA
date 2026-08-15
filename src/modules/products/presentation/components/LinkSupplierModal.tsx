@@ -4,6 +4,7 @@ import { Button } from '@/shared/components/ui/Button';
 import { Checkbox } from '@/shared/components/ui/Checkbox';
 import { ClearableInput } from '@/shared/components/ui/ClearableInput';
 import { SupabaseSupplierRepository } from '../../../suppliers/infrastructure/repositories/SupabaseSupplierRepository';
+import { useAuthenticatedIdentity } from '@/modules/auth/presentation/hooks/useAuthenticatedIdentity';
 
 interface Supplier {
   id: string;
@@ -19,6 +20,7 @@ interface LinkSupplierModalProps {
 }
 
 export function LinkSupplierModal({ isOpen, onClose, onLink, alreadyLinkedIds }: LinkSupplierModalProps) {
+  const { data: identity } = useAuthenticatedIdentity();
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
@@ -36,7 +38,7 @@ export function LinkSupplierModal({ isOpen, onClose, onLink, alreadyLinkedIds }:
     try {
       const repo = new SupabaseSupplierRepository();
       // "tenantId" mocked parameter, it's ignored by repo as it resolves session
-      const data = await repo.findAll('00000000-0000-0000-0000-000000000000');
+      const data = await repo.findAll(identity?.organizationId || '');
       // Filter out those already linked
       const available = data.filter(s => !alreadyLinkedIds.includes(s.id));
       setSuppliers(available.map(s => ({ id: s.id, name: s.name, document: s.document })));

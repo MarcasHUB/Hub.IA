@@ -1,14 +1,11 @@
 import { supabase } from '../../../../infrastructure/supabase/client';
 import { Product, ProductStatus } from '../../domain/entities/Product';
 import { IProductRepository } from '../../domain/repositories/IProductRepository';
+import { getAuthenticatedIdentity } from '@/modules/auth/application/services/getAuthenticatedIdentity';
 
 export class SupabaseProductRepository implements IProductRepository {
-    private async resolveTenantId(tenantId: string): Promise<string> {
-        if (tenantId !== '00000000-0000-0000-0000-000000000000') return tenantId;
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return tenantId;
-        const { data } = await supabase.from('user_roles').select('organization_id').eq('user_id', user.id).limit(1).maybeSingle();
-        return data?.organization_id || tenantId;
+    private async resolveTenantId(_untrustedTenantId: string): Promise<string> {
+        return (await getAuthenticatedIdentity()).organizationId;
     }
 
     private async resolveCategoryId(actualTenant: string): Promise<string> {

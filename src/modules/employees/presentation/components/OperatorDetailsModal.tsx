@@ -10,6 +10,7 @@ interface OperatorDetailsModalProps {
   onDelete: () => void;
   onResendInvite?: () => void;
   segmentsList?: any[];
+  canManage?: boolean;
 }
 
 const STATUS_CONFIG: Record<OperatorStatus, { label: string; badge: string; dot: string }> = {
@@ -50,7 +51,7 @@ function PerfilBadge({ perfil }: { perfil: OperatorPerfil }) {
   );
 }
 
-export function OperatorDetailsModal({ operator, onClose, onEdit, onInactivate, onReactivate, onDelete, onResendInvite, segmentsList = [] }: OperatorDetailsModalProps) {
+export function OperatorDetailsModal({ operator, onClose, onEdit, onInactivate, onReactivate, onDelete, onResendInvite, segmentsList = [], canManage = false }: OperatorDetailsModalProps) {
   const isApp = operator.cargo?.includes('[APP]');
   const accessType = isApp ? 'Campo' : 'Desktop';
   // Remove special tags from cargo if we want to display the real cargo, but user said "Cargo continua existindo, mas deve aparecer no detalhe".
@@ -146,7 +147,7 @@ export function OperatorDetailsModal({ operator, onClose, onEdit, onInactivate, 
         </div>
 
         {/* Footer Actions */}
-        <div className="p-4 border-t border-slate-100 bg-slate-50 flex items-center gap-3">
+        {canManage && <div className="p-4 border-t border-slate-100 bg-slate-50 flex items-center gap-3">
           {operator.status === 'pendente' ? (
             <>
               <button onClick={onDelete} className="px-4 py-2 text-xs font-bold text-red-600 hover:bg-red-50 rounded-lg transition-colors mr-auto border border-transparent hover:border-red-200">
@@ -188,7 +189,7 @@ export function OperatorDetailsModal({ operator, onClose, onEdit, onInactivate, 
               )}
             </>
           )}
-        </div>
+        </div>}
 
       </div>
     </div>

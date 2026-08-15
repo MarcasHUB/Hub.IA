@@ -5,11 +5,13 @@ import { Label } from '@/shared/components/ui/Label';
 import { useNavigate } from 'react-router-dom';
 import { SupabaseSupplierRepository } from '../../infrastructure/repositories/SupabaseSupplierRepository';
 import { Supplier } from '../../domain/entities/Supplier';
+import { useAuthenticatedIdentity } from '@/modules/auth/presentation/hooks/useAuthenticatedIdentity';
 
 const repo = new SupabaseSupplierRepository();
-const tenantId = '00000000-0000-0000-0000-000000000000';
 
 export default function SupplierFormPage() {
+  const { data: identity } = useAuthenticatedIdentity();
+  const tenantId = identity?.organizationId || '';
   const navigate = useNavigate();
 
   // Estados locais

@@ -8,8 +8,9 @@ import { Card, CardContent } from '@/shared/components/ui/Card';
 import { Input } from '@/shared/components/ui/Input';
 import { Button } from '@/shared/components/ui/Button';
 import { SupabaseLogRepository } from '../../infrastructure/repositories/SupabaseLogRepository';
+import { useAuthenticatedIdentity } from '@/modules/auth/presentation/hooks/useAuthenticatedIdentity';
 
-export default function AccessLogsPage({ organizationId }: { organizationId?: string }) {
+export default function AccessLogsPage() {
   const [activeTab, setActiveTab] = useState<'acesso' | 'operacao'>('acesso');
 
   // Filtros
@@ -22,11 +23,13 @@ export default function AccessLogsPage({ organizationId }: { organizationId?: st
   const [selectedLog, setSelectedLog] = useState<any>(null);
 
   const logRepo = new SupabaseLogRepository();
-  const orgId = organizationId || localStorage.getItem('supplyhub_organization_id') || '00000000-0000-0000-0000-000000000000';
+  const { data: identity } = useAuthenticatedIdentity();
+  const orgId = identity?.organizationId || '';
 
   const { data: logsData, isLoading: loading } = useQuery({
     queryKey: ['logs', orgId],
     queryFn: () => logRepo.listLogs(orgId),
+    enabled: Boolean(orgId),
   });
 
   const accessLogs = logsData?.accessLogs || [];

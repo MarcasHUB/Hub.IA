@@ -34,6 +34,7 @@ interface Partner {
 
 import { chatRepository, ChatConversation, ChatMessage } from '../../infrastructure/repositories/SupabaseChatRepository';
 import { supabase } from '@/infrastructure/supabase/client';
+import { useAuthenticatedIdentity } from '@/modules/auth/presentation/hooks/useAuthenticatedIdentity';
 
 // Carrega parceiros e mensagens do localStorage dinamicamente
 const getPartnersMap = (): Record<string, Partner> => {
@@ -55,6 +56,7 @@ const getPartnersMap = (): Record<string, Partner> => {
 };
 
 export function ChatDrawer() {
+  const { data: identity } = useAuthenticatedIdentity();
   const { isChatOpen, activePartnerId, activePartnerData, activeConversationId, viewMode, openChat, backToInbox, closeChat, conversations, unlockAudio } = useChatDrawer();
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -64,7 +66,7 @@ export function ChatDrawer() {
   const [isQuotationModalOpen, setIsQuotationModalOpen] = useState(false);
   const [showPartnerSelector, setShowPartnerSelector] = useState(false);
   const [userId, setUserId] = useState<string | undefined>(undefined);
-  const activeOrgId = localStorage.getItem('supplyhub_organization_id');
+  const activeOrgId = identity?.organizationId || null;
 
   const [soundEnabled, setSoundEnabled] = useState(localStorage.getItem('hubia_chat_sound_enabled') !== 'false');
   const [previewImage, setPreviewImage] = useState<string | null>(null);
@@ -163,7 +165,7 @@ export function ChatDrawer() {
     if (!text) return;
 
     // Check if it's the platform org
-    if (activeOrgId === '00000000-0000-0000-0000-000000000000' || (localStorage.getItem('supplyhub_company_name') || '').toLowerCase().includes('hub.ia')) {
+    if (identity?.isPlatformAdmin) {
       setComplianceError('Selecione uma empresa para atuar comercialmente.');
       return;
     }

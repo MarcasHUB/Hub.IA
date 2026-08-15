@@ -1,96 +1,45 @@
-import { supabase } from '../../../../infrastructure/supabase/client';
+import { getAuthenticatedIdentity } from '@/modules/auth/application/services/getAuthenticatedIdentity';
 import { OrganizationConnection } from '../../domain/entities/OrganizationConnection';
 import { IOrganizationConnectionRepository } from '../../domain/repositories/IOrganizationConnectionRepository';
+import { SupabasePartnerConnectionRepository } from './SupabasePartnerConnectionRepository';
 
 export class SupabaseOrganizationConnectionRepository implements IOrganizationConnectionRepository {
-    
-    private async resolveTenantId(tenantId: string): Promise<string> {
-        if (tenantId !== '00000000-0000-0000-0000-000000000000') return tenantId;
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return tenantId;
-        const { data } = await supabase.from('user_roles').select('organization_id').eq('user_id', user.id).limit(1).maybeSingle();
-        return data?.organization_id || tenantId;
+  private readonly partners = new SupabasePartnerConnectionRepository();
+
+  async save(connection: OrganizationConnection): Promise<void> {
+    if (connection.status !== 'Inativo') {
+      throw new Error('CONNECTION_STATUS_MUST_CHANGE_THROUGH_APPROVAL_RPC');
     }
 
-    async save(connection: OrganizationConnection): Promise<void> {
-        const actualRequester = await this.resolveTenantId(connection.buyerOrganizationId);
-        
-        let mappedStatus = 'pending';
-        if (connection.status === 'Ativo') mappedStatus = 'accepted';
-        else if (connection.status === 'Inativo' || connection.status === 'Bloqueado') mappedStatus = 'rejected';
+    const identity = await getAuthenticatedIdentity();
+    const targetId = connection.buyerOrganizationId === identity.organizationId
+      ? connection.supplierOrganizationId
+      : connection.buyerOrganizationId;
+    await this.partners.request(targetId, connection.notes || undefined);
+  }
 
-        const payload = {
-            id: connection.id,
-            requester_org_id: actualRequester,
-            target_org_id: connection.supplierOrganizationId,
-            status: mappedStatus,
-            message: connection.notes || '',
-            updated_at: new Date().toISOString()
-        };
+  async findByOrganization(_organizationId: string): Promise<OrganizationConnection[]> {
+    const identity = await getAuthenticatedIdentity();
+    const rows = await this.partners.list();
 
-        const { error } = await supabase
-            .from('connection_requests')
-            .upsert(payload, { onConflict: 'id' });
+    return rows.map((row) => {
+      const buyerId = row.direction === 'sent' ? identity.organizationId : row.partner_organization_id;
+      const supplierId = row.direction === 'sent' ? row.partner_organization_id : identity.organizationId;
+      return new OrganizationConnection(
+        row.connection_id,
+        buyerId,
+        supplierId,
+        row.connection_status === 'accepted' ? 'Ativo' : 'Inativo',
+        'network',
+        new Date(row.connected_at),
+        '',
+        row.message,
+        new Date(row.connected_at),
+      );
+    });
+  }
 
-        if (error) {
-            console.error('Supabase save connection error:', error);
-            throw error;
-        }
-    }
-
-    async findByOrganization(orgId: string): Promise<OrganizationConnection[]> {
-        const actualOrgId = await this.resolveTenantId(orgId);
-        const { data, error } = await supabase
-            .from('connection_requests')
-            .select('*')
-            .or(`requester_org_id.eq.${actualOrgId},target_org_id.eq.${actualOrgId}`);
-            
-        if (error || !data) return [];
-
-        return data.map(row => {
-            let mappedStatus: 'Ativo' | 'Inativo' | 'Bloqueado' = 'Inativo';
-            if (row.status === 'accepted') mappedStatus = 'Ativo';
-            
-            return new OrganizationConnection(
-                row.id,
-                row.requester_org_id,
-                row.target_org_id,
-                mappedStatus,
-                'network',
-                new Date(row.updated_at),
-                '', // approvedBy mocked for now
-                row.message,
-                new Date(row.created_at)
-            );
-        });
-    }
-
-    async acceptInvite(id: string): Promise<void> {
-        const { error } = await supabase
-            .from('invitations')
-            .update({ status: 'aceito', updated_at: new Date().toISOString() })
-            .eq('id', id);
-        if (error) throw error;
-    }
-
-    async rejectInvite(id: string): Promise<void> {
-        const { error } = await supabase
-            .from('invitations')
-            .update({ status: 'recusado', updated_at: new Date().toISOString() })
-            .eq('id', id);
-        if (error) throw error;
-    }
-
-    async cancelInvite(id: string): Promise<void> {
-        const { error } = await supabase
-            .from('invitations')
-            .update({ status: 'cancelado', updated_at: new Date().toISOString() })
-            .eq('id', id);
-        if (error) throw error;
-    }
-
-    async createConnection(data: any): Promise<void> {
-        // Implementação mockada apenas para satisfazer a interface da Fase 3
-        console.log('Criar conexão com:', data);
-    }
+  async createConnection(data: { targetOrganizationId: string; message?: string }): Promise<void> {
+    await this.partners.request(data.targetOrganizationId, data.message);
+  }
 }

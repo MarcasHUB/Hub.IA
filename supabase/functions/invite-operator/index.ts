@@ -1,228 +1,137 @@
-// ============================================================
-// SupplyHub.IA — Edge Function: invite-operator
-// ============================================================
-
-import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createClient } from 'npm:@supabase/supabase-js@2.110.2';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
-serve(async (req: Request) => {
-  // CORS Preflight
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
-  }
+const json = (body: unknown, status = 200) =>
+  new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
+
+const sha256 = async (value: string) => {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value));
+  return Array.from(new Uint8Array(digest))
+    .map((byte) => byte.toString(16).padStart(2, '0'))
+    .join('');
+};
+
+const generateToken = () => {
+  const bytes = new Uint8Array(32);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes)
+    .map((byte) => byte.toString(16).padStart(2, '0'))
+    .join('');
+};
+
+Deno.serve(async (req: Request) => {
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
+  if (req.method !== 'POST') return json({ error: 'METHOD_NOT_ALLOWED' }, 405);
+
+  const supabaseUrl = Deno.env.get('SUPABASE_URL');
+  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  if (!supabaseUrl || !serviceRoleKey) return json({ error: 'SERVER_NOT_CONFIGURED' }, 500);
+
+  const authorization = req.headers.get('Authorization') ?? '';
+  const accessToken = authorization.replace(/^Bearer\s+/i, '').trim();
+  if (!accessToken) return json({ error: 'AUTH_REQUIRED' }, 401);
+
+  const admin = createClient(supabaseUrl, serviceRoleKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+
+  const { data: callerData, error: callerError } = await admin.auth.getUser(accessToken);
+  if (callerError || !callerData.user) return json({ error: 'AUTH_INVALID' }, 401);
 
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
-    const supabaseServiceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
-    const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
-
     const body = await req.json();
-    const { email, nome, sobrenome, cargo, perfil, category_ids, invited_by_id, organization_id, todas_categorias } = body;
+    const action = body.action === 'resend' ? 'resend' : 'invite';
+    const email = String(body.email ?? '').trim().toLowerCase();
+    if (!email) return json({ error: 'OPERATOR_EMAIL_REQUIRED' }, 400);
 
-    if (!email || !nome || !perfil || !organization_id) {
-      return new Response(
-        JSON.stringify({ error: 'Os campos email, nome, perfil e organization_id são obrigatórios.' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    const rawToken = generateToken();
+    const tokenHash = await sha256(rawToken);
+    const expiresAt = new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString();
+
+    if (action === 'resend') {
+      const { error } = await admin.rpc('rotate_operator_invitation_token', {
+        p_caller_id: callerData.user.id,
+        p_email: email,
+        p_token_hash: tokenHash,
+        p_expires_at: expiresAt,
+      });
+
+      if (error) return json({ error: 'OPERATOR_INVITE_UNAVAILABLE' }, 400);
+      return json({ success: true, message: 'Convite renovado.', token: rawToken, expires_at: expiresAt });
     }
 
-    // 1. Gerar token seguro para rastreabilidade
-    const rawTokenBytes = new Uint8Array(32);
-    crypto.getRandomValues(rawTokenBytes);
-    const rawToken = Array.from(rawTokenBytes).map(b => b.toString(16).padStart(2, '0')).join('');
-    
-    const tokenData = new TextEncoder().encode(rawToken);
-    const tokenDigest = await crypto.subtle.digest('SHA-256', tokenData);
-    const tokenHash = Array.from(new Uint8Array(tokenDigest)).map(b => b.toString(16).padStart(2, '0')).join('');
+    const nome = String(body.nome ?? '').trim();
+    const sobrenome = String(body.sobrenome ?? '').trim();
+    const perfil = String(body.perfil ?? '').trim();
+    const allowedProfiles = new Set(['administrador', 'gestor', 'comprador', 'solicitante', 'auditor']);
 
-    const origin = req.headers.get('origin') || 'http://localhost:5173';
-    // O link envia o token bruto
-    const redirectUrl = `${origin}/aceitar-convite?token=${rawToken}`;
+    if (!nome || !allowedProfiles.has(perfil)) {
+      return json({ error: 'OPERATOR_INVITE_INVALID' }, 400);
+    }
 
-    // 2. Verificar se o operador já existe globalmente pelo e-mail
-    const { data: globalOp } = await supabase
-      .from('operators')
-      .select('id, organization_id, status, deleted_at')
-      .ilike('email', email.trim())
-      .limit(1)
-      .maybeSingle();
+    const { data: resolvedUserId, error: resolutionError } = await admin.rpc(
+      'resolve_operator_invitation_identity',
+      { p_caller_id: callerData.user.id, p_email: email },
+    );
+    if (resolutionError) return json({ error: 'OPERATOR_INVITE_UNAVAILABLE' }, 400);
 
-    let userId = '';
+    let userId = resolvedUserId ?? null;
+    let createdUserId: string | null = null;
 
-    if (globalOp) {
-      if (globalOp.status === 'ativo' && globalOp.deleted_at === null) {
-        if (globalOp.organization_id === organization_id) {
-          return new Response(JSON.stringify({ error: 'Este usuário já é colaborador ativo desta empresa.', code: 'ALREADY_ACTIVE_SAME_ORG' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-        } else {
-          return new Response(JSON.stringify({ error: 'Este e-mail já está vinculado a outra empresa na plataforma.', code: 'ALREADY_ACTIVE_OTHER_ORG' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-        }
-      }
-
-      // Se não for ativo ou estiver deletado, permite reutilizar o ID, 
-      // mas precisamos garantir que o organization_id seja atualizado na reativação
-      userId = globalOp.id;
-      
-      const { error: updateOpError } = await supabase
-        .from('operators')
-        .update({
-          organization_id, // Atualiza para a org do novo convite (caso estivesse em outra e deletado)
-          nome,
-          sobrenome,
-          cargo,
-          perfil,
-          status: 'pendente',
-          telefone: body.telefone || null,
-          todas_categorias: todas_categorias || false,
-          deleted_at: null,
-          invited_at: new Date().toISOString(),
-          gestor_id: invited_by_id || null
-        })
-        .eq('id', userId);
-        
-      if (updateOpError) throw updateOpError;
-    } else {
-      // Operador não existe nesta org. Tentar criar no Supabase Auth.
-      const { data: inviteData, error: inviteError } = await supabase.auth.admin.createUser({
+    if (!userId) {
+      const { data: created, error: createError } = await admin.auth.admin.createUser({
         email,
+        password: crypto.randomUUID() + crypto.randomUUID(),
         email_confirm: false,
-        password: crypto.randomUUID(),
-        user_metadata: {
-          nome,
-          sobrenome,
-          cargo,
-          perfil,
-          organization_id,
-          invite_token: tokenHash, // save hash in metadata just in case
-        }
+        user_metadata: { full_name: `${nome} ${sobrenome}`.trim() },
       });
 
-      if (inviteError) {
-        // Se der "User already registered", o usuário existe no Auth mas não na org local.
-        // Tenta buscar o ID dele caso ele exista em outra org.
-        const { data: globalOp } = await supabase.from('operators').select('id').eq('email', email).limit(1).maybeSingle();
-        if (globalOp) {
-          userId = globalOp.id;
-        } else {
-          // Fallback: se não achar de jeito nenhum, repassa o erro do Auth.
-          throw inviteError;
-        }
-      } else {
-        userId = inviteData.user.id;
+      if (createError || !created.user) {
+        return json({ error: 'OPERATOR_INVITE_UNAVAILABLE' }, 400);
       }
 
-      // 4. Criar o operador com status 'pendente' na tabela operators
-      const { error: operatorRecordError } = await supabase
-        .from('operators')
-        .insert({
-          id: userId,
-          organization_id,
-          nome,
-          sobrenome,
-          email,
-          telefone: body.telefone || null,
-          cargo,
-          perfil,
-          status: 'pendente',
-          todas_categorias: todas_categorias || false,
-          gestor_id: invited_by_id || null,
-          invited_at: new Date().toISOString(),
-        });
-
-      if (operatorRecordError && !operatorRecordError.message.includes('duplicate key')) {
-        throw operatorRecordError;
-      }
+      userId = created.user.id;
+      createdUserId = created.user.id;
     }
 
-    // 3. Resolver category_ids (se o frontend enviar array de strings/nomes em vez de UUIDs)
-    let resolvedCategoryIds = category_ids || [];
-    if (resolvedCategoryIds.length > 0 && !resolvedCategoryIds[0].match(/^[0-9a-f]{8}-/i)) {
-      const { data: foundCategories } = await supabase
-        .from('categories')
-        .select('id')
-        .eq('tenant_id', organization_id)
-        .in('name', resolvedCategoryIds);
-      
-      if (foundCategories) {
-        resolvedCategoryIds = foundCategories.map((s: any) => s.id);
-      } else {
-        resolvedCategoryIds = [];
-      }
-    }
-
-    // 4. Registrar o convite em operator_invitations para auditoria e controle
-    const { error: inviteRecordError } = await supabase
-      .from('operator_invitations')
-      .insert({
-        organization_id,
-        invited_by_id: invited_by_id || null,
-        email,
-        nome: `${nome} ${sobrenome}`.trim(),
-        cargo,
-        perfil,
-        token: tokenHash, // We store the hash in the DB, despite the column name 'token'
-        status: 'pendente',
-        todas_categorias: todas_categorias || false,
-        category_ids: resolvedCategoryIds,
-        sent_at: new Date().toISOString(),
-        expires_at: new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString(), // 72 horas
-      });
-
-    if (inviteRecordError) {
-      throw inviteRecordError;
-    }
-
-    // 5. Vincular as categorias na tabela de junção se fornecidos
-    if (resolvedCategoryIds && resolvedCategoryIds.length > 0) {
-      const catRecords = resolvedCategoryIds.map((catId: string) => ({
-        operator_id: userId,
-        category_id: catId,
-      }));
-      await supabase.from('operator_categories').insert(catRecords);
-    }
-
-    // 6. Registrar log operacional do envio de convite
-    await supabase.from('operation_logs').insert({
-      operator_id: invited_by_id || null,
-      organization_id,
-      entidade: 'operator_invitation',
-      acao: 'convidou',
-      payload_depois: { email, nome, perfil, token }
+    const { error: invitationError } = await admin.rpc('create_operator_invitation_transactional', {
+      p_caller_id: callerData.user.id,
+      p_user_id: userId,
+      p_email: email,
+      p_nome: nome,
+      p_sobrenome: sobrenome,
+      p_telefone: body.telefone || null,
+      p_cargo: body.cargo || null,
+      p_perfil: perfil,
+      p_gestor_id: body.gestor_id || null,
+      p_category_ids: Array.isArray(body.category_ids) ? body.category_ids : [],
+      p_todas_categorias: Boolean(body.todas_categorias),
+      p_token_hash: tokenHash,
+      p_expires_at: expiresAt,
     });
 
-    // 7. Gerar sinal Hub.IA de convite pendente se desejado
-    await supabase.from('hubia_signals').insert({
-      organization_id,
-      tipo_sinal: 'convite_pendente',
-      descricao: `O convite para o operador ${nome} está pendente.`,
-      dados: { email, token }
+    if (invitationError) {
+      if (createdUserId) await admin.auth.admin.deleteUser(createdUserId);
+      return json({ error: 'OPERATOR_INVITE_UNAVAILABLE' }, 400);
+    }
+
+    return json({
+      success: true,
+      message: 'Convite processado com sucesso.',
+      user: { id: userId, email },
+      token: rawToken,
+      expires_at: expiresAt,
     });
-
-    const expires_at = new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString();
-
-    return new Response(
-      JSON.stringify({ 
-        success: true, 
-        message: 'Convite processado com sucesso.', 
-        user: { id: userId, email },
-        token,
-        expires_at
-      }),
-      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
-
   } catch (error) {
-    console.error('[invite-operator] Erro:', error);
-    return new Response(
-      JSON.stringify({ 
-        error: error instanceof Error ? error.message : (error.message || String(error)), 
-        details: error 
-      }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    console.error('[invite-operator] request_failed', error instanceof Error ? error.message : 'UNKNOWN');
+    return json({ error: 'OPERATOR_INVITE_INTERNAL_ERROR' }, 500);
   }
 });

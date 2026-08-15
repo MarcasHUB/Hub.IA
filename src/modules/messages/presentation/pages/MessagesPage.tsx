@@ -5,6 +5,7 @@ import { supabase } from '@/infrastructure/supabase/client';
 import { useChatDrawer } from '../context/ChatDrawerContext';
 import { Input } from '@/shared/components/ui/Input';
 import { cn } from '@/shared/utils/cn';
+import { useAuthenticatedIdentity } from '@/modules/auth/presentation/hooks/useAuthenticatedIdentity';
 
 interface Conversation {
   id: string;
@@ -20,9 +21,10 @@ interface Conversation {
 }
 
 export default function MessagesPage() {
+  const { data: identity } = useAuthenticatedIdentity();
   const navigate = useNavigate();
   const { openChat } = useChatDrawer();
-  const activeOrgId = localStorage.getItem('supplyhub_organization_id');
+  const activeOrgId = identity?.organizationId || null;
 
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);

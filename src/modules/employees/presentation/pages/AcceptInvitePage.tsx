@@ -6,6 +6,7 @@ import { Input } from '@/shared/components/ui/Input';
 import { Card, CardContent } from '@/shared/components/ui/Card';
 import { SupabaseOperatorRepository } from '../../infrastructure/repositories/SupabaseOperatorRepository';
 import { Invitation } from '../../domain/entities/Invitation';
+import { extractInviteToken } from '@/shared/utils/inviteToken';
 
 export default function AcceptInvitePage() {
   const [searchParams] = useSearchParams();
@@ -16,30 +17,7 @@ export default function AcceptInvitePage() {
   const [errorMsg, setErrorMsg] = useState('');
   const [errorTitle, setErrorTitle] = useState('');
 
-  // Função para extrair o token puro de várias fontes usando Regex de UUID
-  const extractToken = (input: string | null): string | null => {
-    if (!input) return null;
-    let str = input.trim();
-    
-    try {
-      // Decodifica caso o usuário tenha colado um Safe Link URL Encoded
-      str = decodeURIComponent(str);
-    } catch (e) {
-      // ignora erros de decodificação
-    }
-    
-    // Procura diretamente qualquer UUID no texto inteiro
-    const uuidRegex = /[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/;
-    const match = str.match(uuidRegex);
-    
-    if (match) {
-      return match[0].toLowerCase();
-    }
-    
-    return null;
-  };
-
-  const [activeToken, setActiveToken] = useState<string | null>(extractToken(searchParams.get('token') || ''));
+  const [activeToken, setActiveToken] = useState<string | null>(extractInviteToken(searchParams.get('token') || ''));
   const [manualInput, setManualInput] = useState('');
 
   const [password, setPassword] = useState('');
@@ -90,7 +68,7 @@ export default function AcceptInvitePage() {
 
   const handleManualSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const token = extractToken(manualInput);
+    const token = extractInviteToken(manualInput);
     if (token) {
       setActiveToken(token);
     } else {
@@ -103,8 +81,8 @@ export default function AcceptInvitePage() {
     e.preventDefault();
     if (!activeToken || !invitation) return;
 
-    if (password.length < 6) {
-      setErrorMsg('A senha deve conter no mínimo 6 caracteres.');
+    if (password.length < 8) {
+      setErrorMsg('A senha deve conter no mínimo 8 caracteres.');
       return;
     }
 
@@ -117,14 +95,9 @@ export default function AcceptInvitePage() {
     setErrorMsg('');
 
     try {
-      // Obter IP/UserAgent aproximados do client
-      const ua = navigator.userAgent;
-      
       const res = await repo.acceptInvite({
         token: activeToken,
         password,
-        ip: '127.0.0.1', // Simplificado para simulação local
-        user_agent: ua,
       });
 
       if (res.success) {
@@ -289,7 +262,7 @@ export default function AcceptInvitePage() {
                         type={showPassword ? 'text' : 'password'}
                         value={password}
                         onChange={e => setPassword(e.target.value)}
-                        placeholder="Mínimo 6 caracteres"
+                        placeholder="Mínimo 8 caracteres"
                         className="h-10 text-sm bg-slate-800/30 border-slate-700 text-white pl-3 pr-10"
                       />
                       <button

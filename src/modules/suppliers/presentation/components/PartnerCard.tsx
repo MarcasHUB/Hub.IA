@@ -33,6 +33,8 @@ export interface Partner {
   certifications?: string;
   score_hubia?: number;
   isInactive?: boolean;
+  canReviewInternal?: boolean;
+  canRespond?: boolean;
 }
 
 const GRADIENTS: Record<string, string> = {
@@ -239,7 +241,7 @@ export function PartnerCard({
 
         {partner.status === 'pending_received' && (
           <Badge variant="secondary" className="text-[10px] bg-blue-50 text-blue-700 border-blue-200 self-start">
-            Aguardando sua resposta
+            {partner.canReviewInternal ? 'Aprovação interna necessária' : 'Aguardando sua resposta'}
           </Badge>
         )}
         {partner.status === 'pending_sent' && (
@@ -272,10 +274,10 @@ export function PartnerCard({
         )}
         {partner.status === 'pending_received' && (
           <div className="flex gap-2">
-            <Button disabled={partner.isInactive} size="sm" onClick={() => onAccept(partner.id)} className="flex-1 bg-green-600 hover:bg-green-700 text-white text-xs h-8">
+            <Button disabled={partner.isInactive} size="sm" onClick={() => onAccept(partner.connectionId || partner.id)} className="flex-1 bg-green-600 hover:bg-green-700 text-white text-xs h-8">
               <CheckCircle2 className="h-3.5 w-3.5 mr-1" />Aceitar
             </Button>
-            <Button size="sm" variant="outline" onClick={() => onReject(partner.id)} className="flex-1 border-red-300 text-red-600 hover:bg-red-50 text-xs h-8">
+            <Button size="sm" variant="outline" onClick={() => onReject(partner.connectionId || partner.id)} className="flex-1 border-red-300 text-red-600 hover:bg-red-50 text-xs h-8">
               <XCircle className="h-3.5 w-3.5 mr-1" />Recusar
             </Button>
           </div>
@@ -285,7 +287,7 @@ export function PartnerCard({
             <Button size="sm" onClick={() => onEdit?.(partner)} className="flex-1 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border-indigo-200 text-xs h-8">
               Editar Convite
             </Button>
-            <Button size="sm" variant="outline" onClick={() => onCancel(partner.id)} className="flex-1 border-red-300 text-red-600 hover:bg-red-50 text-xs h-8">
+            <Button size="sm" variant="outline" onClick={() => onCancel(partner.connectionId || partner.id)} className="flex-1 border-red-300 text-red-600 hover:bg-red-50 text-xs h-8">
               Cancelar Convite
             </Button>
           </div>

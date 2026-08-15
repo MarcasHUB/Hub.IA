@@ -21,6 +21,7 @@ import { EditOperatorModal } from '../components/EditOperatorModal';
 import { OperatorDetailsModal } from '../components/OperatorDetailsModal';
 
 import { supabase } from '@/infrastructure/supabase/client';
+import { useAuthenticatedIdentity } from '@/modules/auth/presentation/hooks/useAuthenticatedIdentity';
 
 // ─── Badges ───────────────────────────────────────────────────────────────────
 const STATUS_CONFIG: Record<OperatorStatus, { label: string; dot: string; badge: string }> = {
@@ -64,7 +65,7 @@ function PerfilBadge({ perfil }: { perfil: OperatorPerfil }) {
 
 // ─── Modal de Convite ─────────────────────────────────────────────────────────
 
-function InviteModal({ onClose, onInvite, operators, organizationId }: { onClose: () => void; onInvite: (op: Operator) => void, operators: Operator[], organizationId?: string }) {
+function InviteModal({ onClose, onInvite, operators, organizationId }: { onClose: () => void; onInvite: (op: Operator) => void, operators: Operator[], organizationId: string }) {
   const [form, setForm] = useState({
     nome: '', sobrenome: '', email: '', telefone: '',
     macroProfile: 'Comprador' as MacroProfile,
@@ -81,7 +82,7 @@ function InviteModal({ onClose, onInvite, operators, organizationId }: { onClose
   const [copiedEmail, setCopiedEmail] = useState(false);
   const [categorySearch, setCategorySearch] = useState('');
 
-  const orgId = organizationId || localStorage.getItem('supplyhub_organization_id') || '00000000-0000-0000-0000-000000000000';
+  const orgId = organizationId;
   
   const { data: categories = [] } = useQuery({
     queryKey: ['categories', orgId],
@@ -97,9 +98,6 @@ function InviteModal({ onClose, onInvite, operators, organizationId }: { onClose
     setErrorMsg('');
     try {
       const repo = new SupabaseOperatorRepository();
-      const orgId = organizationId || localStorage.getItem('supplyhub_organization_id') || '00000000-0000-0000-0000-000000000000';
-      const loggedOperator = JSON.parse(localStorage.getItem('supplyhub_logged_operator') || '{}');
-
       const mapInfo = MACRO_PROFILES[form.macroProfile];
 
       const res = await repo.inviteOperator({
@@ -112,8 +110,6 @@ function InviteModal({ onClose, onInvite, operators, organizationId }: { onClose
         gestor_id: form.gestor_id || undefined,
         category_ids: inviteForm.todas_categorias ? [] : inviteForm.category_ids,
         todas_categorias: inviteForm.todas_categorias,
-        invited_by_id: loggedOperator.id || undefined,
-        organization_id: orgId,
       });
 
       if (res.success && res.token) {
@@ -473,38 +469,28 @@ function InviteModal({ onClose, onInvite, operators, organizationId }: { onClose
 }
 
 // ─── OperatorsPage ────────────────────────────────────────────────────────────
-export default function OperatorsPage({ organizationId }: { organizationId?: string }) {
+export default function OperatorsPage() {
   const queryClient = useQueryClient();
-  const orgId = organizationId || localStorage.getItem('supplyhub_organization_id') || '00000000-0000-0000-0000-000000000000';
-  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
-  const [remoteLoggedOperator, setRemoteLoggedOperator] = useState<Operator | null>(null);
+  const { data: identity } = useAuthenticatedIdentity();
+  const orgId = identity?.organizationId || '';
+  const isSuperAdmin = false;
+  const canManageOperators = identity?.operatorProfile === 'administrador';
+  const remoteLoggedOperator = identity ? ({
+    id: identity.userId,
+    organization_id: identity.organizationId,
+    perfil: identity.operatorProfile,
+    status: 'ativo',
+  } as Operator) : null;
   const [operatorToDelete, setOperatorToDelete] = useState<Operator | null>(null);
   const [deleteConfirmationText, setDeleteConfirmationText] = useState('');
-
-  useEffect(() => {
-    async function checkPermissions() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-      
-      // Fetch is_super_admin from remote
-      const { data: profile } = await supabase.from('profiles').select('is_super_admin').eq('user_id', user.id).maybeSingle();
-      if (profile?.is_super_admin) {
-        setIsSuperAdmin(true);
-      }
-      
-      // Fetch operator remote details
-      const { data: opData } = await supabase.from('operators').select('*').eq('id', user.id).maybeSingle();
-      if (opData) setRemoteLoggedOperator(opData as unknown as Operator);
-    }
-    checkPermissions();
-  }, []);
 
   const { data: operators = [], isLoading: isLoadingOps } = useQuery({
     queryKey: ['operators', orgId],
     queryFn: async () => {
       const repo = new SupabaseOperatorRepository();
-      return repo.listOperators(orgId);
-    }
+      return repo.listOperators();
+    },
+    enabled: Boolean(orgId),
   });
 
   const { data: categories = [] } = useQuery({
@@ -512,7 +498,8 @@ export default function OperatorsPage({ organizationId }: { organizationId?: str
     queryFn: async () => {
       const repo = new SupabaseCategoryRepository();
       return repo.findAll(orgId);
-    }
+    },
+    enabled: Boolean(orgId),
   });
 
   const { data: delegations = [] } = useQuery({
@@ -520,7 +507,8 @@ export default function OperatorsPage({ organizationId }: { organizationId?: str
     queryFn: async () => {
       const delRepo = new SupabaseDelegationRepository();
       return delRepo.listDelegations(orgId);
-    }
+    },
+    enabled: Boolean(orgId),
   });
 
   const [showInvite, setShowInvite] = useState(false);
@@ -574,11 +562,7 @@ export default function OperatorsPage({ organizationId }: { organizationId?: str
     setActiveMenu(null);
     try {
       const repo = new SupabaseOperatorRepository();
-      const invitation = await repo.getInvitationByEmail(op.email);
-      if (!invitation) {
-        alert("Nenhum convite pendente encontrado para este operador.");
-        return;
-      }
+      const invitation = await repo.resendInvite(op.email);
       const baseUrl = window.location.origin;
       const inviteUrl = `${baseUrl}/aceitar-convite?token=${invitation.token}`;
       await navigator.clipboard.writeText(inviteUrl);
@@ -593,13 +577,7 @@ export default function OperatorsPage({ organizationId }: { organizationId?: str
     setActiveMenu(null);
     try {
       const repo = new SupabaseOperatorRepository();
-      await repo.resendInvite(op.email);
-      
-      const invitation = await repo.getInvitationByEmail(op.email);
-      if (!invitation) {
-        alert("Nenhum convite pendente encontrado para este operador.");
-        return;
-      }
+      const invitation = await repo.resendInvite(op.email);
       
       const { EmailService } = await import('@/shared/utils/EmailService');
       const emailRes = await EmailService.sendTransactionalEmail('operator_invite', invitation.token);
@@ -753,8 +731,8 @@ export default function OperatorsPage({ organizationId }: { organizationId?: str
 
   return (
     <div className="space-y-6 font-sans">
-      {showInvite && <InviteModal onClose={() => setShowInvite(false)} onInvite={handleInvite} operators={operators} organizationId={orgId} />}
-      {editingOperator && (
+      {canManageOperators && showInvite && <InviteModal onClose={() => setShowInvite(false)} onInvite={handleInvite} operators={operators} organizationId={orgId} />}
+      {canManageOperators && editingOperator && (
         <EditOperatorModal 
           operator={editingOperator} 
           orgId={orgId} 
@@ -788,6 +766,7 @@ export default function OperatorsPage({ organizationId }: { organizationId?: str
             setDetailsOperator(null);
           }}
           onResendInvite={detailsOperator.status === 'pendente' ? () => handleResendInvite(detailsOperator) : undefined}
+          canManage={canManageOperators}
         />
       )}
 
@@ -843,12 +822,14 @@ export default function OperatorsPage({ organizationId }: { organizationId?: str
                 className="pl-10 h-10 text-sm"
               />
             </div>
-            <Button
-              onClick={() => setShowInvite(true)}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white h-10 px-5 text-sm font-bold flex items-center gap-2 shrink-0 w-full sm:w-auto rounded-xl"
-            >
-              <UserPlus className="h-4 w-4" /> Convidar Operador
-            </Button>
+            {canManageOperators && (
+              <Button
+                onClick={() => setShowInvite(true)}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white h-10 px-5 text-sm font-bold flex items-center gap-2 shrink-0 w-full sm:w-auto rounded-xl"
+              >
+                <UserPlus className="h-4 w-4" /> Convidar Operador
+              </Button>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -864,10 +845,10 @@ export default function OperatorsPage({ organizationId }: { organizationId?: str
                 title={resolveOperatorName(op)}
                 subtitle={op.email}
                 status="pendente"
-                onCopyLink={() => handleCopyLink(op)}
-                onCancel={() => handleCancelInvite(op)}
-                onClick={() => setEditingOperator(op)}
-                onEdit={() => setEditingOperator(op)}
+                onCopyLink={canManageOperators ? () => handleCopyLink(op) : undefined}
+                onCancel={canManageOperators ? () => handleCancelInvite(op) : undefined}
+                onClick={() => canManageOperators ? setEditingOperator(op) : setDetailsOperator(op)}
+                onEdit={canManageOperators ? () => setEditingOperator(op) : undefined}
               />
             ))}
           </div>
@@ -975,7 +956,7 @@ export default function OperatorsPage({ organizationId }: { organizationId?: str
                           : op.status === 'pendente' ? 'Aguardando aceite' : '—'}
                       </td>
                       <td className="px-6 py-4 text-center sticky right-0 bg-white group-hover:bg-slate-50 transition-colors z-10 shadow-[-4px_0_8px_rgba(0,0,0,0.02)]">
-                        <div className="relative inline-block text-left">
+                        {canManageOperators && <div className="relative inline-block text-left">
                           <button 
                             onClick={(e) => {
                               if (activeMenu === op.id) {
@@ -1030,7 +1011,7 @@ export default function OperatorsPage({ organizationId }: { organizationId?: str
                             </>,
                             document.body
                           )}
-                        </div>
+                        </div>}
                       </td>
                     </tr>
                   ))

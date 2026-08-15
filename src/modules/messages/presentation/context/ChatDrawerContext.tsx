@@ -3,6 +3,7 @@ import { supabase } from '@/infrastructure/supabase/client';
 import { chatRepository, ChatMessage } from '../../infrastructure/repositories/SupabaseChatRepository';
 import { useNotifications } from '@/modules/notifications/presentation/context/NotificationContext';
 import { MessageSquare } from 'lucide-react';
+import { useAuthenticatedIdentity } from '@/modules/auth/presentation/hooks/useAuthenticatedIdentity';
 
 interface ChatDrawerContextType {
   isChatOpen: boolean;
@@ -22,6 +23,7 @@ interface ChatDrawerContextType {
 const ChatDrawerContext = createContext<ChatDrawerContextType | undefined>(undefined);
 
 export function ChatDrawerProvider({ children }: { children: React.ReactNode }) {
+  const { data: identity } = useAuthenticatedIdentity();
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [activePartnerId, setActivePartnerId] = useState<string | null>(null);
   const [activePartnerData, setActivePartnerData] = useState<any | null>(null);
@@ -36,7 +38,7 @@ export function ChatDrawerProvider({ children }: { children: React.ReactNode }) 
   const notifiedMessageIdsRef = useRef<Set<string>>(new Set());
   const audioRef = useRef<HTMLAudioElement | null>(null);
   
-  const activeOrgId = localStorage.getItem('supplyhub_organization_id');
+  const activeOrgId = identity?.organizationId || null;
   const activeConversationIdRef = useRef(activeConversationId);
   const isChatOpenRef = useRef(isChatOpen);
   
@@ -151,15 +153,6 @@ export function ChatDrawerProvider({ children }: { children: React.ReactNode }) 
     
     // Attempt to get or create conversation in the background
     try {
-      const activeOrgId = localStorage.getItem('supplyhub_organization_id');
-      
-      console.group('--- DEBUG C1.3 CHAT ---');
-      console.log('currentOrganizationId:', activeOrgId);
-      console.log('partnerOrganizationId:', partnerId);
-      console.log('authenticatedUserId:', 'not_available_in_context_directly');
-      console.log('partner:', partnerData);
-      console.groupEnd();
-
       if (activeOrgId && partnerId) {
         const convId = await chatRepository.getOrCreateConversation(activeOrgId, partnerId);
         setActiveConversationId(convId);
@@ -167,7 +160,7 @@ export function ChatDrawerProvider({ children }: { children: React.ReactNode }) 
     } catch (e) {
       console.error('Failed to init conversation:', e);
     }
-  }, []);
+  }, [activeOrgId]);
 
   useEffect(() => {
     const handleOpenChatEvent = (e: Event) => {

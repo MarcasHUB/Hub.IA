@@ -415,3 +415,12 @@ enabled = true
 
 [functions.complete-onboarding]
 verify_jwt = false
+
+[functions.invite-operator]
+verify_jwt = true
+
+[functions.accept-invite]
+verify_jwt = false
+
+[functions.validate-operator-invite]
+verify_jwt = false

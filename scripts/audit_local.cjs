@@ -1,37 +1,36 @@
 const { createClient } = require('@supabase/supabase-js');
 const fs = require('fs');
+const path = require('path');
 
-const supabaseUrl = 'http://127.0.0.1:54321';
-const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU';
+const supabaseUrl = process.env.LOCAL_SUPABASE_URL || 'http://127.0.0.1:54321';
+const supabaseKey = process.env.LOCAL_SUPABASE_ANON_KEY;
+const outputPath = path.resolve(process.env.LOCAL_AUDIT_OUTPUT_PATH || '');
+
+if (!supabaseKey) throw new Error('LOCAL_SUPABASE_ANON_KEY is required.');
+if (!['127.0.0.1', 'localhost'].includes(new URL(supabaseUrl).hostname)) {
+  throw new Error('Only a local Supabase URL is accepted.');
+}
+if (!process.env.LOCAL_AUDIT_OUTPUT_PATH || outputPath.startsWith(path.resolve(process.cwd()) + path.sep)) {
+  throw new Error('LOCAL_AUDIT_OUTPUT_PATH must point outside the repository.');
+}
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 async function run() {
   const data = {};
-
-  const { data: orgs } = await supabase.from('organizations').select('*');
-  data.organizations = orgs || [];
-
-  const { data: companies } = await supabase.from('companies').select('*');
-  data.companies = companies || [];
-
-  const { data: profiles } = await supabase.from('profiles').select('*');
-  data.profiles = profiles || [];
-
-  const { data: operators } = await supabase.from('operators').select('*');
-  data.operators = operators || [];
-
-  const { data: products } = await supabase.from('products').select('*');
-  data.products = products || [];
-
-  const { data: materials } = await supabase.from('materials').select('*');
-  data.materials = materials || [];
-
-  const { data: org_materials } = await supabase.from('organization_materials').select('*');
-  data.organization_materials = org_materials || [];
-
-  fs.writeFileSync('audit_results.json', JSON.stringify(data, null, 2));
-  console.log('Audit completed.');
+  for (const table of [
+    'organizations', 'companies', 'profiles', 'operators',
+    'products', 'materials', 'organization_materials',
+  ]) {
+    const { data: rows, error } = await supabase.from(table).select('*');
+    if (error) throw new Error(`Local audit failed for ${table}.`);
+    data[table] = rows || [];
+  }
+  fs.writeFileSync(outputPath, JSON.stringify(data, null, 2));
+  console.log('Local audit completed.');
 }
 
-run().catch(console.error);
+run().catch((error) => {
+  console.error(error.message);
+  process.exitCode = 1;
+});

@@ -1,257 +1,96 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { getAuthenticatedIdentity } from '../../application/services/getAuthenticatedIdentity';
 import { Button } from '@/shared/components/ui/Button';
 import { Input } from '@/shared/components/ui/Input';
 import { Label } from '@/shared/components/ui/Label';
-import { useNavigate, useSearchParams } from 'react-router-dom';
-import { SupabaseLogRepository } from '@/modules/employees/infrastructure/repositories/SupabaseLogRepository';
+import { supabase } from '@/infrastructure/supabase/client';
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : 'Erro ao realizar login';
+}
 
 export default function LoginPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const reason = searchParams.get('reason');
-
-  const [email, setEmail] = React.useState('');
-  const [password, setPassword] = React.useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [cooldown, setCooldown] = useState(0);
 
   useEffect(() => {
-    let timer: NodeJS.Timeout;
-    if (cooldown > 0) {
-      timer = setInterval(() => {
-        setCooldown(prev => prev - 1);
-      }, 1000);
-    }
-    return () => clearInterval(timer);
+    if (cooldown <= 0) return;
+    const timer = window.setInterval(() => setCooldown((value) => value - 1), 1000);
+    return () => window.clearInterval(timer);
   }, [cooldown]);
 
-  const logRepo = new SupabaseLogRepository();
-
-  React.useEffect(() => {
+  useEffect(() => {
+    const reason = searchParams.get('reason');
     if (reason === 'session_terminated') {
-      setErrorMsg('Sua sessão foi encerrada porque esta conta foi conectada em outro dispositivo.');
+      setErrorMsg('Sua sessão foi encerrada. Entre novamente para continuar.');
     } else if (reason === 'tenant_inactive') {
-      setErrorMsg('Sua empresa foi inativada pelo administrador da plataforma. Entre em contato com o suporte da Hub.IA.');
+      setErrorMsg('Sua empresa foi inativada. Entre em contato com o suporte da Hub.IA.');
+    } else if (reason === 'identity_inconsistent') {
+      setErrorMsg('Não foi possível confirmar sua identidade e empresa. Entre em contato com o suporte.');
     }
-  }, [reason]);
+  }, [searchParams]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setErrorMsg('');
-    
-    const ua = navigator.userAgent;
-    let orgId = localStorage.getItem('supplyhub_organization_id');
-    
-    // Limpar cache visual do tenant anterior
+  const clearLegacyIdentityCache = () => {
     localStorage.removeItem('supplyhub_company_name');
     localStorage.removeItem('supplyhub_company_logo');
+    localStorage.removeItem('supplyhub_organization_id');
+    localStorage.removeItem('supplyhub_logged_operator');
+    localStorage.removeItem('supplyhub_session_token');
+    localStorage.removeItem('supplyhub_sessions_v2');
+    localStorage.removeItem('supplyhub_user_avatar');
+  };
 
-    if (!orgId) {
-      orgId = '68a2f0b2-80f7-4868-bbb9-30b531c12db2';
-      localStorage.setItem('supplyhub_organization_id', orgId);
-    }
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setLoading(true);
+    setErrorMsg('');
+    clearLegacyIdentityCache();
 
     try {
-      const { supabase } = await import('@/infrastructure/supabase/client');
       const { data, error } = await supabase.auth.signInWithPassword({
-        email,
+        email: email.trim().toLowerCase(),
         password,
       });
+      if (error) throw error;
+      if (!data.user) throw new Error('AUTH_SESSION_INVALID');
 
-      if (error) {
-        // Registrar tentativa falha
-        await logRepo.logAccess({
-          organization_id: orgId,
-          tipo: 'tentativa_falha',
-          resultado: 'falha',
-          ip: '127.0.0.1',
-          user_agent: ua,
-        });
-
-        // Contabilizar falhas consecutivas localmente
-        const currentFailures = Number(localStorage.getItem(`login_failures_${email}`) || 0) + 1;
-        localStorage.setItem(`login_failures_${email}`, String(currentFailures));
-
-        if (currentFailures >= 5) {
-          // Gerar Sinal Hub.IA
-          const signalsRaw = localStorage.getItem('supplyhub_signals_v2') || '[]';
-          const signals = JSON.parse(signalsRaw);
-          signals.push({
-            id: `sig-${Date.now()}`,
-            organization_id: orgId,
-            tipo_sinal: 'oportunidade_saving', // Tipo mapeado no banco
-            descricao: `Alerta: Excesso de tentativas de login falhas detectadas para o e-mail: ${email}.`,
-            dados: { email, tentativas: currentFailures, tipo: 'excesso_tentativas_login' },
-            lido: false,
-            created_at: new Date().toISOString(),
-          });
-          localStorage.setItem('supplyhub_signals_v2', JSON.stringify(signals));
-        }
-
-        throw error;
+      const identity = await getAuthenticatedIdentity();
+      localStorage.setItem('supplyhub_company_name', identity.organizationName);
+      if (identity.organizationLogoUrl) {
+        localStorage.setItem('supplyhub_company_logo', identity.organizationLogoUrl);
       }
-      
-      if (data.user) {
-        // Resetar contador de falhas
-        localStorage.removeItem(`login_failures_${email}`);
 
-        // Resolvendo o organization_id real do operador
-        let realOrgId: string | null = null;
-        try {
-          const { data: opData } = await supabase
-            .from('operators')
-            .select('organization_id')
-            .eq('email', data.user.email)
-            .single();
-          if (opData?.organization_id) realOrgId = opData.organization_id;
-        } catch {}
+      navigate('/dashboard');
+    } catch (error) {
+      await supabase.auth.signOut({ scope: 'local' });
+      clearLegacyIdentityCache();
+      setErrorMsg(errorMessage(error));
+    } finally {
+      setLoading(false);
+    }
+  };
 
-        if (!realOrgId) {
-          try {
-            const { data: roleData } = await supabase
-              .from('user_roles')
-              .select('organization_id')
-              .eq('user_id', data.user.id)
-              .single();
-            if (roleData?.organization_id) realOrgId = roleData.organization_id;
-          } catch {}
-        }
-
-        if (!realOrgId) {
-          try {
-            const { data: profileData } = await supabase
-              .from('profiles')
-              .select('organization_id')
-              .eq('user_id', data.user.id)
-              .single();
-            if (profileData?.organization_id) realOrgId = profileData.organization_id;
-          } catch {}
-        }
-
-        if (!realOrgId) {
-          try {
-            const { data: allOrgs } = await supabase
-              .from('organizations')
-              .select('id')
-              .limit(1);
-            if (allOrgs && allOrgs.length > 0) realOrgId = allOrgs[0].id;
-          } catch {}
-        }
-
-        // Usar o UUID real da organização principal "SupplyHub.IA" como último fallback de contingência
-        const finalOrgId = realOrgId || '68a2f0b2-80f7-4868-bbb9-30b531c12db2';
-        localStorage.setItem('supplyhub_organization_id', finalOrgId);
-
-        const operatorId = data.user.id;
-
-        // Provisionamento automático do Operador se ele não existir
-        try {
-          const { data: checkOp } = await supabase
-            .from('operators')
-            .select('id')
-            .eq('id', operatorId)
-            .maybeSingle();
-
-          if (!checkOp) {
-            // Criar na tabela operators
-            const { error: insertError } = await supabase.from('operators').insert({
-              id: operatorId,
-              organization_id: finalOrgId,
-              nome: data.user.user_metadata?.nome || data.user.email?.split('@')[0] || 'Usuário',
-              sobrenome: data.user.user_metadata?.sobrenome || '',
-              email: data.user.email,
-              perfil: 'administrador',
-              status: 'ativo',
-              invited_at: new Date().toISOString(),
-              accepted_at: new Date().toISOString(),
-            });
-
-            if (insertError) {
-              console.error('Erro ao inserir operador no auto-provisionamento:', insertError);
-            } else {
-              // Registrar log operacional de criação automática
-              await supabase.from('operation_logs').insert({
-                operator_id: operatorId,
-                organization_id: finalOrgId,
-                entidade: 'operator',
-                acao: 'auto_provisionado',
-                payload_depois: {
-                  id: operatorId,
-                  email: data.user.email,
-                  perfil: 'administrador',
-                  status: 'ativo'
-                }
-              });
-            }
-          }
-        } catch (opProvisionError) {
-          console.error('Erro ao auto-provisionar operador:', opProvisionError);
-        }
-
-        // Registrar login com sucesso
-        await logRepo.logAccess({
-          operator_id: operatorId,
-          organization_id: finalOrgId,
-          tipo: 'login',
-          resultado: 'sucesso',
-          ip: '127.0.0.1',
-          user_agent: ua,
-        });
-
-        // ─── Controle de Sessão Única ───
-        const newSessionToken = crypto.randomUUID();
-        localStorage.setItem('supplyhub_session_token', newSessionToken);
-
-        // Terminar sessões anteriores na persistência local
-        const rawSessions = localStorage.getItem('supplyhub_sessions_v2') || '[]';
-        let sessionsList = JSON.parse(rawSessions);
-        
-        const activeBefore = sessionsList.filter((s: any) => s.operator_id === operatorId && s.status === 'ativa');
-        
-        if (activeBefore.length > 0) {
-          // Registrar log de encerramento por nova conexão
-          await logRepo.logAccess({
-            operator_id: operatorId,
-            organization_id: finalOrgId,
-            tipo: 'bloqueio',
-            resultado: 'falha',
-            ip: '127.0.0.1',
-            user_agent: ua,
-          });
-        }
-
-        sessionsList = sessionsList.map((s: any) => {
-          if (s.operator_id === operatorId && s.status === 'ativa') {
-            return { ...s, status: 'encerrada', ended_at: new Date().toISOString() };
-          }
-          return s;
-        });
-
-        // Adicionar nova sessão
-        sessionsList.push({
-          id: `ses-${Date.now()}`,
-          operator_id: operatorId,
-          token_hash: newSessionToken,
-          status: 'ativa',
-          started_at: new Date().toISOString(),
-        });
-        localStorage.setItem('supplyhub_sessions_v2', JSON.stringify(sessionsList));
-
-        // Salvar operador logado
-        localStorage.setItem('supplyhub_logged_operator', JSON.stringify({
-          id: operatorId,
-          email: data.user.email,
-          nome: data.user.user_metadata?.nome || 'Operador',
-          sobrenome: data.user.user_metadata?.sobrenome || '',
-          perfil: data.user.user_metadata?.perfil || 'comprador',
-        }));
-
-        navigate('/dashboard');
-      }
-    } catch (err: any) {
-      setErrorMsg(err.message || 'Erro ao realizar login');
+  const resendConfirmation = async () => {
+    if (!email || cooldown > 0) return;
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email: email.trim().toLowerCase(),
+        options: { emailRedirectTo: `${window.location.origin}/login` },
+      });
+      if (error) throw error;
+      setCooldown(60);
+      window.alert('E-mail de confirmação reenviado com sucesso.');
+    } catch (error) {
+      setCooldown(60);
+      window.alert(`Erro ao reenviar: ${errorMessage(error)}`);
     } finally {
       setLoading(false);
     }
@@ -269,77 +108,28 @@ export default function LoginPage() {
           <div className="p-3 text-sm font-medium text-red-800 bg-red-100 rounded-md">
             {errorMsg}
             {errorMsg.toLowerCase().includes('email not confirmed') && (
-              <button 
-                type="button" 
+              <button
+                type="button"
                 disabled={loading || cooldown > 0}
-                onClick={async () => {
-                  if (!email || cooldown > 0) return;
-                  setLoading(true);
-                  try {
-                    const { supabase } = await import('@/infrastructure/supabase/client');
-                    const { error } = await supabase.auth.resend({
-                      type: 'signup',
-                      email: email.trim().toLowerCase(),
-                      options: {
-                        emailRedirectTo: `${window.location.origin}/login`
-                      }
-                    });
-                    
-                    if (error) {
-                      if (error.status === 429 || error.message?.toLowerCase().includes('rate limit') || error.message?.toLowerCase().includes('too many requests')) {
-                        console.error('AUTH_RESEND_ERROR', {
-                          code: error.status === 429 ? 'over_email_send_rate_limit' : (error as any).code,
-                          status: error.status,
-                          message: error.message,
-                        });
-                        setCooldown(60);
-                        throw new Error('O limite temporário de envio de e-mails foi atingido. Aguarde antes de solicitar um novo envio.');
-                      }
-                      throw error;
-                    }
-                    
-                    setCooldown(60);
-                    alert('E-mail de confirmação reenviado com sucesso. Verifique sua caixa de entrada.');
-                  } catch (e: any) {
-                    alert('Erro ao reenviar: ' + e.message);
-                  } finally {
-                    setLoading(false);
-                  }
-                }}
-                className="block mt-2 font-bold underline hover:text-red-900 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+                onClick={resendConfirmation}
+                className="block mt-2 font-bold underline hover:text-red-900 disabled:opacity-50"
               >
                 {cooldown > 0 ? `Reenviar novamente em ${cooldown}s` : 'Reenviar e-mail de confirmação'}
               </button>
             )}
           </div>
         )}
+
         <div className="space-y-2">
           <Label htmlFor="email">E-mail Corporativo</Label>
-          <Input 
-            id="email" 
-            type="email" 
-            placeholder="voce@empresa.com" 
-            required 
-            autoComplete="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
+          <Input id="email" type="email" required autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} />
         </div>
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <Label htmlFor="password">Senha</Label>
-            <a href="#" className="text-sm font-medium text-slate-900 hover:underline">
-              Esqueceu a senha?
-            </a>
+            <a href="#" className="text-sm font-medium text-slate-900 hover:underline">Esqueceu a senha?</a>
           </div>
-          <Input 
-            id="password" 
-            type="password" 
-            required 
-            autoComplete="current-password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
+          <Input id="password" type="password" required autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} />
         </div>
 
         <Button type="submit" className="w-full" disabled={loading}>
