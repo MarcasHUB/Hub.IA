@@ -170,8 +170,7 @@ export class SupabaseChatRepository {
 
     // Busca identidades resolvidas de forma segura
     const { data: identities } = await supabase
-      .from('partner_identities')
-      .select('partner_organization_id, razao_social, nome_fantasia');
+      .rpc('get_partner_identities');
 
     const identityMap = new Map();
     identities?.forEach((id: { partner_organization_id: string; razao_social: string; nome_fantasia: string }) =>
