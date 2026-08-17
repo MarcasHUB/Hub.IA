@@ -40,6 +40,13 @@ export class SupabaseComplianceRepository {
     return data as ComplianceEvent[];
   }
 
+  async analyzeContext(eventId: string): Promise<string> {
+    const { data, error } = await supabase
+      .rpc('analyze_compliance_context', { p_event_id: eventId });
+    if (error) throw error;
+    return data as string;
+  }
+
   async markAsReviewed(eventId: string): Promise<void> {
     const { error } = await supabase
       .rpc('review_compliance_event', { p_event_id: eventId });

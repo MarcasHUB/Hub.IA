@@ -206,6 +206,15 @@ function ComplianceTab({ organizationId }: { organizationId: string }) {
 
   if (loading) return <div className="p-8 flex justify-center text-slate-500">Carregando compliance...</div>;
 
+  const handleAnalyzeContext = async (eventId: string) => {
+    try {
+      const summary = await complianceRepository.analyzeContext(eventId);
+      alert(summary);
+    } catch (err: any) {
+      alert('Erro ao analisar contexto: ' + err.message);
+    }
+  };
+
   const totalEvents = events.length;
   const flaggedEvents = events.filter(e => e.event_type === 'attachment_flagged').length;
   const cancelledEvents = events.filter(e => e.event_type === 'upload_cancelled').length;
@@ -282,6 +291,14 @@ function ComplianceTab({ organizationId }: { organizationId: string }) {
                         <span className={`px-2 py-1 rounded text-xs font-bold ${ev.event_type === 'upload_cancelled' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
                           {ev.event_type === 'upload_cancelled' ? 'Cancelado' : 'Enviado'}
                         </span>
+                     </td>
+                     <td className="p-3">
+                       <button 
+                         onClick={() => handleAnalyzeContext(ev.id)}
+                         className="px-3 py-1 text-sm bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-100 transition-colors font-medium whitespace-nowrap"
+                       >
+                         Analisar contexto
+                       </button>
                      </td>
                    </tr>
                  ))}
