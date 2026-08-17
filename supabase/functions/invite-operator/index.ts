@@ -43,8 +43,26 @@ Deno.serve(async (req: Request) => {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 
+  const anonKey = Deno.env.get('SUPABASE_ANON_KEY');
+  if (!anonKey) return json({ error: 'SERVER_NOT_CONFIGURED' }, 500);
+
+  const userClient = createClient(supabaseUrl, anonKey, {
+    global: { headers: { Authorization: authorization } },
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+
   const { data: callerData, error: callerError } = await admin.auth.getUser(accessToken);
   if (callerError || !callerData.user) return json({ error: 'AUTH_INVALID' }, 401);
+
+  const { data: identityData, error: identityError } = await userClient.rpc('get_current_identity_context');
+  if (identityError || !identityData || identityData.length === 0) {
+    console.error('[invite-operator] identity error:', identityError);
+    return json({ error: 'AUTH_INVALID' }, 401);
+  }
+
+  const callerIdentity = identityData[0];
+  const canonicalUserId = callerIdentity.user_id;
+  const canonicalOrgId = callerIdentity.organization_id;
 
   try {
     const body = await req.json();
@@ -58,7 +76,7 @@ Deno.serve(async (req: Request) => {
 
     if (action === 'resend') {
       const { error } = await admin.rpc('rotate_operator_invitation_token', {
-        p_caller_id: callerData.user.id,
+        p_caller_id: canonicalUserId,
         p_email: email,
         p_token_hash: tokenHash,
         p_expires_at: expiresAt,
@@ -77,9 +95,17 @@ Deno.serve(async (req: Request) => {
       return json({ error: 'OPERATOR_INVITE_INVALID' }, 400);
     }
 
+    // Prova e validação do 400 anterior: se organization_id ou invited_by_id viessem errados do front
+    if (body.organization_id && body.organization_id !== canonicalOrgId) {
+      return json({ error: 'OPERATOR_CROSS_TENANT_CONFLICT' }, 403);
+    }
+    if (body.invited_by_id && body.invited_by_id !== canonicalUserId) {
+      return json({ error: 'AUTH_INVALID' }, 403);
+    }
+
     const { data: resolvedUserId, error: resolutionError } = await admin.rpc(
       'resolve_operator_invitation_identity',
-      { p_caller_id: callerData.user.id, p_email: email },
+      { p_caller_id: canonicalUserId, p_email: email },
     );
     if (resolutionError) return json({ error: 'OPERATOR_INVITE_UNAVAILABLE' }, 400);
 
@@ -102,8 +128,12 @@ Deno.serve(async (req: Request) => {
       createdUserId = created.user.id;
     }
 
+    // Decouple gestor_id from invited_by_id completely (Fixing the bug)
+    let finalGestorId = body.gestor_id || null;
+    if (perfil === 'administrador') finalGestorId = null;
+
     const { error: invitationError } = await admin.rpc('create_operator_invitation_transactional', {
-      p_caller_id: callerData.user.id,
+      p_caller_id: canonicalUserId,
       p_user_id: userId,
       p_email: email,
       p_nome: nome,
@@ -111,7 +141,7 @@ Deno.serve(async (req: Request) => {
       p_telefone: body.telefone || null,
       p_cargo: body.cargo || null,
       p_perfil: perfil,
-      p_gestor_id: body.gestor_id || null,
+      p_gestor_id: finalGestorId,
       p_category_ids: Array.isArray(body.category_ids) ? body.category_ids : [],
       p_todas_categorias: Boolean(body.todas_categorias),
       p_token_hash: tokenHash,

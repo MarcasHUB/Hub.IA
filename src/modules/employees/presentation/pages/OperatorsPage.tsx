@@ -101,6 +101,7 @@ function InviteModal({ onClose, onInvite, operators, authUserId, organizationId 
       const repo = new SupabaseOperatorRepository();
       const mapInfo = MACRO_PROFILES[form.macroProfile];
 
+      const isAllCats = form.macroProfile === 'Administrador' || form.macroProfile === 'Auditor' || inviteForm.todas_categorias;
       const res = await repo.inviteOperator({
         nome: form.nome,
         sobrenome: form.sobrenome,
@@ -108,9 +109,11 @@ function InviteModal({ onClose, onInvite, operators, authUserId, organizationId 
         telefone: form.telefone || undefined,
         cargo: mapInfo.cargo,
         perfil: mapInfo.perfil,
-        gestor_id: form.gestor_id || undefined,
-        category_ids: inviteForm.todas_categorias ? [] : inviteForm.category_ids,
-        todas_categorias: inviteForm.todas_categorias,
+        gestor_id: form.macroProfile === 'Administrador' ? undefined : (form.gestor_id || undefined),
+        category_ids: isAllCats ? [] : inviteForm.category_ids,
+        todas_categorias: isAllCats,
+        organization_id: orgId,
+        invited_by_id: authUserId,
       });
 
       if (res.success && res.token) {
@@ -161,7 +164,34 @@ function InviteModal({ onClose, onInvite, operators, authUserId, organizationId 
     }
   };
 
-  const valid = form.nome.trim() && form.email.trim() && (inviteForm.todas_categorias || inviteForm.category_ids.length > 0);
+  const requiresGestor = form.macroProfile !== 'Administrador' && form.macroProfile !== 'Comprador';
+  const hasValidGestor = requiresGestor ? Boolean(form.gestor_id) : true;
+  const isCategoriasValid = (form.macroProfile === 'Administrador' || form.macroProfile === 'Auditor') || inviteForm.todas_categorias || inviteForm.category_ids.length > 0;
+  const valid = form.nome.trim() && form.email.trim() && hasValidGestor && isCategoriasValid;
+
+  // Auto-select gestor if only 1 is available and required
+  useEffect(() => {
+    if (form.macroProfile === 'Administrador') {
+      if (form.gestor_id !== '') setForm(f => ({ ...f, gestor_id: '' }));
+      return;
+    }
+    
+    const validGestores = operators.filter(op => {
+      if (op.status === 'cancelado') return false;
+      if (form.macroProfile === 'Auditor' || form.macroProfile === 'Gestor') return op.perfil === 'administrador';
+      if (form.macroProfile === 'Comprador') return op.perfil === 'administrador' || op.perfil === 'gestor';
+      if (form.macroProfile === 'Solicitante') return op.perfil === 'gestor';
+      return false;
+    });
+
+    if (validGestores.length === 1 && form.gestor_id !== validGestores[0].id) {
+      setForm(f => ({ ...f, gestor_id: validGestores[0].id }));
+    } else if (validGestores.length > 1 && !validGestores.find(g => g.id === form.gestor_id)) {
+      setForm(f => ({ ...f, gestor_id: '' }));
+    } else if (validGestores.length === 0) {
+      setForm(f => ({ ...f, gestor_id: '' }));
+    }
+  }, [form.macroProfile, operators]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
@@ -271,22 +301,33 @@ function InviteModal({ onClose, onInvite, operators, authUserId, organizationId 
                   <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Telefone</label>
                   <Input value={form.telefone} onChange={e => setForm(f => ({ ...f, telefone: e.target.value }))} placeholder="(11) 9xxxx-xxxx" className="h-9 text-sm" />
                 </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Gestor Direto (Opcional)</label>
-                  <select
-                    value={form.gestor_id}
-                    onChange={e => setForm(f => ({ ...f, gestor_id: e.target.value }))}
-                    className="w-full h-9 px-3 rounded-lg border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  >
-                    <option value="">Sem gestor</option>
-                    {operators
-                      .filter(op => op.status !== 'cancelado' && (op.perfil === 'gestor' || op.perfil === 'administrador'))
-                      .map(op => (
-                        <option key={op.id} value={op.id}>{resolveOperatorName(op)}</option>
-                      ))
-                    }
-                  </select>
-                </div>
+                {form.macroProfile !== 'Administrador' && (
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                      Gestor Direto {['Comprador'].includes(form.macroProfile) ? '(Opcional)' : '*'}
+                    </label>
+                    <select
+                      value={form.gestor_id}
+                      onChange={e => setForm(f => ({ ...f, gestor_id: e.target.value }))}
+                      className="w-full h-9 px-3 rounded-lg border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    >
+                      {['Comprador'].includes(form.macroProfile) && <option value="">Sem gestor</option>}
+                      {!['Comprador'].includes(form.macroProfile) && !form.gestor_id && <option value="" disabled>Selecione um gestor</option>}
+                      {operators
+                        .filter(op => {
+                          if (op.status === 'cancelado') return false;
+                          if (form.macroProfile === 'Auditor' || form.macroProfile === 'Gestor') return op.perfil === 'administrador';
+                          if (form.macroProfile === 'Comprador') return op.perfil === 'administrador' || op.perfil === 'gestor';
+                          if (form.macroProfile === 'Solicitante') return op.perfil === 'gestor';
+                          return false;
+                        })
+                        .map(op => (
+                          <option key={op.id} value={op.id}>{resolveOperatorName(op)}</option>
+                        ))
+                      }
+                    </select>
+                  </div>
+                )}
               </div>
 
               <div className="space-y-3">
@@ -350,98 +391,100 @@ function InviteModal({ onClose, onInvite, operators, authUserId, organizationId 
                 </div>
               </div>
 
-            <div className="space-y-3 pt-4 border-t border-slate-100">
-            <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-              Categorias Autorizadas
-            </label>
-            <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-2">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input 
-                  type="checkbox" 
-                  className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-                  checked={inviteForm.todas_categorias}
-                  onChange={(e) => setInviteForm(f => ({ ...f, todas_categorias: e.target.checked, category_ids: e.target.checked ? [] : f.category_ids }))}
-                />
-                <span className="text-sm font-semibold text-slate-700">Todas as Categorias</span>
-              </label>
-              
-              {inviteForm.todas_categorias ? (
-                <div className="pl-6 pt-1">
-                  <p className="text-xs font-medium text-indigo-700 bg-indigo-50 border border-indigo-100 p-2 rounded-lg">
-                    Todas as categorias organizacionais estão autorizadas para este operador.
-                  </p>
-                </div>
-              ) : (
-                <div className="pl-6 space-y-3">
-                  <div className="relative">
-                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
-                    <Input
-                      type="text"
-                      placeholder="Buscar categorias..."
-                      className="pl-9 h-9 text-sm bg-white"
-                      value={categorySearch}
-                      onChange={e => setCategorySearch(e.target.value)}
+            {form.macroProfile !== 'Administrador' && form.macroProfile !== 'Auditor' && (
+              <div className="space-y-3 pt-4 border-t border-slate-100">
+                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                  Categorias Autorizadas
+                </label>
+                <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-2">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input 
+                      type="checkbox" 
+                      className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                      checked={inviteForm.todas_categorias}
+                      onChange={(e) => setInviteForm(f => ({ ...f, todas_categorias: e.target.checked, category_ids: e.target.checked ? [] : f.category_ids }))}
                     />
-                  </div>
+                    <span className="text-sm font-semibold text-slate-700">Todas as Categorias</span>
+                  </label>
                   
-                  <div className="flex flex-wrap gap-1.5 mb-2">
-                    {inviteForm.category_ids.map(catId => {
-                      const cat = categories.find(c => c.id === catId);
-                      if (!cat) return null;
-                      return (
-                        <span key={cat.id} className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">
-                          {cat.name}
+                  {inviteForm.todas_categorias ? (
+                    <div className="pl-6 pt-1">
+                      <p className="text-xs font-medium text-indigo-700 bg-indigo-50 border border-indigo-100 p-2 rounded-lg">
+                        Todas as categorias organizacionais estão autorizadas para este operador.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="pl-6 space-y-3">
+                      <div className="relative">
+                        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
+                        <Input
+                          type="text"
+                          placeholder="Buscar categorias..."
+                          className="pl-9 h-9 text-sm bg-white"
+                          value={categorySearch}
+                          onChange={e => setCategorySearch(e.target.value)}
+                        />
+                      </div>
+                      
+                      <div className="flex flex-wrap gap-1.5 mb-2">
+                        {inviteForm.category_ids.map(catId => {
+                          const cat = categories.find(c => c.id === catId);
+                          if (!cat) return null;
+                          return (
+                            <span key={cat.id} className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                              {cat.name}
+                              <button
+                                type="button"
+                                onClick={() => setInviteForm(f => ({ ...f, category_ids: f.category_ids.filter(id => id !== cat.id) }))}
+                                className="text-indigo-400 hover:text-indigo-600 focus:outline-none"
+                              >
+                                <X className="h-3 w-3" />
+                              </button>
+                            </span>
+                          );
+                        })}
+                        {inviteForm.category_ids.length > 0 && (
                           <button
                             type="button"
-                            onClick={() => setInviteForm(f => ({ ...f, category_ids: f.category_ids.filter(id => id !== cat.id) }))}
-                            className="text-indigo-400 hover:text-indigo-600 focus:outline-none"
+                            onClick={() => setInviteForm(f => ({ ...f, category_ids: [] }))}
+                            className="inline-flex items-center px-2 py-1 rounded text-xs font-semibold text-slate-500 hover:text-red-600 hover:bg-red-50 focus:outline-none transition-colors"
                           >
-                            <X className="h-3 w-3" />
+                            Limpar todas
                           </button>
-                        </span>
-                      );
-                    })}
-                    {inviteForm.category_ids.length > 0 && (
-                      <button
-                        type="button"
-                        onClick={() => setInviteForm(f => ({ ...f, category_ids: [] }))}
-                        className="inline-flex items-center px-2 py-1 rounded text-xs font-semibold text-slate-500 hover:text-red-600 hover:bg-red-50 focus:outline-none transition-colors"
-                      >
-                        Limpar todas
-                      </button>
-                    )}
-                  </div>
-
-                  <div className="max-h-40 overflow-y-auto border border-slate-200 rounded-lg bg-white p-2 grid grid-cols-1 sm:grid-cols-2 gap-1">
-                    {categories
-                      .filter(cat => cat.name.toLowerCase().includes(categorySearch.toLowerCase()))
-                      .map(cat => (
-                      <label key={cat.id} className="flex items-center gap-2 cursor-pointer p-1.5 hover:bg-slate-50 rounded-md transition-colors">
-                        <input 
-                          type="checkbox" 
-                          className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-                          checked={inviteForm.category_ids.includes(cat.id)}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setInviteForm(f => ({ ...f, category_ids: [...f.category_ids, cat.id] }));
-                            } else {
-                              setInviteForm(f => ({ ...f, category_ids: f.category_ids.filter(id => id !== cat.id) }));
-                            }
-                          }}
-                        />
-                        <span className="text-xs font-medium text-slate-700 truncate" title={cat.name}>{cat.name}</span>
-                      </label>
-                    ))}
-                    {categories.filter(cat => cat.name.toLowerCase().includes(categorySearch.toLowerCase())).length === 0 && (
-                      <div className="col-span-full py-4 text-center text-xs text-slate-400">
-                        Nenhuma categoria encontrada
+                        )}
                       </div>
-                    )}
-                  </div>
+
+                      <div className="max-h-40 overflow-y-auto border border-slate-200 rounded-lg bg-white p-2 grid grid-cols-1 sm:grid-cols-2 gap-1">
+                        {categories
+                          .filter(cat => cat.name.toLowerCase().includes(categorySearch.toLowerCase()))
+                          .map(cat => (
+                          <label key={cat.id} className="flex items-center gap-2 cursor-pointer p-1.5 hover:bg-slate-50 rounded-md transition-colors">
+                            <input 
+                              type="checkbox" 
+                              className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                              checked={inviteForm.category_ids.includes(cat.id)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setInviteForm(f => ({ ...f, category_ids: [...f.category_ids, cat.id] }));
+                                } else {
+                                  setInviteForm(f => ({ ...f, category_ids: f.category_ids.filter(id => id !== cat.id) }));
+                                }
+                              }}
+                            />
+                            <span className="text-xs font-medium text-slate-700 truncate" title={cat.name}>{cat.name}</span>
+                          </label>
+                        ))}
+                        {categories.filter(cat => cat.name.toLowerCase().includes(categorySearch.toLowerCase())).length === 0 && (
+                          <div className="col-span-full py-4 text-center text-xs text-slate-400">
+                            Nenhuma categoria encontrada
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-            </div>
+              </div>
+            )}
 
               <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-3">
                 <p className="text-[10px] font-bold text-indigo-700 flex items-center gap-1.5">

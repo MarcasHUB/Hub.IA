@@ -86,6 +86,7 @@ export function EditOperatorModal({ authUserId, operator, orgId, operators, onCl
         await repo.cancelInvite(operator.email, operator.id);
         
         // Create new invite with new email
+        const isAllCats = form.macroProfile === 'Administrador' || form.macroProfile === 'Auditor' || form.todas_categorias;
         const newOpRes = await repo.inviteOperator({
           nome: form.nome,
           sobrenome: form.sobrenome,
@@ -93,9 +94,11 @@ export function EditOperatorModal({ authUserId, operator, orgId, operators, onCl
           telefone: form.telefone || undefined,
           cargo: MACRO_PROFILES[form.macroProfile].cargo,
           perfil: MACRO_PROFILES[form.macroProfile].perfil,
-          gestor_id: form.gestor_id || undefined,
-          category_ids: form.todas_categorias ? [] : form.category_ids,
-          todas_categorias: form.todas_categorias,
+          gestor_id: form.macroProfile === 'Administrador' ? undefined : (form.gestor_id || undefined),
+          category_ids: isAllCats ? [] : form.category_ids,
+          todas_categorias: isAllCats,
+          organization_id: orgId,
+          invited_by_id: authUserId,
         });
 
         if (newOpRes.success && newOpRes.token) {
@@ -136,13 +139,14 @@ export function EditOperatorModal({ authUserId, operator, orgId, operators, onCl
         });
 
       } else {
+        const isAllCats = form.perfil === 'administrador' || form.perfil === 'auditor' || form.todas_categorias;
         const payload: Partial<Operator> = {
           email: operator.email, // email change only allowed if pending
           status: operator.status,
           perfil: form.perfil,
-          gestor_id: form.gestor_id || undefined,
-          todas_categorias: form.todas_categorias,
-          categories: form.todas_categorias ? [] : form.category_ids,
+          gestor_id: form.perfil === 'administrador' ? undefined : (form.gestor_id || undefined),
+          todas_categorias: isAllCats,
+          categories: isAllCats ? [] : form.category_ids,
         };
         
         // Só atualizamos dados pessoais em convites pendentes
@@ -181,7 +185,16 @@ export function EditOperatorModal({ authUserId, operator, orgId, operators, onCl
     }
   };
 
-  const valid = form.nome.trim() !== '';
+  const activePerfil = operator.status === 'pendente' ? MACRO_PROFILES[form.macroProfile].perfil : form.perfil;
+  const activeMacro: MacroProfile = operator.status === 'pendente' 
+    ? form.macroProfile 
+    : (activePerfil === 'administrador' ? 'Administrador' : activePerfil === 'auditor' ? 'Auditor' : activePerfil === 'gestor' ? 'Gestor' : activePerfil === 'solicitante' ? 'Solicitante' : 'Comprador');
+
+  const requiresGestor = activeMacro !== 'Administrador' && activeMacro !== 'Comprador';
+  const hasValidGestor = requiresGestor ? Boolean(form.gestor_id) : true;
+  const isCategoriasValid = (activeMacro === 'Administrador' || activeMacro === 'Auditor') || form.todas_categorias || form.category_ids.length > 0;
+  
+  const valid = form.nome.trim() !== '' && hasValidGestor && isCategoriasValid;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
@@ -261,22 +274,33 @@ export function EditOperatorModal({ authUserId, operator, orgId, operators, onCl
                   <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Telefone</label>
                   <Input value={operator.status === 'pendente' ? form.telefone : (operatorProfile?.phone || operator.telefone || '')} onChange={e => setForm(f => ({ ...f, telefone: e.target.value }))} placeholder="(11) 9xxxx-xxxx" readOnly={operator.status !== 'pendente'} className={`h-9 text-sm ${operator.status !== 'pendente' ? 'bg-slate-50 text-slate-500 cursor-not-allowed' : ''}`} />
                 </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Gestor Direto (Opcional)</label>
-                  <select
-                    value={form.gestor_id}
-                    onChange={e => setForm(f => ({ ...f, gestor_id: e.target.value }))}
-                    className="w-full h-9 px-3 rounded-lg border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  >
-                    <option value="">Sem gestor</option>
-                    {operators
-                      .filter(op => op.status !== 'cancelado' && op.id !== operator.id && (op.perfil === 'gestor' || op.perfil === 'administrador'))
-                      .map(op => (
-                        <option key={op.id} value={op.id}>{op.nome} {op.sobrenome}</option>
-                      ))
-                    }
-                  </select>
-                </div>
+                {activeMacro !== 'Administrador' && (
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                      Gestor Direto {['Comprador'].includes(activeMacro) ? '(Opcional)' : '*'}
+                    </label>
+                    <select
+                      value={form.gestor_id}
+                      onChange={e => setForm(f => ({ ...f, gestor_id: e.target.value }))}
+                      className="w-full h-9 px-3 rounded-lg border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    >
+                      {['Comprador'].includes(activeMacro) && <option value="">Sem gestor</option>}
+                      {!['Comprador'].includes(activeMacro) && !form.gestor_id && <option value="" disabled>Selecione um gestor</option>}
+                      {operators
+                        .filter(op => {
+                          if (op.status === 'cancelado' || op.id === operator.id) return false;
+                          if (activeMacro === 'Auditor' || activeMacro === 'Gestor') return op.perfil === 'administrador';
+                          if (activeMacro === 'Comprador') return op.perfil === 'administrador' || op.perfil === 'gestor';
+                          if (activeMacro === 'Solicitante') return op.perfil === 'gestor';
+                          return false;
+                        })
+                        .map(op => (
+                          <option key={op.id} value={op.id}>{op.nome} {op.sobrenome}</option>
+                        ))
+                      }
+                    </select>
+                  </div>
+                )}
               </div>
 
               {operator.status !== 'pendente' && (
@@ -374,50 +398,52 @@ export function EditOperatorModal({ authUserId, operator, orgId, operators, onCl
               )}
 
               {/* Categorias Autorizadas */}
-              <div className="space-y-3 pt-2 border-t border-slate-100">
-                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                  Categorias Autorizadas
-                </label>
-                <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-2">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input 
-                      type="checkbox" 
-                      className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-                      checked={form.todas_categorias}
-                      onChange={(e) => setForm(f => ({ ...f, todas_categorias: e.target.checked }))}
-                    />
-                    <span className="text-sm font-semibold text-slate-700">Todas as Categorias</span>
+              {activeMacro !== 'Administrador' && activeMacro !== 'Auditor' && (
+                <div className="space-y-3 pt-2 border-t border-slate-100">
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                    Categorias Autorizadas
                   </label>
-                  
-                  {form.todas_categorias ? (
-                    <div className="pl-6 pt-1">
-                      <p className="text-xs font-medium text-indigo-700 bg-indigo-50 border border-indigo-100 p-2 rounded-lg">
-                        Todas as categorias organizacionais estão autorizadas para este operador.
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="pl-6 grid grid-cols-2 gap-2">
-                      {categoriesList.map(cat => (
-                        <label key={cat.id} className="flex items-center gap-2 cursor-pointer">
-                          <input 
-                            type="checkbox" 
-                            className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-                            checked={form.category_ids.includes(cat.id)}
-                            onChange={(e) => {
-                              if (e.target.checked) {
-                                setForm(f => ({ ...f, category_ids: [...f.category_ids, cat.id] }));
-                              } else {
-                                setForm(f => ({ ...f, category_ids: f.category_ids.filter((id: string) => id !== cat.id) }));
-                              }
-                            }}
-                          />
-                          <span className="text-xs font-medium text-slate-600 truncate" title={cat.name}>{cat.name}</span>
-                        </label>
-                      ))}
-                    </div>
-                  )}
+                  <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-2">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input 
+                        type="checkbox" 
+                        className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                        checked={form.todas_categorias}
+                        onChange={(e) => setForm(f => ({ ...f, todas_categorias: e.target.checked }))}
+                      />
+                      <span className="text-sm font-semibold text-slate-700">Todas as Categorias</span>
+                    </label>
+                    
+                    {form.todas_categorias ? (
+                      <div className="pl-6 pt-1">
+                        <p className="text-xs font-medium text-indigo-700 bg-indigo-50 border border-indigo-100 p-2 rounded-lg">
+                          Todas as categorias organizacionais estão autorizadas para este operador.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="pl-6 grid grid-cols-2 gap-2">
+                        {categoriesList.map(cat => (
+                          <label key={cat.id} className="flex items-center gap-2 cursor-pointer">
+                            <input 
+                              type="checkbox" 
+                              className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                              checked={form.category_ids.includes(cat.id)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setForm(f => ({ ...f, category_ids: [...f.category_ids, cat.id] }));
+                                } else {
+                                  setForm(f => ({ ...f, category_ids: f.category_ids.filter((id: string) => id !== cat.id) }));
+                                }
+                              }}
+                            />
+                            <span className="text-xs font-medium text-slate-600 truncate" title={cat.name}>{cat.name}</span>
+                          </label>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
 
             {/* Footer */}

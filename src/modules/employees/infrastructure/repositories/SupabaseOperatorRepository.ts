@@ -17,6 +17,8 @@ export class SupabaseOperatorRepository implements IOperatorRepository {
     gestor_id?: string;
     category_ids: string[];
     todas_categorias?: boolean;
+    organization_id?: string;
+    invited_by_id?: string;
   }): Promise<{ success: boolean; message: string; user?: any; token?: string; expires_at?: string }> {
     const { data, error } = await supabase.functions.invoke('invite-operator', { body: payload });
     if (!error) return data;
