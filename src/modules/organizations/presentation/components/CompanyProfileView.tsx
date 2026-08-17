@@ -263,14 +263,15 @@ function ComplianceTab({ organizationId }: { organizationId: string }) {
                    <th className="p-3 font-semibold text-slate-600">Arquivo</th>
                    <th className="p-3 font-semibold text-slate-600">Risco</th>
                    <th className="p-3 font-semibold text-slate-600">Situação</th>
+                   <th className="p-3 font-semibold text-slate-600">Ação</th>
                  </tr>
                </thead>
                <tbody className="divide-y divide-slate-100">
                  {events.map(ev => (
                    <tr key={ev.id} className="hover:bg-slate-50 transition-colors">
                      <td className="p-3 text-slate-500 whitespace-nowrap">{new Date(ev.created_at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}</td>
-                     <td className="p-3 text-slate-700">{ev.sender_user?.full_name || ev.sender_user_id}</td>
-                     <td className="p-3 text-slate-700">{ev.recipient_organization?.name || 'Desconhecido'}</td>
+                     <td className="p-3 text-slate-700">{ev.sender_name || ev.sender_user?.full_name || ev.sender_user_id}</td>
+                     <td className="p-3 text-slate-700">{ev.recipient_name || ev.recipient_organization?.name || 'Desconhecido'}</td>
                      <td className="p-3 text-slate-700 font-medium max-w-[200px] truncate" title={ev.file_name || ''}>{ev.file_name}</td>
                      <td className="p-3">
                        <span className={`px-2 py-1 rounded text-xs font-bold ${ev.risk_level === 'high' ? 'bg-red-100 text-red-700' : ev.risk_level === 'medium' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-700'}`}>

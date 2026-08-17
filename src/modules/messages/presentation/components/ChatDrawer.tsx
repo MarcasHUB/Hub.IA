@@ -499,9 +499,26 @@ export function ChatDrawer() {
                           <a href={attachmentUrl} target="_blank" rel="noreferrer" className="flex-1 text-center py-1.5 bg-black/10 hover:bg-black/20 rounded">
                             Abrir
                           </a>
-                          <a href={attachmentUrl} download={attachment.name} target="_blank" rel="noreferrer" className="flex-1 text-center py-1.5 bg-black/10 hover:bg-black/20 rounded">
+                          <button onClick={async (e) => {
+                            e.preventDefault();
+                            try {
+                              const res = await fetch(attachmentUrl);
+                              const blob = await res.blob();
+                              const blobUrl = window.URL.createObjectURL(blob);
+                              const a = document.createElement('a');
+                              a.href = blobUrl;
+                              a.download = attachment.name;
+                              document.body.appendChild(a);
+                              a.click();
+                              window.URL.revokeObjectURL(blobUrl);
+                              document.body.removeChild(a);
+                            } catch (error) {
+                              console.error('Falha ao baixar anexo:', error);
+                              alert('Erro ao tentar baixar o arquivo. Verifique sua conexão ou tente novamente mais tarde.');
+                            }
+                          }} className="flex-1 text-center py-1.5 bg-black/10 hover:bg-black/20 rounded">
                             Baixar
-                          </a>
+                          </button>
                         </div>
                       </div>
                     );
@@ -548,9 +565,26 @@ export function ChatDrawer() {
                             <a href={attachmentUrl} target="_blank" rel="noreferrer" className="flex-1 text-center py-1.5 bg-black/10 hover:bg-black/20 rounded">
                               Abrir
                             </a>
-                            <a href={attachmentUrl} download={fileName} target="_blank" rel="noreferrer" className="flex-1 text-center py-1.5 bg-black/10 hover:bg-black/20 rounded">
+                            <button onClick={async (e) => {
+                              e.preventDefault();
+                              try {
+                                const res = await fetch(attachmentUrl);
+                                const blob = await res.blob();
+                                const blobUrl = window.URL.createObjectURL(blob);
+                                const a = document.createElement('a');
+                                a.href = blobUrl;
+                                a.download = fileName;
+                                document.body.appendChild(a);
+                                a.click();
+                                window.URL.revokeObjectURL(blobUrl);
+                                document.body.removeChild(a);
+                              } catch (error) {
+                                console.error('Falha ao baixar anexo:', error);
+                                alert('Erro ao tentar baixar o arquivo. Verifique sua conexão ou tente novamente mais tarde.');
+                              }
+                            }} className="flex-1 text-center py-1.5 bg-black/10 hover:bg-black/20 rounded">
                               Baixar
-                            </a>
+                            </button>
                           </div>
                         </div>
                       );

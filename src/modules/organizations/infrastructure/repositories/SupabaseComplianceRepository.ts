@@ -22,22 +22,16 @@ export interface ComplianceEvent {
   created_at: string;
   reviewed_at: string | null;
   reviewed_by: string | null;
-  
-  sender_user?: { full_name: string; email: string };
-  recipient_organization?: { name: string; id: string };
+  sender_name?: string;
+  recipient_name?: string;
+  sender_user?: { full_name?: string; email?: string };
+  recipient_organization?: { name?: string; id?: string };
 }
 
 export class SupabaseComplianceRepository {
   async getEvents(orgId: string): Promise<ComplianceEvent[]> {
     const { data, error } = await supabase
-      .from('compliance_events')
-      .select(`
-        *,
-        sender_user:profiles!compliance_events_sender_user_id_fkey(full_name, email),
-        recipient_organization:organizations!compliance_events_recipient_organization_id_fkey(name, id)
-      `)
-      .eq('organization_id', orgId)
-      .order('created_at', { ascending: false });
+      .rpc('get_my_compliance_events');
 
     if (error) {
       throw error;

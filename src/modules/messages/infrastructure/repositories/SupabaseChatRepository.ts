@@ -168,13 +168,22 @@ export class SupabaseChatRepository {
 
     if (!data) return [];
 
+    // Busca identidades resolvidas de forma segura
+    const { data: identities } = await supabase
+      .from('partner_identities')
+      .select('partner_organization_id, razao_social, nome_fantasia');
+
+    const identityMap = new Map();
+    identities?.forEach((id: { partner_organization_id: string; razao_social: string; nome_fantasia: string }) =>
+      identityMap.set(id.partner_organization_id, id)
+    );
+
     const list = data.map((conv: any) => {
       const isA = conv.organization_a_id === activeOrgId;
       const partnerId = isA ? conv.organization_b_id : conv.organization_a_id;
 
-      const rawPartner = isA ? conv.org_b : conv.org_a;
-      const partnerObj = Array.isArray(rawPartner) ? rawPartner[0] : rawPartner;
-      const partnerName = partnerObj?.razao_social || partnerObj?.nome_fantasia || 'Empresa Parceira';
+      const resolvedPartner = identityMap.get(partnerId);
+      const partnerName = resolvedPartner?.razao_social || resolvedPartner?.nome_fantasia || 'Empresa Parceira';
 
       const msgs = conv.messages || [];
       msgs.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
