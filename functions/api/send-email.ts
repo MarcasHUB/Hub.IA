@@ -235,14 +235,14 @@ ${perms.map(p => `- ${p}`).join('\n')}${rests.length > 0 ? `\n\nRestrições:\n$
             
             <p style="margin-bottom: 4px; font-weight: bold; color: #333;">Código do convite:</p>
             <div style="font-family: monospace; font-size: 16px; letter-spacing: 0.5px; background: #f4f6f8; padding: 12px; border-radius: 8px; word-break: break-all; text-align: center; color: #333;">
-              ${invite.token}
+              ${target_id}
             </div>
           </div>
 
           <p style="margin-top: 30px; font-size: 12px; color: #999;">Este convite expira em 72 horas.</p>
         </div>
       `;
-      textContent = `Olá ${toName},\n\n${welcomeText}\n${infoBlockText}\nClique no botão ou copie e cole este link no navegador para concluir seu cadastro:\n${link}\n\nCódigo do convite:\n${invite.token}\n\nEste convite expira em 72 horas.`;
+      textContent = `Olá ${toName},\n\n${welcomeText}\n${infoBlockText}\nClique no botão ou copie e cole este link no navegador para concluir seu cadastro:\n${link}\n\nCódigo do convite:\n${target_id}\n\nEste convite expira em 72 horas.`;
     }
 
     // FLUXO: CONVITE DE FORNECEDOR/EMPRESA
