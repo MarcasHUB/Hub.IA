@@ -92,14 +92,20 @@ export async function onRequestPost(context: any) {
 
     // FLUXO: CONVITE DE OPERADOR
     if (action === 'operator_invite') {
+      const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(target_id));
+      const hashedToken = Array.from(new Uint8Array(digest))
+        .map((b) => b.toString(16).padStart(2, '0'))
+        .join('');
+
       const { data: invite, error: fetchError } = await supabase
         .from('operator_invitations')
         .select('*')
-        .eq('token', target_id)
+        .eq('token_hash', hashedToken)
+        .eq('status', 'pendente')
         .single();
 
-      if (fetchError || !invite) {
-        return new Response(JSON.stringify({ error: 'Convite não encontrado ou RLS bloqueou o acesso' }), {
+      if (fetchError || !invite || new Date(invite.expires_at).getTime() <= Date.now()) {
+        return new Response(JSON.stringify({ error: 'Convite não encontrado, bloqueado ou expirado' }), {
           status: 404,
           headers: { 'Content-Type': 'application/json', ...corsHeaders }
         });
@@ -108,7 +114,7 @@ export async function onRequestPost(context: any) {
       toEmail = invite.email;
       toName = invite.nome || 'Operador';
       subject = 'Convite para ingressar na SupplyHUB';
-      const link = joinUrl(publicUrl, `aceitar-convite?token=${invite.token}`);
+      const link = joinUrl(publicUrl, `aceitar-convite?token=${target_id}`);
       const manualUrl = joinUrl(publicUrl, 'aceitar-convite');
 
       const c = invite.cargo || '';
