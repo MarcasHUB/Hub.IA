@@ -76,8 +76,11 @@ export class SupabaseOperatorRepository implements IOperatorRepository {
       const { error } = await supabase.rpc('update_pending_operator_invitation', {
         p_operator_id: id,
         p_nome: payload.nome || '',
+        p_sobrenome: payload.sobrenome || '',
+        p_telefone: payload.telefone || null,
         p_cargo: payload.cargo || null,
         p_perfil: payload.perfil || 'comprador',
+        p_gestor_id: payload.gestor_id || null,
         p_todas_categorias: Boolean(payload.todas_categorias),
         p_category_ids: payload.categories || [],
       });

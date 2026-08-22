@@ -79,97 +79,40 @@ export function EditOperatorModal({ authUserId, operator, orgId, operators, onCl
     try {
       const repo = new SupabaseOperatorRepository();
       
-      let finalOperatorId = operator.id;
+      const selectedPerfil = operator.status === 'pendente'
+        ? MACRO_PROFILES[form.macroProfile].perfil
+        : form.perfil;
+      const isAllCats = selectedPerfil === 'administrador'
+        || selectedPerfil === 'auditor'
+        || form.todas_categorias;
+      const payload: Partial<Operator> = {
+        email: operator.email,
+        status: operator.status,
+        perfil: selectedPerfil,
+        gestor_id: selectedPerfil === 'administrador' ? undefined : (form.gestor_id || undefined),
+        todas_categorias: isAllCats,
+        categories: isAllCats ? [] : form.category_ids,
+      };
 
-      if (operator.status === 'pendente' && form.email !== operator.email) {
-        // Cancel old invite
-        await repo.cancelInvite(operator.email, operator.id);
-        
-        // Create new invite with new email
-        const isAllCats = form.macroProfile === 'Administrador' || form.macroProfile === 'Auditor' || form.todas_categorias;
-        const newOpRes = await repo.inviteOperator({
-          nome: form.nome,
-          sobrenome: form.sobrenome,
-          email: form.email,
-          telefone: form.telefone || undefined,
-          cargo: MACRO_PROFILES[form.macroProfile].cargo,
-          perfil: MACRO_PROFILES[form.macroProfile].perfil,
-          gestor_id: form.macroProfile === 'Administrador' ? undefined : (form.gestor_id || undefined),
-          category_ids: isAllCats ? [] : form.category_ids,
-          todas_categorias: isAllCats,
-          organization_id: orgId,
-          invited_by_id: authUserId,
-        });
-
-        if (newOpRes.success && newOpRes.token) {
-          const { EmailService } = await import('@/shared/utils/EmailService');
-          const emailRes = await EmailService.sendTransactionalEmail('operator_invite', newOpRes.token);
-          if (emailRes.success) {
-            await repo.updateEmailStatus(newOpRes.token, 'sent');
-          } else {
-            await repo.updateEmailStatus(newOpRes.token, 'failed', emailRes.message);
-          }
-        }
-        
-        if (newOpRes.user && newOpRes.user.id) {
-           finalOperatorId = newOpRes.user.id;
-        }
-
-        // We completely replace the operator in cache
-        queryClient.setQueryData(operatorsKey, (old: Operator[] | undefined) => {
-          if (!old) return [];
-          const withoutOld = old.filter(item => item.id !== operator.id);
-          const newOpObj: Operator = {
-            id: finalOperatorId,
-            organization_id: orgId,
-            nome: form.nome,
-            sobrenome: form.sobrenome,
-            email: form.email,
-            telefone: form.telefone || '',
-            cargo: MACRO_PROFILES[form.macroProfile].cargo,
-            perfil: MACRO_PROFILES[form.macroProfile].perfil as any,
-            status: 'pendente',
-            gestor_id: form.gestor_id || undefined,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-            todas_categorias: form.todas_categorias,
-            categories: form.todas_categorias ? [] : form.category_ids
-          };
-          return [...withoutOld, newOpObj];
-        });
-
-      } else {
-        const isAllCats = form.perfil === 'administrador' || form.perfil === 'auditor' || form.todas_categorias;
-        const payload: Partial<Operator> = {
-          email: operator.email, // email change only allowed if pending
-          status: operator.status,
-          perfil: form.perfil,
-          gestor_id: form.perfil === 'administrador' ? undefined : (form.gestor_id || undefined),
-          todas_categorias: isAllCats,
-          categories: isAllCats ? [] : form.category_ids,
-        };
-        
-        // Só atualizamos dados pessoais em convites pendentes
-        if (operator.status === 'pendente') {
-          payload.nome = form.nome;
-          payload.sobrenome = form.sobrenome;
-          payload.telefone = form.telefone || undefined;
-          payload.cargo = MACRO_PROFILES[form.macroProfile].cargo;
-          payload.perfil = MACRO_PROFILES[form.macroProfile].perfil;
-        }
-
-        await repo.updateOperator(operator.id, payload as any);
-
-        // Atualização otimista no cache
-        queryClient.setQueryData(operatorsKey, (old: Operator[] | undefined) => {
-          if (!old) return [];
-          return old.map(item => item.id === operator.id ? { 
-            ...item, 
-            ...payload,
-            telefone: payload.telefone || ''
-          } as Operator : item);
-        });
+      // Só atualizamos dados pessoais em convites pendentes
+      if (operator.status === 'pendente') {
+        payload.nome = form.nome;
+        payload.sobrenome = form.sobrenome;
+        payload.telefone = form.telefone || undefined;
+        payload.cargo = MACRO_PROFILES[form.macroProfile].cargo;
       }
+
+      await repo.updateOperator(operator.id, payload as any);
+
+      // Atualização otimista no cache
+      queryClient.setQueryData(operatorsKey, (old: Operator[] | undefined) => {
+        if (!old) return [];
+        return old.map(item => item.id === operator.id ? {
+          ...item,
+          ...payload,
+          telefone: payload.telefone || ''
+        } as Operator : item);
+      });
 
       setSuccess(true);
       queryClient.invalidateQueries({ queryKey: operatorsKey });
@@ -229,24 +172,15 @@ export function EditOperatorModal({ authUserId, operator, orgId, operators, onCl
             )}
 
             <div className="px-6 py-5 space-y-4">
-              {/* Email bloqueado ou editável */}
+              {/* E-mail de login é imutável neste fluxo. */}
               <div className="space-y-1">
                 <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                  E-mail Corporativo (Login) 
-                  {operator.status !== 'pendente' && <span className="text-slate-400 font-normal lowercase"> - Não editável</span>}
+                  E-mail Corporativo (Login)
+                  <span className="text-slate-400 font-normal lowercase"> - Não editável</span>
                 </label>
-                {operator.status === 'pendente' ? (
-                   <Input 
-                     type="email" 
-                     value={form.email} 
-                     onChange={e => setForm(f => ({ ...f, email: e.target.value }))} 
-                     className="h-9 text-sm" 
-                   />
-                ) : (
-                   <Input type="email" value={operator.email} readOnly disabled className="h-9 text-sm bg-slate-50 text-slate-500 cursor-not-allowed" />
-                )}
-                {operator.status === 'pendente' && form.email !== operator.email && (
-                  <p className="text-xs text-amber-600 mt-1">Alterar o e-mail invalidará o link anterior e enviará um novo convite.</p>
+                <Input type="email" value={operator.email} readOnly disabled className="h-9 text-sm bg-slate-50 text-slate-500 cursor-not-allowed" />
+                {operator.status === 'pendente' && (
+                  <p className="text-xs text-slate-500 mt-1">Para usar outro e-mail, cancele este convite e crie um novo.</p>
                 )}
               </div>
 
