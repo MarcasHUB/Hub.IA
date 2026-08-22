@@ -2,11 +2,11 @@
 
 Este documento registra a evolução planejada da Rede de Negócios sem substituir os ADRs e contratos técnicos existentes. Cada fase deve preservar identidade canônica, isolamento multi-tenant, RBAC e fontes de dados autorizadas.
 
-## B1-R.3.4 — Cards enriquecidos de parceiros ativos
+## B1-R.3.4 — Cards enriquecidos de parceiros ativos — CONCLUÍDA
 
 Reutilizar os contratos canônicos da Rede e o perfil público para apresentar, somente em conexões ativas, os dados comerciais já existentes. Convites pendentes e empresas descobertas permanecem com apresentação resumida.
 
-## B1-R.3.5 — Perfil 360º e enriquecimento cadastral por CNPJ
+## B1-R.3.5 — Perfil 360º e enriquecimento cadastral por CNPJ — EM IMPLEMENTAÇÃO
 
 Consolidar uma visão detalhada da empresa e avaliar fontes oficiais de enriquecimento cadastral, com governança de dados e consentimento adequados.
 

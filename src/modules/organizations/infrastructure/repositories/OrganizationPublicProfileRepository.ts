@@ -6,6 +6,7 @@ interface PublicProfileProjection {
   id: string;
   name?: string;
   trade_name?: string;
+  description?: string | null;
   logo_url?: string | null;
   website?: string | null;
   city?: string | null;
@@ -41,6 +42,7 @@ export class OrganizationPublicProfileRepository {
       legalName: projection.name || '',
       tradeName: projection.trade_name || projection.name || '',
       document: '',
+      description: projection.description || null,
       logoPath: projection.logo_url || null,
       logoUrl,
       city: projection.city || null,

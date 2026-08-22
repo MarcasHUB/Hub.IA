@@ -4,6 +4,7 @@ import {
   buildPartnerCardPresentation,
   cleanPartnerValue,
 } from '../src/modules/suppliers/presentation/components/partnerCardPresentation.ts';
+import { buildPartner360Presentation } from '../src/modules/suppliers/presentation/components/partner360Presentation.ts';
 
 const activePartner = {
   name: 'Empresa Parceira',
@@ -29,6 +30,7 @@ const publicProfile = {
   legalName: 'Empresa Parceira Industrial S.A.',
   tradeName: 'Parceira Industrial',
   document: '',
+  description: 'Fornecedor industrial homologado.',
   logoPath: null,
   logoUrl: 'https://example.test/logo.png',
   city: 'Campinas',
@@ -137,4 +139,43 @@ test('normalização trata valores ausentes de forma consistente', () => {
   assert.equal(cleanPartnerValue('  Não definido  '), null);
   assert.equal(cleanPartnerValue('conteúdo real'), 'conteúdo real');
   assert.equal(cleanPartnerValue(null), null);
+});
+
+test('perfil 360 completo reutiliza apenas dados canônicos do parceiro ativo', () => {
+  const view = buildPartner360Presentation(activePartner, publicProfile);
+
+  assert.equal(view.canViewEnrichedData, true);
+  assert.equal(view.description, 'Fornecedor industrial homologado.');
+  assert.equal(view.companySize, '51-200');
+  assert.equal(view.geographicCoverageType, 'regional');
+  assert.deepEqual(view.servedStates, ['SP', 'MG']);
+  assert.deepEqual(view.relationshipEvents, [{ label: 'Parceria iniciada', date: '21/08/2026' }]);
+});
+
+test('perfil 360 parcial omite campos ausentes sem placeholders artificiais', () => {
+  const view = buildPartner360Presentation(activePartner, null);
+
+  assert.equal(view.description, null);
+  assert.equal(view.companySize, null);
+  assert.equal(view.geographicCoverageType, null);
+  assert.deepEqual(view.servedStates, []);
+});
+
+test('perfil 360 pendente nega dados enriquecidos mesmo se receber perfil público', () => {
+  const view = buildPartner360Presentation(
+    { ...activePartner, status: 'pending_sent' as const },
+    publicProfile,
+  );
+
+  assert.equal(view.canViewEnrichedData, false);
+  assert.equal(view.email, null);
+  assert.equal(view.phone, null);
+  assert.equal(view.website, null);
+  assert.equal(view.description, null);
+  assert.equal(view.companySize, null);
+  assert.equal(view.serviceRadiusKm, null);
+  assert.deepEqual(view.products, []);
+  assert.deepEqual(view.certifications, []);
+  assert.deepEqual(view.servedStates, []);
+  assert.deepEqual(view.relationshipEvents, []);
 });

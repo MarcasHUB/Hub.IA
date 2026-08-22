@@ -19,6 +19,7 @@ export interface PublicOrganizationProfile {
   legalName: string;
   tradeName: string;
   document: string; // CNPJ
+  description: string | null;
   
   logoPath: string | null;
   logoUrl: string | null;
