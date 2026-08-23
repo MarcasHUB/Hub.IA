@@ -1,25 +1,11 @@
 -- B1-R.4D: Canonicalize operator categories for all profiles
 
-CREATE OR REPLACE FUNCTION public.create_operator_invitation_transactional(
-  p_caller_id uuid,
-  p_user_id uuid,
-  p_email text,
-  p_nome text,
-  p_sobrenome text,
-  p_telefone text,
-  p_cargo text,
-  p_perfil public.operator_perfil,
-  p_gestor_id uuid,
-  p_category_ids uuid[],
-  p_todas_categorias boolean,
-  p_token_hash text,
-  p_expires_at timestamptz
-)
-RETURNS uuid
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = ''
-AS $$
+CREATE OR REPLACE FUNCTION public.create_operator_invitation_transactional(p_caller_id uuid, p_user_id uuid, p_email text, p_nome text, p_sobrenome text, p_telefone text, p_cargo text, p_perfil operator_perfil, p_gestor_id uuid, p_category_ids uuid[], p_todas_categorias boolean, p_token_hash text, p_expires_at timestamp with time zone)
+ RETURNS uuid
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
 DECLARE
   v_caller public.operators%ROWTYPE;
   v_existing public.operators%ROWTYPE;
@@ -50,6 +36,7 @@ BEGIN
   -- B1-R.3 Categories Rules
   IF p_perfil IN ('administrador', 'auditor') THEN
     v_todas_categorias := true;
+    v_category_ids := ARRAY[]::uuid[];
   END IF;
 
   -- B1-R.4D: Canonicalize category_ids for ANY profile that has todas_categorias = true
@@ -73,8 +60,45 @@ BEGIN
     IF NOT FOUND THEN
       RAISE EXCEPTION 'OPERATOR_MANAGER_INVALID';
     END IF;
-  ELSIF p_perfil IN ('gestor', 'comprador', 'solicitante') THEN
-    RAISE EXCEPTION 'OPERATOR_MANAGER_REQUIRED';
+
+    IF p_perfil IN ('auditor', 'gestor') AND v_gestor.perfil <> 'administrador' THEN
+      RAISE EXCEPTION 'OPERATOR_MANAGER_HIERARCHY_INVALID';
+    END IF;
+
+    IF p_perfil = 'comprador' AND v_gestor.perfil NOT IN ('administrador', 'gestor') THEN
+      RAISE EXCEPTION 'OPERATOR_MANAGER_HIERARCHY_INVALID';
+    END IF;
+
+    IF p_perfil = 'solicitante' AND v_gestor.perfil <> 'gestor' THEN
+      RAISE EXCEPTION 'OPERATOR_MANAGER_HIERARCHY_INVALID';
+    END IF;
+  ELSE
+    IF p_perfil NOT IN ('administrador', 'comprador') THEN
+      RAISE EXCEPTION 'OPERATOR_MANAGER_REQUIRED';
+    END IF;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM auth.users
+    WHERE id = p_user_id
+      AND lower(email) = v_normalized_email
+  ) THEN
+    RAISE EXCEPTION 'OPERATOR_AUTH_IDENTITY_MISMATCH';
+  END IF;
+
+  SELECT * INTO v_existing
+  FROM public.operators
+  WHERE id = p_user_id OR lower(email) = v_normalized_email
+  ORDER BY CASE WHEN id = p_user_id THEN 0 ELSE 1 END
+  LIMIT 1
+  FOR UPDATE;
+
+  IF FOUND AND v_existing.organization_id <> v_caller.organization_id THEN
+    RAISE EXCEPTION 'OPERATOR_CROSS_TENANT_CONFLICT';
+  END IF;
+
+  IF FOUND AND v_existing.status = 'ativo' AND v_existing.deleted_at IS NULL THEN
+    RAISE EXCEPTION 'OPERATOR_ALREADY_ACTIVE';
   END IF;
 
   IF NOT v_todas_categorias AND array_length(v_category_ids, 1) > 0 THEN
@@ -89,6 +113,34 @@ BEGIN
       RAISE EXCEPTION 'OPERATOR_CATEGORY_INVALID';
     END IF;
   END IF;
+
+  INSERT INTO public.operators (
+    id, organization_id, nome, sobrenome, email, telefone, cargo, perfil,
+    status, gestor_id, invited_at, deleted_at, todas_categorias, updated_at
+  ) VALUES (
+    p_user_id, v_caller.organization_id, trim(p_nome), coalesce(trim(p_sobrenome), ''),
+    v_normalized_email, p_telefone, p_cargo, p_perfil, 'pendente', p_gestor_id,
+    now(), NULL, v_todas_categorias, now()
+  )
+  ON CONFLICT (id) DO UPDATE SET
+    nome = EXCLUDED.nome,
+    sobrenome = EXCLUDED.sobrenome,
+    email = EXCLUDED.email,
+    telefone = EXCLUDED.telefone,
+    cargo = EXCLUDED.cargo,
+    perfil = EXCLUDED.perfil,
+    status = 'pendente',
+    gestor_id = EXCLUDED.gestor_id,
+    invited_at = now(),
+    deleted_at = NULL,
+    todas_categorias = EXCLUDED.todas_categorias,
+    updated_at = now();
+
+  UPDATE public.operator_invitations
+  SET status = 'cancelado', cancelled_at = now(), updated_at = now()
+  WHERE organization_id = v_caller.organization_id
+    AND lower(email) = v_normalized_email
+    AND status = 'pendente';
 
   INSERT INTO public.operator_invitations (
     organization_id, invited_by_id, email, nome, cargo, perfil, token,
@@ -120,7 +172,7 @@ BEGIN
 
   RETURN v_invitation_id;
 END;
-$$;
+$function$;
 
 REVOKE ALL ON FUNCTION public.create_operator_invitation_transactional(
   uuid, uuid, text, text, text, text, text, public.operator_perfil, uuid,
