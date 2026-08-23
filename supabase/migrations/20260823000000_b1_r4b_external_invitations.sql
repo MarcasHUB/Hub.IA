@@ -20,7 +20,7 @@ WITH CHECK (
         invited_by_id IS NULL OR EXISTS (
             SELECT 1 FROM public.operators o
             WHERE o.id = invited_by_id
-            AND o.user_id = auth.uid()
+            AND o.id = auth.uid()
             AND o.organization_id = invitations.organization_id
         )
     )
@@ -42,7 +42,7 @@ BEGIN
     IF NEW.invited_by_id IS NULL THEN
         SELECT id INTO NEW.invited_by_id
         FROM public.operators
-        WHERE user_id = auth.uid()
+        WHERE id = auth.uid()
         AND organization_id = NEW.organization_id
         LIMIT 1;
     END IF;
