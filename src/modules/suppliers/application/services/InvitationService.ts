@@ -1,41 +1,48 @@
-import { SupplierInvitation } from '../../domain/entities/SupplierInvitation';
+import { SupplierInvitation, SupplierInvitationStatus } from '../../domain/entities/SupplierInvitation';
 import { ISupplierInvitationRepository } from '../../domain/repositories/ISupplierInvitationRepository';
-import { LocalStorageSupplierInvitationRepository } from '../../infrastructure/repositories/LocalStorageSupplierInvitationRepository';
+import { SupabaseSupplierInvitationRepository } from '../../infrastructure/repositories/SupabaseSupplierInvitationRepository';
+import { hashToken, generateRawToken } from '@/shared/utils/tokenUtils';
 
 export class InvitationService {
-    private repo: ISupplierInvitationRepository = new LocalStorageSupplierInvitationRepository();
+    private repo: ISupplierInvitationRepository = new SupabaseSupplierInvitationRepository();
 
-    async createInvitation(orgId: string, cnpj: string, email: string): Promise<SupplierInvitation> {
+    async createExternalInvitation(payload: {
+        organizationId: string;
+        companyName: string;
+        document: string;
+        email: string;
+        city?: string;
+        state?: string;
+        contactName?: string;
+        message?: string;
+        segments?: string[];
+        invitedById?: string;
+    }): Promise<SupplierInvitation & { _rawToken: string }> {
+        const rawToken = generateRawToken();
+        const tokenHash = await hashToken(rawToken);
         const exp = new Date();
         exp.setDate(exp.getDate() + 7); // expires in 7 days
-        const inv = new SupplierInvitation(
-            'inv_' + Date.now(),
-            orgId,
-            cnpj,
-            email,
-            'tok_' + Math.random().toString(36).substring(2),
-            'Convite enviado',
-            new Date(),
-            exp,
-            undefined,
-            'user_1',
-            0,
-            new Date()
-        );
-        await this.repo.save(inv);
-        return inv;
+
+        const inv = await this.repo.save({
+            ...payload,
+            status: 'pendente',
+            tokenHash,
+            expiresAt: exp.toISOString(),
+        });
+        return { ...inv, _rawToken: rawToken };
     }
 
-    async getInvitationByToken(token: string) {
-        return this.repo.findByToken(token);
+    async listPendingByOrganization(orgId: string): Promise<SupplierInvitation[]> {
+        const list = await this.repo.findByOrganizationId(orgId);
+        return list.filter(i => i.status === 'pendente');
     }
 
-    async completeInvitation(id: string) {
-        const inv = await this.repo.findById(id);
-        if (inv) {
-            inv.status = 'Cadastro concluído';
-            inv.acceptedAt = new Date();
-            await this.repo.save(inv);
-        }
+    async cancelInvitation(id: string): Promise<void> {
+        await this.repo.update(id, { status: 'cancelado' });
+    }
+
+    async updateInvitation(id: string, updates: Partial<SupplierInvitation>): Promise<SupplierInvitation> {
+        return this.repo.update(id, updates);
     }
 }
+

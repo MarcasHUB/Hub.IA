@@ -11,6 +11,7 @@ import { InviteCompanyModal } from '../components/InviteCompanyModal';
 import { EditInviteModal } from '../components/EditInviteModal';
 import { CompanyDetailsDrawer } from '../components/CompanyDetailsDrawer';
 import { supabase } from '@/infrastructure/supabase/client';
+import { InvitationService } from '../../application/services/InvitationService';
 import { getAuthenticatedIdentity } from '@/modules/auth/application/services/getAuthenticatedIdentity';
 import { SupabasePartnerConnectionRepository } from '../../infrastructure/repositories/SupabasePartnerConnectionRepository';
 import { getUserFacingConnectionError } from '../../application/services/companyConnectionFlow';
@@ -29,14 +30,12 @@ export default function SuppliersListPage() {
   const loadPartners = useCallback(async () => {
     try {
       const identity = await getAuthenticatedIdentity();
-      const [connections, invitationsResult] = await Promise.all([
+      const invitationService = new InvitationService();
+      const [connections, pendingInvitations] = await Promise.all([
         connectionRepository.list(),
-        supabase
-          .from('invitations')
-          .select('id, company, name, document, segments, city, state, status, email, contact_name, message')
-          .eq('organization_id', identity.organizationId)
-          .eq('status', 'pendente'),
+        invitationService.listPendingByOrganization(identity.organizationId),
       ]);
+      const invitationsResult = { data: pendingInvitations, error: null };
 
       if (invitationsResult.error) throw invitationsResult.error;
 
@@ -75,7 +74,7 @@ export default function SuppliersListPage() {
         id: invitation.id,
         organizationId: '',
         connectionId: '',
-        name: invitation.company || invitation.name || 'Empresa convidada',
+        name: invitation.companyName || 'Empresa convidada',
         document: invitation.document || '',
         segment: invitation.segments?.join(', ') || '',
         city: invitation.city || '',
@@ -87,7 +86,7 @@ export default function SuppliersListPage() {
         quotationsCount: 0,
         products: [],
         email: invitation.email || undefined,
-        contact_name: invitation.contact_name || undefined,
+        contact_name: invitation.contactName || undefined,
         message: invitation.message || undefined,
       }));
 
@@ -194,7 +193,9 @@ export default function SuppliersListPage() {
       if (connection) {
         await connectionRepository.cancel(id);
       } else {
-        const { error } = await supabase.from('invitations').update({ status: 'cancelado' }).eq('id', id);
+        const invitationService = new InvitationService();
+        await invitationService.cancelInvitation(id);
+        const error = null;
         if (error) throw error;
       }
       await loadPartners();

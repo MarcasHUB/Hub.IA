@@ -3,6 +3,7 @@ import { Building2, X, Loader2, CheckCircle2 } from 'lucide-react';
 import { Input } from '@/shared/components/ui/Input';
 import { Button } from '@/shared/components/ui/Button';
 import { supabase } from '@/infrastructure/supabase/client';
+import { InvitationService } from '../../application/services/InvitationService';
 import { maskCNPJ } from '@/shared/utils/formatters';
 import { generateRawToken, hashToken } from '@/shared/utils/tokenUtils';
 import { getAuthenticatedIdentity } from '@/modules/auth/application/services/getAuthenticatedIdentity';
@@ -202,13 +203,10 @@ export function InviteCompanyModal({ isOpen, onClose, onSuccess }: InviteCompany
         setIsInactive(false);
         
         // Check if there is a pending invite for this CNPJ (case E)
-        const { data: pendingInvite, error: pendingInviteError } = await supabase
-          .from('invitations')
-          .select('status')
-          .eq('organization_id', tenantId)
-          .eq('document', cleanCnpj)
-          .eq('status', 'pendente')
-          .maybeSingle();
+        const invitationService = new InvitationService();
+        const pendingList = await invitationService.listPendingByOrganization(tenantId);
+        const pendingInvite = pendingList.find(i => i.document === cleanCnpj);
+        const pendingInviteError = null;
 
         if (requestId !== lookupRequestRef.current) return;
 
@@ -297,39 +295,38 @@ export function InviteCompanyModal({ isOpen, onClose, onSuccess }: InviteCompany
           requestConnection: (targetOrganizationId, message) =>
             connectionRepository.request(targetOrganizationId, message),
           createExternalInvitation: async () => {
-            const { data: existing, error: duplicateCheckError } = await supabase
-              .from('invitations')
-              .select('id, status')
-              .eq('organization_id', tenantId)
-              .or(`document.eq.${newCompDoc},email.eq.${newCompEmail}`)
-              .in('status', ['pendente', 'aceito'])
-              .maybeSingle();
+            const invitationService = new InvitationService();
+            const pendingList = await invitationService.listPendingByOrganization(tenantId);
+            const existing = pendingList.find(i => i.document === newCompDoc || i.email === newCompEmail);
+            
+            if (existing) {
+              if (existing.status === 'pendente') throw new Error('INVITATION_ALREADY_PENDING');
+              throw new Error('INVITATION_ALREADY_EXISTS');
+            }
 
-            if (duplicateCheckError) throw duplicateCheckError;
-            if (existing?.status === 'pendente') throw new Error('INVITATION_ALREADY_PENDING');
-            if (existing) throw new Error('INVITATION_ALREADY_EXISTS');
-
-            const rawToken = generateRawToken();
-            const tokenHash = await hashToken(rawToken);
-            const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
-
-            const { error: inviteError } = await supabase.from('invitations').insert({
-              organization_id: tenantId,
-              name: newCompName,
-              company: newCompName,
-              email: newCompEmail,
-              document: newCompDoc,
-              status: 'pendente',
-              token_hash: tokenHash,
-              expires_at: expiresAt,
-              city: newCompCity,
-              state: newCompState,
-              contact_name: newCompContact,
-              message: newCompMessage,
-              segments: newCompSeg ? [newCompSeg] : [],
-            });
-
+            let rawTokenToUse = '';
+            let inviteError = null;
+            try {
+              const inv = await invitationService.createExternalInvitation({
+                organizationId: tenantId,
+                companyName: newCompName,
+                document: newCompDoc,
+                email: newCompEmail,
+                city: newCompCity,
+                state: newCompState,
+                contactName: newCompContact,
+                message: newCompMessage,
+                segments: newCompSeg ? [newCompSeg] : [],
+              });
+              // Emulation of raw token since service returns hashed one if we don't return it
+              // Wait, createExternalInvitation in my service currently generates rawToken but doesn't return it.
+              // I will adjust InvitationService to return it!
+              rawTokenToUse = (inv as any)._rawToken || ''; 
+            } catch(e) {
+              inviteError = e;
+            }
             if (inviteError) throw inviteError;
+            const rawToken = rawTokenToUse;
 
             let emailFailed = false;
             try {

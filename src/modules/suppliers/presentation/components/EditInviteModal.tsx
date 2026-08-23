@@ -3,6 +3,7 @@ import { Building2, X, Loader2, CheckCircle2 } from 'lucide-react';
 import { Input } from '@/shared/components/ui/Input';
 import { Button } from '@/shared/components/ui/Button';
 import { supabase } from '@/infrastructure/supabase/client';
+import { InvitationService } from '../../application/services/InvitationService';
 import { maskCNPJ } from '@/shared/utils/formatters';
 import { getUserFacingConnectionError } from '../../application/services/companyConnectionFlow';
 
@@ -81,26 +82,42 @@ export function EditInviteModal({ isOpen, onClose, onSuccess, partner }: EditInv
     
     setIsSubmitting(true);
 
+    let updated: any;
+    let inviteError = null;
     try {
-      // Atualiza na tabela 'invitations'
-      const { data: updated, error: inviteError } = await supabase.from('invitations').update({
-        name: newCompName,
-        company: newCompName,
+      const invitationService = new InvitationService();
+      const updatedInv = await invitationService.updateInvitation(partner.id, {
+        companyName: newCompName,
         email: newCompEmail,
         document: newCompDoc,
         city: newCompCity,
         state: newCompState,
-        contact_name: newCompContact,
+        contactName: newCompContact,
         message: newCompMessage,
         segments: newCompSeg ? [newCompSeg] : [],
-        updated_at: new Date().toISOString()
-      }).eq('id', partner.id).select().single();
+      });
+      updated = {
+        ...updatedInv,
+        id: updatedInv.id,
+        name: updatedInv.companyName,
+        email: updatedInv.email,
+        document: updatedInv.document,
+        city: updatedInv.city,
+        state: updatedInv.state,
+        contact_name: updatedInv.contactName,
+        message: updatedInv.message,
+        segments: updatedInv.segments,
+        token_hash: updatedInv.tokenHash
+      };
+    } catch (e) {
+      inviteError = e;
+    }
 
-      if (inviteError) {
-        alert(getUserFacingConnectionError(inviteError, 'Não foi possível atualizar o convite. Tente novamente.'));
-        setIsSubmitting(false);
-        return;
-      }
+    if (inviteError) {
+      alert(getUserFacingConnectionError(inviteError, 'Não foi possível atualizar o convite. Tente novamente.'));
+      setIsSubmitting(false);
+      return;
+    }
 
       if (submitMode === 'resend') {
         try {
@@ -131,13 +148,7 @@ export function EditInviteModal({ isOpen, onClose, onSuccess, partner }: EditInv
         contact_name: newCompContact,
         message: newCompMessage,
       });
-      
-    } catch (e) {
-      console.error(e);
-      alert('Erro ao enviar o convite. Tente novamente.');
-    } finally {
       setIsSubmitting(false);
-    }
   };
 
   const resetAndClose = () => {
