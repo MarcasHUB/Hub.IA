@@ -86,22 +86,6 @@ export function DelegationModal({ onClose, onSuccess }: DelegationModalProps) {
         permissoes_espelhadas: permissoesEspelhadas,
       });
 
-      // Atualizar status de férias local se aplicável
-      const rawOps = localStorage.getItem('supplyhub_operators_v2');
-      if (rawOps) {
-        const opsList: Operator[] = JSON.parse(rawOps);
-        const updated = opsList.map(op => {
-          if (op.id === origemId) {
-            return { ...op, status: 'ferias' as const };
-          }
-          if (op.id === substitutoId) {
-            return { ...op, status: 'substituido' as const };
-          }
-          return op;
-        });
-        localStorage.setItem('supplyhub_operators_v2', JSON.stringify(updated));
-      }
-
       onSuccess();
     } catch (err: any) {
       setErrorMsg(err.message || 'Erro ao agendar delegação.');
