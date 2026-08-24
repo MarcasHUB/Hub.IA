@@ -96,6 +96,13 @@ serve(async (req: Request) => {
 
     // Exigir validation_status === 'valid'
     if (invite.validation_status !== 'valid') {
+      if (invite.validation_status === 'organization_exists') {
+        return new Response(
+          JSON.stringify({ code: 'ONBOARDING_ORGANIZATION_ALREADY_EXISTS', message: 'Este CNPJ já possui uma empresa cadastrada na Hub.IA. Utilize a empresa existente para solicitar ou aceitar uma conexão.' }),
+          { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
       let code = 'ONBOARDING_INVITE_INVALID';
       if (invite.validation_status === 'expired') code = 'ONBOARDING_INVITE_EXPIRED';
       if (invite.validation_status === 'already_used') code = 'ONBOARDING_INVITE_ALREADY_USED';
@@ -388,6 +395,13 @@ serve(async (req: Request) => {
         'ONBOARDING_INVITE_EXPIRED',
         'ONBOARDING_REQUIRED_DATA_MISSING'
       ];
+
+      if (msg.includes('ONBOARDING_ORGANIZATION_ALREADY_EXISTS') || msg.includes('23505') || error.code === '23505') {
+        return new Response(
+          JSON.stringify({ code: 'ONBOARDING_ORGANIZATION_ALREADY_EXISTS', message: 'Este CNPJ já possui uma empresa cadastrada na Hub.IA. Utilize a empresa existente para solicitar ou aceitar uma conexão.' }),
+          { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
 
       const foundKnownError = knownErrors.find(k => msg.includes(k));
       if (foundKnownError) {
