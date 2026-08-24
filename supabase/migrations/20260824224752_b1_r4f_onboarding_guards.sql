@@ -190,4 +190,4 @@ END;
 $function$;
 
 REVOKE ALL ON FUNCTION public.validate_company_invite(text) FROM public;
-GRANT EXECUTE ON FUNCTION public.validate_company_invite(text) TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.validate_company_invite(text) TO anon, authenticated, service_role;

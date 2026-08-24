@@ -1,7 +1,5 @@
 -- B1-R.4F Onboarding Guards (Complete Onboarding)
 
-DROP FUNCTION IF EXISTS public.complete_onboarding(text, uuid, text, text, text, text, text, text, text, text, text, uuid[]);
-
 CREATE OR REPLACE FUNCTION public.complete_onboarding(
     p_token text, 
     p_auth_id uuid, 
@@ -14,10 +12,11 @@ CREATE OR REPLACE FUNCTION public.complete_onboarding(
     p_org_city text, 
     p_org_state text, 
     p_org_website text, 
-    p_segments uuid[]
+    p_segments text[]
 ) RETURNS boolean
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public, extensions, pg_temp
 AS $$
 DECLARE
   v_org_id uuid;
@@ -26,7 +25,7 @@ DECLARE
   v_token_hash text;
   v_invitation_record record;
   v_status_norm text;
-  v_seg_text uuid;
+  v_seg_text text;
   v_count integer;
   v_record record;
   v_resolved_segments uuid[] := ARRAY[]::uuid[];
@@ -66,14 +65,14 @@ BEGIN
   END IF;
 
   -- Valida e resolve todos os segmentos ANTES de inserir outras entidades
-  -- OBS: O parametro p_segments já é uuid[] na baseline
+  -- OBS: O parametro p_segments eh text[] contendo os nomes
   IF p_segments IS NOT NULL AND array_length(p_segments, 1) > 0 THEN
     FOREACH v_seg_text IN ARRAY p_segments LOOP
       v_count := 0;
       FOR v_record IN 
           SELECT id 
           FROM public.segments 
-          WHERE id = v_seg_text
+          WHERE lower(trim(nome)) = lower(trim(v_seg_text))
             AND status = 'ativo'
             AND deleted_at IS NULL
             AND organization_id IS NULL
@@ -84,6 +83,8 @@ BEGIN
 
       IF v_count = 0 THEN
           RAISE EXCEPTION 'ONBOARDING_SEGMENT_NOT_FOUND';
+      ELSIF v_count > 1 THEN
+          RAISE EXCEPTION 'ONBOARDING_SEGMENT_AMBIGUOUS';
       END IF;
 
       v_resolved_segments := array_append(v_resolved_segments, v_seg_id);
@@ -117,10 +118,11 @@ BEGIN
             || '-' || floor(extract(epoch from now()))::text;
 
   -- 1. Cria a organização
+  -- Nao insere cnpj_normalized diretamente pois eh GENERATED ALWAYS
   INSERT INTO public.organizations (
-    name, slug, razao_social, nome_fantasia, cnpj, cnpj_normalized, city, state, website, status
+    name, slug, razao_social, nome_fantasia, cnpj, city, state, website, status
   ) VALUES (
-    p_org_name, v_slug, p_org_name, p_org_trade_name, p_org_document, v_cnpj_normalized,
+    p_org_name, v_slug, p_org_name, p_org_trade_name, p_org_document, 
     p_org_city, p_org_state, p_org_website, 'ativo'
   ) RETURNING id INTO v_org_id;
 
@@ -237,5 +239,7 @@ BEGIN
 END;
 $$;
 
-GRANT EXECUTE ON FUNCTION public.complete_onboarding(text, uuid, text, text, text, text, text, text, text, text, text, uuid[]) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.complete_onboarding(text, uuid, text, text, text, text, text, text, text, text, text, uuid[]) TO anon;
+-- Nao dropar os grants. Repassar explicitamente para anon, authenticated, e service_role
+GRANT EXECUTE ON FUNCTION public.complete_onboarding(text, uuid, text, text, text, text, text, text, text, text, text, text[]) TO anon;
+GRANT EXECUTE ON FUNCTION public.complete_onboarding(text, uuid, text, text, text, text, text, text, text, text, text, text[]) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.complete_onboarding(text, uuid, text, text, text, text, text, text, text, text, text, text[]) TO service_role;

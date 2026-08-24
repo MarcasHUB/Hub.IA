@@ -61,7 +61,8 @@ type OnboardingInviteState =
         | 'expired'
         | 'already_used'
         | 'revoked'
-        | 'incomplete';
+        | 'incomplete'
+        | 'organization_exists';
     }
   | {
       status: 'error';
@@ -179,7 +180,7 @@ export default function OnboardingWizardPage() {
 
       const vStatus = raw.validation_status as string;
 
-      if (['not_found', 'expired', 'already_used', 'revoked', 'incomplete'].includes(vStatus)) {
+      if (['not_found', 'expired', 'already_used', 'revoked', 'incomplete', 'organization_exists'].includes(vStatus)) {
         setInviteState({ status: 'invalid', reason: vStatus as any });
         return;
       }
@@ -487,6 +488,8 @@ export default function OnboardingWizardPage() {
         return { title: 'Este convite não está mais disponível', desc: 'Entre em contato com a empresa que enviou o convite.' };
       case 'incomplete':
         return { title: 'Não foi possível utilizar este convite', desc: 'Os dados necessários estão incompletos. Solicite um novo convite.' };
+      case 'organization_exists':
+        return { title: 'CNPJ já cadastrado', desc: 'Este CNPJ já possui uma empresa cadastrada na Hub.IA. Utilize a empresa existente para solicitar ou aceitar uma conexão.' };
       default:
         return { title: 'Convite inválido', desc: 'Ocorreu um erro ao validar os dados.' };
     }

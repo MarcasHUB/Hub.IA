@@ -29,7 +29,12 @@ AS $$
     'city', o.city,
     'state', o.state,
     'profile_type', o.profile_type,
-    'segment', o.segment,
+    'segment', (
+      SELECT string_agg(s.nome, ', ' ORDER BY s.nome)
+      FROM public.organization_segments os
+      JOIN public.segments s ON s.id = os.segment_id
+      WHERE os.organization_id = o.id
+    ),
     'commercial_profile', o.perfil_comercial,
     'perfil_comercial', o.perfil_comercial,
     'company_type', o.tipo_empresa,
@@ -37,7 +42,7 @@ AS $$
     'service_radius', o.raio_atendimento_km,
     'raio_atendimento_km', o.raio_atendimento_km,
     'material_count', (SELECT count(*) FROM public.organization_materials om WHERE om.organization_id = o.id),
-    'segment_count', (SELECT count(*) FROM public.organization_segments os WHERE os.organization_id = o.id)
+    'segment_count', (SELECT count(DISTINCT os.segment_id) FROM public.organization_segments os WHERE os.organization_id = o.id)
   ) ORDER BY coalesce(o.nome_fantasia, o.name)), '[]'::jsonb)
   FROM private.current_identity() AS i
   CROSS JOIN public.organizations AS o
