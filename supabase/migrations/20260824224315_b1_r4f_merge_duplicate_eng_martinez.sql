@@ -103,6 +103,41 @@ BEGIN
   DELETE FROM public.empresa_parceiros WHERE partner_id = v_duplicate_id;
 
 
+  -- 3.5. PREFLIGHT: Proibir DELETE CASCADE Acidental
+  -- Verifica todas as FKs que apontam para public.organizations(id)
+  DECLARE
+    v_fk_record record;
+    v_sql text;
+    v_has_refs boolean;
+    v_total_remaining integer := 0;
+  BEGIN
+    FOR v_fk_record IN 
+      SELECT
+          con.conname AS constraint_name,
+          cl.relname AS table_name,
+          ns.nspname AS schema_name,
+          a.attname AS column_name
+      FROM pg_constraint con
+      JOIN pg_class cl ON con.conrelid = cl.oid
+      JOIN pg_namespace ns ON cl.relnamespace = ns.oid
+      JOIN pg_attribute a ON a.attrelid = cl.oid AND a.attnum = ANY(con.conkey)
+      WHERE con.confrelid = 'public.organizations'::regclass
+        AND con.contype = 'f'
+    LOOP
+      v_sql := format('SELECT EXISTS (SELECT 1 FROM %I.%I WHERE %I = $1)', v_fk_record.schema_name, v_fk_record.table_name, v_fk_record.column_name);
+      EXECUTE v_sql INTO v_has_refs USING v_duplicate_id;
+      
+      IF v_has_refs THEN
+        v_total_remaining := v_total_remaining + 1;
+        RAISE NOTICE 'Dependência encontrada: %.%.%', v_fk_record.schema_name, v_fk_record.table_name, v_fk_record.column_name;
+      END IF;
+    END LOOP;
+
+    IF v_total_remaining > 0 THEN
+      RAISE EXCEPTION 'MERGE_ABORT_UNEXPECTED_ORGANIZATION_DEPENDENCY: % linhas dependentes restantes.', v_total_remaining;
+    END IF;
+  END;
+
   -- 4. Delete the duplicate after ensuring no FK constraints remain
   DELETE FROM public.organizations WHERE id = v_duplicate_id;
 

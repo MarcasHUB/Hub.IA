@@ -396,7 +396,9 @@ serve(async (req: Request) => {
         'ONBOARDING_REQUIRED_DATA_MISSING'
       ];
 
-      if (msg.includes('ONBOARDING_ORGANIZATION_ALREADY_EXISTS') || msg.includes('23505') || error.code === '23505') {
+      const isUniqueCnpjViolation = (error.code === '23505' || msg.includes('23505')) && (msg.includes('cnpj_normalized') || msg.includes('idx_organizations_cnpj_normalized'));
+
+      if (msg.includes('ONBOARDING_ORGANIZATION_ALREADY_EXISTS') || isUniqueCnpjViolation) {
         return new Response(
           JSON.stringify({ code: 'ONBOARDING_ORGANIZATION_ALREADY_EXISTS', message: 'Este CNPJ já possui uma empresa cadastrada na Hub.IA. Utilize a empresa existente para solicitar ou aceitar uma conexão.' }),
           { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

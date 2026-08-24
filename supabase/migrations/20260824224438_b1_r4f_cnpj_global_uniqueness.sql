@@ -47,6 +47,7 @@ CREATE OR REPLACE FUNCTION public.trg_valida_invitation_nova()
 RETURNS trigger
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public, pg_temp
 AS $$
 DECLARE
   v_clean_cnpj text;
