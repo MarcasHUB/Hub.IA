@@ -9,61 +9,17 @@ import { useAuthenticatedIdentity } from '@/modules/auth/presentation/hooks/useA
 
 type DateRange = '30' | '60' | '90';
 
-interface DashboardStats {
-  fornecedores: string;
-  fornecedoresDesc: string;
-  produtos: string;
-  produtosDesc: string;
-  pesquisas: string;
-  pesquisasDesc: string;
-  cotacoes: string;
-  cotacoesDesc: string;
-  economia: string;
-  economiaDesc: string;
+interface RealDashboardStats {
+  fornecedores: number;
+  produtos: number;
+  cotacoes: number;
 }
-
-const STATS_BY_RANGE: Record<DateRange, DashboardStats> = {
-  '30': {
-    fornecedores: '12',
-    fornecedoresDesc: '+3 novas conexões este mês',
-    produtos: '85',
-    produtosDesc: '+15 cadastros recentes',
-    pesquisas: '1.284',
-    pesquisasDesc: '+12% de aumento vs mês ant.',
-    cotacoes: '24',
-    cotacoesDesc: '18 BID / 6 direcionadas',
-    economia: 'R$ 42K',
-    economiaDesc: 'Média de 14.5% de saving'
-  },
-  '60': {
-    fornecedores: '22',
-    fornecedoresDesc: '+8 novas conexões período',
-    produtos: '190',
-    produtosDesc: '+42 cadastros período',
-    pesquisas: '2.450',
-    pesquisasDesc: '+18% consultas ativas',
-    cotacoes: '48',
-    cotacoesDesc: '35 BID / 13 direcionadas',
-    economia: 'R$ 88K',
-    economiaDesc: 'Média de 15.2% de saving'
-  },
-  '90': {
-    fornecedores: '35',
-    fornecedoresDesc: '+15 novas conexões período',
-    produtos: '320',
-    produtosDesc: '+95 cadastros período',
-    pesquisas: '3.820',
-    pesquisasDesc: '+22% consultas acumuladas',
-    cotacoes: '85',
-    cotacoesDesc: '60 BID / 25 direcionadas',
-    economia: 'R$ 184K',
-    economiaDesc: 'Média de 16.1% de saving'
-  }
-};
 
 export default function DashboardPage() {
   const [range, setRange] = useState<DateRange>('30');
-  const stats = STATS_BY_RANGE[range];
+  
+  const [realStats, setRealStats] = useState<RealDashboardStats | null>(null);
+  const [metricsLoading, setMetricsLoading] = useState(true);
 
   const [signals, setSignals] = useState<HubIASignal[]>([]);
   const [counters, setCounters] = useState({ criticos: 0, abertos: 0, resolvidos: 0 });
@@ -72,6 +28,51 @@ export default function DashboardPage() {
   const sigRepo = new SupabaseSignalRepository();
   const { data: identity } = useAuthenticatedIdentity();
   const orgId = identity?.organizationId || '';
+
+  async function loadMetrics() {
+    if (!orgId) return;
+    setMetricsLoading(true);
+    try {
+      const { supabase } = await import('@/infrastructure/supabase/client');
+      
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - parseInt(range));
+      const startDateStr = startDate.toISOString();
+
+      const [connRes, prodRes, quotRes] = await Promise.all([
+        supabase
+          .from('connection_requests')
+          .select('*', { count: 'exact', head: true })
+          .eq('status', 'accepted')
+          .or(`requester_company_id.eq.${orgId},target_company_id.eq.${orgId}`)
+          .gte('created_at', startDateStr),
+        supabase
+          .from('products')
+          .select('*', { count: 'exact', head: true })
+          .eq('organization_id', orgId)
+          .gte('created_at', startDateStr),
+        supabase
+          .from('quotation_requests')
+          .select('*', { count: 'exact', head: true })
+          .eq('organization_id', orgId)
+          .gte('created_at', startDateStr)
+      ]);
+
+      setRealStats({
+        fornecedores: connRes.count || 0,
+        produtos: prodRes.count || 0,
+        cotacoes: quotRes.count || 0,
+      });
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setMetricsLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    loadMetrics();
+  }, [orgId, range]);
 
   async function loadSignals() {
     setLoading(true);
@@ -132,62 +133,89 @@ export default function DashboardPage() {
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
         
         {/* Fornecedores */}
-        <Card className="rounded-2xl border-slate-200 hover:border-indigo-200 hover:shadow-sm transition-all duration-150">
+        <Card 
+          className="rounded-2xl border-slate-200 hover:border-indigo-200 hover:shadow-sm transition-all duration-150 cursor-pointer"
+          onClick={() => { window.location.href = '/suppliers/network'; }}
+        >
           <CardHeader className="flex flex-row items-center justify-between pb-1.5">
             <CardTitle className="text-xs font-bold text-slate-400 uppercase tracking-wider">Fornecedores</CardTitle>
             <Users className="h-4 w-4 text-slate-400" />
           </CardHeader>
           <CardContent className="space-y-1">
-            <div className="text-2xl font-extrabold text-slate-900">{stats.fornecedores}</div>
-            <p className="text-[10px] text-slate-500 leading-snug">{stats.fornecedoresDesc}</p>
+            {metricsLoading ? (
+              <div className="h-8 w-16 bg-slate-200 animate-pulse rounded"></div>
+            ) : (
+              <>
+                <div className="text-2xl font-extrabold text-slate-900">{realStats?.fornecedores ?? 0}</div>
+                <p className="text-[10px] text-slate-500 leading-snug">Conexões no período</p>
+              </>
+            )}
           </CardContent>
         </Card>
         
         {/* Produtos */}
-        <Card className="rounded-2xl border-slate-200 hover:border-indigo-200 hover:shadow-sm transition-all duration-150">
+        <Card 
+          className="rounded-2xl border-slate-200 hover:border-indigo-200 hover:shadow-sm transition-all duration-150 cursor-pointer"
+          onClick={() => { window.location.href = '/products'; }}
+        >
           <CardHeader className="flex flex-row items-center justify-between pb-1.5">
             <CardTitle className="text-xs font-bold text-slate-400 uppercase tracking-wider">Produtos</CardTitle>
             <Package className="h-4 w-4 text-slate-400" />
           </CardHeader>
           <CardContent className="space-y-1">
-            <div className="text-2xl font-extrabold text-slate-900">{stats.produtos}</div>
-            <p className="text-[10px] text-slate-500 leading-snug">{stats.produtosDesc}</p>
+            {metricsLoading ? (
+              <div className="h-8 w-16 bg-slate-200 animate-pulse rounded"></div>
+            ) : (
+              <>
+                <div className="text-2xl font-extrabold text-slate-900">{realStats?.produtos ?? 0}</div>
+                <p className="text-[10px] text-slate-500 leading-snug">Cadastros no período</p>
+              </>
+            )}
           </CardContent>
         </Card>
 
         {/* Pesquisas */}
-        <Card className="rounded-2xl border-slate-200 hover:border-indigo-200 hover:shadow-sm transition-all duration-150">
+        <Card className="rounded-2xl border-slate-200 opacity-75">
           <CardHeader className="flex flex-row items-center justify-between pb-1.5">
             <CardTitle className="text-xs font-bold text-slate-400 uppercase tracking-wider">Pesquisas</CardTitle>
             <Search className="h-4 w-4 text-slate-400" />
           </CardHeader>
           <CardContent className="space-y-1">
-            <div className="text-2xl font-extrabold text-slate-900">{stats.pesquisas}</div>
-            <p className="text-[10px] text-slate-500 leading-snug">{stats.pesquisasDesc}</p>
+            <div className="text-2xl font-extrabold text-slate-400">—</div>
+            <p className="text-[10px] text-slate-400 leading-snug">Indisponível (TBD)</p>
           </CardContent>
         </Card>
 
         {/* Cotações */}
-        <Card className="rounded-2xl border-slate-200 hover:border-indigo-200 hover:shadow-sm transition-all duration-150">
+        <Card 
+          className="rounded-2xl border-slate-200 hover:border-indigo-200 hover:shadow-sm transition-all duration-150 cursor-pointer"
+          onClick={() => { window.location.href = '/quotations'; }}
+        >
           <CardHeader className="flex flex-row items-center justify-between pb-1.5">
             <CardTitle className="text-xs font-bold text-slate-400 uppercase tracking-wider">Cotações</CardTitle>
             <FileText className="h-4 w-4 text-slate-400" />
           </CardHeader>
           <CardContent className="space-y-1">
-            <div className="text-2xl font-extrabold text-slate-900">{stats.cotacoes}</div>
-            <p className="text-[10px] text-slate-500 leading-snug">{stats.cotacoesDesc}</p>
+            {metricsLoading ? (
+              <div className="h-8 w-16 bg-slate-200 animate-pulse rounded"></div>
+            ) : (
+              <>
+                <div className="text-2xl font-extrabold text-slate-900">{realStats?.cotacoes ?? 0}</div>
+                <p className="text-[10px] text-slate-500 leading-snug">Solicitações no período</p>
+              </>
+            )}
           </CardContent>
         </Card>
 
         {/* Economia */}
-        <Card className="rounded-2xl border-green-200 bg-white hover:shadow-sm transition-all duration-150">
+        <Card className="rounded-2xl border-slate-200 opacity-75">
           <CardHeader className="flex flex-row items-center justify-between pb-1.5">
-            <CardTitle className="text-xs font-bold text-green-700 uppercase tracking-wider">Economia (Saving)</CardTitle>
-            <TrendingDown className="h-4 w-4 text-green-600" />
+            <CardTitle className="text-xs font-bold text-slate-400 uppercase tracking-wider">Economia (Saving)</CardTitle>
+            <TrendingDown className="h-4 w-4 text-slate-400" />
           </CardHeader>
           <CardContent className="space-y-1">
-            <div className="text-2xl font-extrabold text-green-700">{stats.economia}</div>
-            <p className="text-[10px] text-green-600 leading-snug">{stats.economiaDesc}</p>
+            <div className="text-2xl font-extrabold text-slate-400">—</div>
+            <p className="text-[10px] text-slate-400 leading-snug">Indisponível (TBD)</p>
           </CardContent>
         </Card>
           </div>
