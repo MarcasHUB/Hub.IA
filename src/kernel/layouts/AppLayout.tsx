@@ -373,9 +373,9 @@ export function AppLayout() {
 
             {/* Card da Empresa Minimalista */}
             <Link
-              to="/empresa"
+              to={identity?.isPlatformAdmin && !identity?.organizationId ? "/admin" : "/empresa"}
               className="hidden md:flex items-center gap-2 hover:opacity-80 transition-opacity"
-              title="Área da Empresa"
+              title={identity?.isPlatformAdmin && !identity?.organizationId ? "Administração Global" : "Área da Empresa"}
             >
               <CompanyLogo
                 logo={companyLogo}
