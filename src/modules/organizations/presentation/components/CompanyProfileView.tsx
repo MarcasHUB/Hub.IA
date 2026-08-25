@@ -15,7 +15,7 @@ import OperatorsPage from '../../../employees/presentation/pages/OperatorsPage';
 import { complianceRepository, ComplianceEvent } from '../../infrastructure/repositories/SupabaseComplianceRepository';
 import SupportTenantView from '../../../support/presentation/components/SupportTenantView';
 import { useAuthenticatedIdentity } from '@/modules/auth/presentation/hooks/useAuthenticatedIdentity';
-import { hasCapability, type Capability } from '@/core/config/permissions';
+import { canIdentity, type Capability } from '@/core/config/permissions';
 import type { CanonicalRole } from '@/core/config/roles';
 // â”€â”€â”€ Tipos â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 type Tab = 'dados' | 'comercial' | 'colaboradores' | 'solicitantes' | 'permissoes' | 'aprovacoes' | 'delegacoes' | 'logs' | 'suporte';
@@ -327,9 +327,6 @@ export default function CompanyProfileView() {
   const isOrgAdmin = identity?.operatorProfile === 'administrador';
   const isOrgAuditor = identity?.operatorProfile === 'auditor';
   const companyName = identity?.organizationName || 'Minha Empresa';
-  const canonicalRole: CanonicalRole | null = identity?.isPlatformAdmin
-    ? 'platform_admin'
-    : identity?.operatorProfile || null;
 
   const activeTab: Tab | 'compliance' = (() => {
     if (location.pathname.includes('/colaboradores') || location.pathname.includes('/operadores')) return 'colaboradores';
@@ -376,16 +373,7 @@ export default function CompanyProfileView() {
           {/* Sidebar de navegação */}
           <aside className="w-56 shrink-0 space-y-6">
             {EMPRESA_SECTIONS.map((section) => {
-              const items = section.items.filter((item) => hasCapability(canonicalRole, item.capability));
-              if (section.title === 'GOVERNANÇA' && (isOrgAdmin || isOrgAuditor)) {
-                items.push({
-                  id: 'compliance',
-                  label: 'Compliance',
-                  icon: ShieldCheck,
-                  href: '/empresa/compliance',
-                  capability: 'logs:view',
-                });
-              }
+              const items = section.items.filter((item) => canIdentity(identity, item.capability));
               if (items.length === 0) return null;
               return (
               <div key={section.title} className="space-y-1">
@@ -446,3 +434,5 @@ export default function CompanyProfileView() {
     </div>
   );
 }
+
+
