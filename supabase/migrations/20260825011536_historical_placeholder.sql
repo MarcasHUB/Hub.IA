@@ -1,0 +1,6 @@
+-- HISTORICAL MIGRATION PLACEHOLDER
+-- Version: 20260825011536
+-- Remote migration already applied before local history reconciliation.
+-- Original SQL unavailable in repository history.
+-- DO NOT use this file as proof of clean replay.
+-- Tracked under B1R-015 migration baseline debt.
