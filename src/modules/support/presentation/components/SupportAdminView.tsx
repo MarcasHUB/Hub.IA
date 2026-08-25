@@ -1,25 +1,32 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/infrastructure/supabase/client';
-import { ShieldAlert, Plus, MessageSquare, Clock, CheckCircle, Ticket, X } from 'lucide-react';
+import { ShieldAlert, MessageSquare, Clock, CheckCircle, Ticket, X, Search, FileText } from 'lucide-react';
 import { Button } from '@/shared/components/ui/Button';
-import { Input } from '@/shared/components/ui/Input';
 import { Badge } from '@/shared/components/ui/Badge';
 
 const CATEGORIES = [
-  { id: 'access', label: 'Acesso' },
-  { id: 'company_registration', label: 'Cadastro da Empresa' },
-  { id: 'invites', label: 'Convites' },
-  { id: 'network_partners', label: 'Rede / Parceiros' },
-  { id: 'materials', label: 'Materiais' },
-  { id: 'quotations', label: 'Cotações' },
-  { id: 'system_error', label: 'Erro do Sistema' },
-  { id: 'other', label: 'Outro' },
+  { id: 'access', label: 'Acesso', module: 'Auth' },
+  { id: 'company_registration', label: 'Cadastro da Empresa', module: 'Empresas' },
+  { id: 'invites', label: 'Convites', module: 'Rede' },
+  { id: 'network_partners', label: 'Rede / Parceiros', module: 'Rede' },
+  { id: 'materials', label: 'Materiais', module: 'Materiais' },
+  { id: 'quotations', label: 'Cotações', module: 'Cotações' },
+  { id: 'system_error', label: 'Erro do Sistema', module: 'Sistema' },
+  { id: 'other', label: 'Outro', module: 'Geral' },
 ];
 
 export default function SupportAdminView() {
   const queryClient = useQueryClient();
   const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
+  
+  // Filters
+  const [filterStatus, setFilterStatus] = useState<string>('');
+  const [filterCompany, setFilterCompany] = useState<string>('');
+  const [filterModule, setFilterModule] = useState<string>('');
+  
+  const [reportedContext, setReportedContext] = useState<any>(null);
+  const [isLoadingContext, setIsLoadingContext] = useState(false);
 
   const { data: tickets, isLoading } = useQuery({
     queryKey: ['admin_support_tickets'],
@@ -79,6 +86,36 @@ export default function SupportAdminView() {
     }
   });
 
+  const fetchContext = async () => {
+    if (!selectedTicketId) return;
+    setIsLoadingContext(true);
+    try {
+      const { data, error } = await supabase.rpc('support_get_reported_quotation_context', {
+        p_ticket_id: selectedTicketId
+      });
+      if (error) throw error;
+      setReportedContext(data);
+    } catch (e) {
+      console.error(e);
+      alert('Não foi possível acessar o contexto reportado. Ticket pode estar fechado ou acesso negado.');
+    } finally {
+      setIsLoadingContext(false);
+    }
+  };
+
+  const filteredTickets = useMemo(() => {
+    if (!tickets) return [];
+    return tickets.filter(t => {
+      if (filterStatus && t.status !== filterStatus) return false;
+      if (filterModule && t.module !== filterModule) return false;
+      if (filterCompany) {
+        const orgName = ((t.organizations as any)?.name || '').toLowerCase();
+        if (!orgName.includes(filterCompany.toLowerCase())) return false;
+      }
+      return true;
+    });
+  }, [tickets, filterStatus, filterCompany, filterModule]);
+
   const activeTickets = tickets?.filter(t => t.status !== 'closed' && t.status !== 'resolved')?.length || 0;
   const waitingTickets = tickets?.filter(t => t.status === 'waiting_company')?.length || 0;
   const resolvedTickets = tickets?.filter(t => t.status === 'resolved')?.length || 0;
@@ -111,6 +148,42 @@ export default function SupportAdminView() {
         </div>
       </div>
 
+      <div className="flex gap-4 mb-4 bg-slate-50 p-3 rounded-lg border">
+        <div className="flex-1">
+          <label className="text-xs font-bold text-slate-500 uppercase block mb-1">Empresa</label>
+          <div className="relative">
+            <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
+            <input 
+              type="text" 
+              placeholder="Buscar por nome..." 
+              className="w-full h-9 border rounded-md pl-9 pr-3 text-sm bg-white"
+              value={filterCompany}
+              onChange={e => setFilterCompany(e.target.value)}
+            />
+          </div>
+        </div>
+        <div className="w-48">
+          <label className="text-xs font-bold text-slate-500 uppercase block mb-1">Status</label>
+          <select className="w-full h-9 border rounded-md px-3 text-sm bg-white" value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
+            <option value="">Todos</option>
+            <option value="open">Aberto</option>
+            <option value="in_progress">Em Andamento</option>
+            <option value="waiting_company">Aguardando Empresa</option>
+            <option value="resolved">Resolvido</option>
+            <option value="closed">Fechado</option>
+          </select>
+        </div>
+        <div className="w-48">
+          <label className="text-xs font-bold text-slate-500 uppercase block mb-1">Módulo</label>
+          <select className="w-full h-9 border rounded-md px-3 text-sm bg-white" value={filterModule} onChange={e => setFilterModule(e.target.value)}>
+            <option value="">Todos</option>
+            {Array.from(new Set(CATEGORIES.map(c => c.module))).map(m => (
+              <option key={m} value={m}>{m}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+
       {isLoading ? (
         <div className="p-8 text-center text-slate-400">Carregando...</div>
       ) : (
@@ -120,36 +193,38 @@ export default function SupportAdminView() {
               <tr>
                 <th className="px-4 py-3 font-semibold text-slate-600">Empresa</th>
                 <th className="px-4 py-3 font-semibold text-slate-600">Assunto</th>
-                <th className="px-4 py-3 font-semibold text-slate-600">Categoria</th>
+                <th className="px-4 py-3 font-semibold text-slate-600">Módulo/Categoria</th>
                 <th className="px-4 py-3 font-semibold text-slate-600">Prioridade</th>
                 <th className="px-4 py-3 font-semibold text-slate-600">Status</th>
-                <th className="px-4 py-3 font-semibold text-slate-600">Atualizado</th>
                 <th className="px-4 py-3 font-semibold text-slate-600">Ações</th>
               </tr>
             </thead>
             <tbody>
-              {tickets?.map(t => (
+              {filteredTickets.map(t => (
                 <tr key={t.id} className="border-b last:border-0 hover:bg-slate-50/50">
                   <td className="px-4 py-3 font-medium">{(t.organizations as any)?.name}</td>
                   <td className="px-4 py-3 font-medium">{t.subject}</td>
-                  <td className="px-4 py-3 text-slate-500">{CATEGORIES.find(c => c.id === t.category)?.label || t.category}</td>
+                  <td className="px-4 py-3 text-slate-500">{t.module} <span className="text-xs opacity-60">({CATEGORIES.find(c => c.id === t.category)?.label})</span></td>
                   <td className="px-4 py-3"><Badge variant="outline">{t.priority}</Badge></td>
                   <td className="px-4 py-3"><Badge>{t.status}</Badge></td>
-                  <td className="px-4 py-3 text-slate-500">{new Date(t.updated_at).toLocaleString()}</td>
                   <td className="px-4 py-3">
-                    <Button variant="outline" size="sm" onClick={() => setSelectedTicketId(t.id)}>Abrir</Button>
+                    <Button variant="outline" size="sm" onClick={() => {
+                      setReportedContext(null);
+                      setSelectedTicketId(t.id);
+                    }}>Abrir</Button>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
+          {filteredTickets.length === 0 && <div className="p-8 text-center text-slate-500">Nenhum chamado encontrado para os filtros.</div>}
         </div>
       )}
 
       {/* Chat Modal */}
       {selectedTicketId && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl w-full max-w-4xl h-[85vh] flex overflow-hidden">
+          <div className="bg-white rounded-2xl w-full max-w-5xl h-[85vh] flex overflow-hidden">
             
             {/* Chat Area */}
             <div className="flex-1 flex flex-col border-r">
@@ -189,7 +264,7 @@ export default function SupportAdminView() {
             </div>
 
             {/* Sidebar Details */}
-            <div className="w-80 bg-white flex flex-col">
+            <div className="w-96 bg-white flex flex-col">
               <div className="p-4 border-b flex justify-between items-center">
                 <h3 className="font-bold">Gerenciamento</h3>
                 <button onClick={() => setSelectedTicketId(null)}><X className="w-5 h-5" /></button>
@@ -238,6 +313,29 @@ export default function SupportAdminView() {
                   {tickets?.find(t => t.id === selectedTicketId)?.created_at ? new Date(tickets?.find(t => t.id === selectedTicketId)?.created_at as string).toLocaleString() : ''}
                   </p>
                 </div>
+
+                {tickets?.find(t => t.id === selectedTicketId)?.affected_entity_type && (
+                  <div className="pt-4 border-t">
+                    <label className="text-xs font-bold text-amber-600 uppercase block mb-2">Contexto Reportado</label>
+                    <p className="text-xs text-slate-500 mb-3">Este chamado está vinculado a uma cotação.</p>
+                    
+                    {!reportedContext ? (
+                      <Button variant="outline" size="sm" className="w-full text-xs flex items-center justify-center gap-2" onClick={fetchContext} disabled={isLoadingContext}>
+                        <FileText className="w-4 h-4" /> Visualizar Ocorrência
+                      </Button>
+                    ) : (
+                      <div className="bg-slate-50 p-3 rounded border text-xs space-y-2 break-words">
+                        <p className="font-bold text-indigo-700">Snapshot de Auditoria Gerado</p>
+                        {Object.entries(reportedContext).map(([key, val]) => (
+                          <div key={key}>
+                            <span className="font-semibold block opacity-70">{key}</span>
+                            <span>{String(val)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           </div>

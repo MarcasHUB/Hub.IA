@@ -7,14 +7,14 @@ import { Input } from '@/shared/components/ui/Input';
 import { Badge } from '@/shared/components/ui/Badge';
 
 const CATEGORIES = [
-  { id: 'access', label: 'Acesso' },
-  { id: 'company_registration', label: 'Cadastro da Empresa' },
-  { id: 'invites', label: 'Convites' },
-  { id: 'network_partners', label: 'Rede / Parceiros' },
-  { id: 'materials', label: 'Materiais' },
-  { id: 'quotations', label: 'Cotações' },
-  { id: 'system_error', label: 'Erro do Sistema' },
-  { id: 'other', label: 'Outro' },
+  { id: 'access', label: 'Acesso', module: 'Auth' },
+  { id: 'company_registration', label: 'Cadastro da Empresa', module: 'Empresas' },
+  { id: 'invites', label: 'Convites', module: 'Rede' },
+  { id: 'network_partners', label: 'Rede / Parceiros', module: 'Rede' },
+  { id: 'materials', label: 'Materiais', module: 'Materiais' },
+  { id: 'quotations', label: 'Cotações', module: 'Cotações' },
+  { id: 'system_error', label: 'Erro do Sistema', module: 'Sistema' },
+  { id: 'other', label: 'Outro', module: 'Geral' },
 ];
 
 export default function SupportTenantView() {
@@ -22,7 +22,14 @@ export default function SupportTenantView() {
   const [isNewOpen, setIsNewOpen] = useState(false);
   const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
 
-  const [form, setForm] = useState({ subject: '', category: 'access', module: 'Geral', priority: 'normal', content: '' });
+  const [form, setForm] = useState({ 
+    subject: '', 
+    category: 'access', 
+    priority: 'normal', 
+    content: '',
+    affected_entity_type: null as string | null,
+    affected_entity_id: null as string | null
+  });
 
   const { data: tickets, isLoading } = useQuery({
     queryKey: ['tenant_support_tickets'],
@@ -44,14 +51,30 @@ export default function SupportTenantView() {
     enabled: !!selectedTicketId
   });
 
+  const { data: quotations } = useQuery({
+    queryKey: ['tenant_support_quotations'],
+    queryFn: async () => {
+      const { data: qr } = await supabase.from('quotation_requests').select('id, title, created_at').order('created_at', { ascending: false }).limit(20);
+      const { data: sq } = await supabase.from('supplier_quotations').select('id, request_id, created_at, quotation_requests(title)').order('created_at', { ascending: false }).limit(20);
+      return {
+        requests: qr || [],
+        responses: sq || []
+      };
+    },
+    enabled: isNewOpen && form.category === 'quotations'
+  });
+
   const createTicket = useMutation({
     mutationFn: async () => {
+      const module = CATEGORIES.find(c => c.id === form.category)?.module || 'Geral';
       const { data, error } = await supabase.rpc('support_create_ticket', {
         p_subject: form.subject,
         p_category: form.category,
-        p_module: form.module,
+        p_module: module,
         p_priority: form.priority,
-        p_content: form.content
+        p_content: form.content,
+        p_affected_entity_type: form.affected_entity_type,
+        p_affected_entity_id: form.affected_entity_id
       });
       if (error) throw error;
       return data;
@@ -60,7 +83,7 @@ export default function SupportTenantView() {
       queryClient.invalidateQueries({ queryKey: ['tenant_support_tickets'] });
       setIsNewOpen(false);
       setSelectedTicketId(id);
-      setForm({ subject: '', category: 'access', module: 'Geral', priority: 'normal', content: '' });
+      setForm({ subject: '', category: 'access', priority: 'normal', content: '', affected_entity_type: null, affected_entity_id: null });
     }
   });
 
@@ -125,6 +148,7 @@ export default function SupportTenantView() {
               <tr>
                 <th className="px-4 py-3 font-semibold text-slate-600">Assunto</th>
                 <th className="px-4 py-3 font-semibold text-slate-600">Categoria</th>
+                <th className="px-4 py-3 font-semibold text-slate-600">Módulo</th>
                 <th className="px-4 py-3 font-semibold text-slate-600">Status</th>
                 <th className="px-4 py-3 font-semibold text-slate-600">Atualizado</th>
                 <th className="px-4 py-3 font-semibold text-slate-600">Ações</th>
@@ -135,6 +159,7 @@ export default function SupportTenantView() {
                 <tr key={t.id} className="border-b last:border-0 hover:bg-slate-50/50">
                   <td className="px-4 py-3 font-medium">{t.subject}</td>
                   <td className="px-4 py-3 text-slate-500">{CATEGORIES.find(c => c.id === t.category)?.label || t.category}</td>
+                  <td className="px-4 py-3 text-slate-500">{t.module}</td>
                   <td className="px-4 py-3"><Badge>{t.status}</Badge></td>
                   <td className="px-4 py-3 text-slate-500">{new Date(t.updated_at).toLocaleString()}</td>
                   <td className="px-4 py-3">
@@ -150,7 +175,7 @@ export default function SupportTenantView() {
       {/* New Ticket Modal */}
       {isNewOpen && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl w-full max-w-lg p-6 space-y-4">
+          <div className="bg-white rounded-2xl w-full max-w-xl p-6 space-y-4">
             <div className="flex justify-between items-center border-b pb-3">
               <h3 className="text-lg font-bold">Novo Chamado</h3>
               <button onClick={() => setIsNewOpen(false)}><X className="w-5 h-5" /></button>
@@ -158,19 +183,26 @@ export default function SupportTenantView() {
             
             <div className="space-y-3">
               <div>
-                <label className="text-xs font-bold text-slate-500 uppercase">Assunto</label>
+                <label className="text-xs font-bold text-slate-500 uppercase block mb-1">Assunto</label>
                 <Input value={form.subject} onChange={e => setForm({...form, subject: e.target.value})} placeholder="Ex: Problema de acesso" />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs font-bold text-slate-500 uppercase">Categoria</label>
-                  <select className="w-full h-10 border rounded-md px-3 text-sm" value={form.category} onChange={e => setForm({...form, category: e.target.value})}>
+                  <label className="text-xs font-bold text-slate-500 uppercase block mb-1">Categoria</label>
+                  <select 
+                    className="w-full h-10 border rounded-md px-3 text-sm bg-white" 
+                    value={form.category} 
+                    onChange={e => {
+                      const newCat = e.target.value;
+                      setForm({...form, category: newCat, affected_entity_type: null, affected_entity_id: null});
+                    }}
+                  >
                     {CATEGORIES.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="text-xs font-bold text-slate-500 uppercase">Prioridade</label>
-                  <select className="w-full h-10 border rounded-md px-3 text-sm" value={form.priority} onChange={e => setForm({...form, priority: e.target.value})}>
+                  <label className="text-xs font-bold text-slate-500 uppercase block mb-1">Prioridade</label>
+                  <select className="w-full h-10 border rounded-md px-3 text-sm bg-white" value={form.priority} onChange={e => setForm({...form, priority: e.target.value})}>
                     <option value="low">Baixa</option>
                     <option value="normal">Normal</option>
                     <option value="high">Alta</option>
@@ -178,8 +210,36 @@ export default function SupportTenantView() {
                   </select>
                 </div>
               </div>
+              
+              {form.category === 'quotations' && (
+                <div className="bg-slate-50 p-3 rounded-lg border">
+                  <label className="text-xs font-bold text-indigo-600 uppercase block mb-2">Vincular cotação ao chamado (Opcional)</label>
+                  <select 
+                    className="w-full h-10 border rounded-md px-3 text-sm bg-white"
+                    value={form.affected_entity_id || ''}
+                    onChange={e => {
+                      const val = e.target.value;
+                      if (!val) {
+                        setForm({...form, affected_entity_id: null, affected_entity_type: null});
+                      } else {
+                        const isReq = quotations?.requests.some(r => r.id === val);
+                        setForm({...form, affected_entity_id: val, affected_entity_type: isReq ? 'quotation_request' : 'supplier_quotation'});
+                      }
+                    }}
+                  >
+                    <option value="">Não vincular</option>
+                    {quotations?.requests.map(q => (
+                      <option key={q.id} value={q.id}>Minha Cotação: {q.title}</option>
+                    ))}
+                    {quotations?.responses.map(sq => (
+                      <option key={sq.id} value={sq.id}>Proposta Enviada para: {(sq.quotation_requests as any)?.title || 'Cotação'}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
               <div>
-                <label className="text-xs font-bold text-slate-500 uppercase">Descrição</label>
+                <label className="text-xs font-bold text-slate-500 uppercase block mb-1">Descrição</label>
                 <textarea 
                   className="w-full border rounded-md p-3 text-sm min-h-[120px]" 
                   value={form.content} 

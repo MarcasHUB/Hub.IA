@@ -3,7 +3,7 @@ CREATE OR REPLACE FUNCTION public.admin_get_organization_details(p_target_organi
 RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public, extensions, pg_temp
+SET search_path = ''
 AS $$
 DECLARE
   v_result jsonb;
@@ -188,7 +188,7 @@ CREATE OR REPLACE FUNCTION public.support_create_ticket(
 RETURNS uuid
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public, extensions, pg_temp
+SET search_path = ''
 AS $$
 DECLARE
   v_org_id uuid;
@@ -217,10 +217,7 @@ BEGIN
     END IF;
   END IF;
 
-  v_user_name := (SELECT coalesce(nome || ' ' || sobrenome, 'Usuário') FROM public.operators WHERE auth_user_id = auth.uid() LIMIT 1);
-  IF v_user_name IS NULL THEN
-     v_user_name := 'Admin Global';
-  END IF;
+  v_user_name := coalesce((SELECT trim(concat_ws(' ', nome, sobrenome)) FROM public.operators WHERE id = auth.uid() LIMIT 1), 'Usuário');
 
   INSERT INTO public.support_tickets (
     organization_id, created_by, created_by_name_snapshot, subject, category, module, priority,
@@ -252,7 +249,7 @@ CREATE OR REPLACE FUNCTION public.support_send_message(
 RETURNS uuid
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public, extensions, pg_temp
+SET search_path = ''
 AS $$
 DECLARE
   v_org_id uuid;
@@ -286,7 +283,7 @@ BEGIN
       RAISE EXCEPTION 'Acesso negado';
     END IF;
     v_sender_type := 'tenant';
-    v_user_name := (SELECT coalesce(nome || ' ' || sobrenome, 'Usuário') FROM public.operators WHERE auth_user_id = auth.uid() LIMIT 1);
+    v_user_name := coalesce((SELECT trim(concat_ws(' ', nome, sobrenome)) FROM public.operators WHERE id = auth.uid() LIMIT 1), 'Usuário');
   END IF;
 
   INSERT INTO public.support_messages (
@@ -319,7 +316,7 @@ CREATE OR REPLACE FUNCTION public.support_update_ticket(
 RETURNS void
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public, extensions, pg_temp
+SET search_path = ''
 AS $$
 DECLARE
   v_ticket record;
@@ -371,7 +368,7 @@ CREATE OR REPLACE FUNCTION public.support_get_reported_quotation_context(p_ticke
 RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public, extensions, pg_temp
+SET search_path = ''
 AS $$
 DECLARE
   v_ticket record;
@@ -456,3 +453,8 @@ REVOKE ALL ON FUNCTION public.support_get_reported_quotation_context(uuid) FROM 
 REVOKE ALL ON FUNCTION public.support_get_reported_quotation_context(uuid) FROM anon;
 GRANT EXECUTE ON FUNCTION public.support_get_reported_quotation_context(uuid) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.support_get_reported_quotation_context(uuid) TO service_role;
+
+REVOKE ALL ON TABLE public.support_tickets FROM anon, authenticated;
+REVOKE ALL ON TABLE public.support_messages FROM anon, authenticated;
+GRANT SELECT ON TABLE public.support_tickets TO authenticated;
+GRANT SELECT ON TABLE public.support_messages TO authenticated;
