@@ -42,6 +42,7 @@ const EMPRESA_SECTIONS: Array<{
     items: [
       { id: 'permissoes', label: 'Permissões', icon: Shield, href: '/empresa/permissoes', capability: 'operators:manage' },
       { id: 'aprovacoes', label: 'Aprovações', icon: CheckCircle2, href: '/empresa/aprovacoes', capability: 'operators:manage' },
+      { id: 'compliance', label: 'Compliance', icon: ShieldCheck, href: '/empresa/compliance', capability: 'logs:view' },
     ]
   },
   {

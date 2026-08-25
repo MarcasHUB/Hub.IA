@@ -11,10 +11,16 @@ const ADMIN_SECTIONS = [
   {
     title: 'Cadastros Master',
     items: [
-      { id: 'empresas', label: 'Empresas', icon: Building2, href: '/admin' },
+      { id: 'empresas', label: 'Empresas', icon: Building2, href: '/admin/empresas' },
       { id: 'materiais', label: 'Materiais', icon: Layers, href: '/admin/materiais' },
       { id: 'categorias', label: 'Categorias', icon: Layers, href: '/admin/categorias' },
       { id: 'segmentos', label: 'Segmentos', icon: Layers, href: '/admin/segmentos' },
+    ]
+  },
+  {
+    title: 'OPERAÇÃO E SUPORTE',
+    items: [
+      { id: 'suporte', label: 'Suporte', icon: ShieldAlert, href: '/admin/suporte' },
     ]
   },
   {
@@ -29,12 +35,13 @@ export default function GlobalAdminPage() {
   const location = useLocation();
   const { data: identity, isLoading } = useAuthenticatedIdentity();
 
-  type Tab = 'empresas' | 'materiais' | 'categorias' | 'segmentos' | 'campo';
+  type Tab = 'empresas' | 'materiais' | 'categorias' | 'segmentos' | 'suporte' | 'campo';
 
   const activeTab: Tab = (() => {
     if (location.pathname.includes('/materiais')) return 'materiais';
     if (location.pathname.includes('/categorias')) return 'categorias';
     if (location.pathname.includes('/segmentos')) return 'segmentos';
+    if (location.pathname.includes('/suporte')) return 'suporte';
     if (location.pathname.includes('/campo')) return 'campo';
     return 'empresas';
   })();

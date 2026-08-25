@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import type { Capability } from '@/core/config/permissions';
-import { hasCapability } from '@/core/config/permissions';
+import { hasCapability, canIdentity } from '@/core/config/permissions';
 import type { CanonicalRole } from '@/core/config/roles';
 import { useAuthenticatedIdentity } from '@/modules/auth/presentation/hooks/useAuthenticatedIdentity';
 
@@ -18,11 +18,7 @@ export function CapabilityGuard({ capability, children }: { capability: Capabili
     return <Navigate to="/login" replace state={{ from: location.pathname }} />;
   }
 
-  const role: CanonicalRole | null = identity.isPlatformAdmin
-    ? 'platform_admin'
-    : identity.operatorProfile;
-
-  if (!hasCapability(role, capability)) {
+  if (!canIdentity(identity, capability)) {
     return <Navigate to="/dashboard" replace />;
   }
 
