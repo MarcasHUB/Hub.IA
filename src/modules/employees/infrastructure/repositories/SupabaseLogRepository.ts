@@ -47,7 +47,7 @@ export class SupabaseLogRepository {
     if (operatorIds.length > 0) {
       const { data: profiles } = await supabase
         .from('profiles')
-        .select('user_id, display_name, full_name, email, contact_email')
+        .select('user_id, display_name, full_name, email')
         .in('user_id', operatorIds);
       profiles?.forEach(profile => profilesMap.set(profile.user_id, profile));
     }
