@@ -1,4 +1,4 @@
-﻿import { useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/infrastructure/supabase/client';
 import { ShieldAlert, FileText, CheckCircle, Clock, Search, X, Ticket } from 'lucide-react';
@@ -223,41 +223,47 @@ export default function SupportAdminView() {
           <div className="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
         </div>
       ) : (
-        <div className="bg-white rounded-xl border overflow-x-auto">
-          <table className="w-full text-left text-sm whitespace-nowrap min-w-[900px]">
-            <thead className="bg-slate-50 border-b">
-              <tr>
-                <th className="px-4 py-3 font-semibold text-slate-600">Chamado</th>
-                <th className="px-4 py-3 font-semibold text-slate-600">Empresa</th>
-                <th className="px-4 py-3 font-semibold text-slate-600">Assunto</th>
-                <th className="px-4 py-3 font-semibold text-slate-600">Categoria</th>
-                <th className="px-4 py-3 font-semibold text-slate-600">Status</th>
-                <th className="px-4 py-3 font-semibold text-slate-600">Prioridade</th>
-                <th className="px-4 py-3 font-semibold text-slate-600">Atualizado</th>
-                <th className="px-4 py-3 font-semibold text-slate-600">Ações</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredTickets.map(t => (
-                <tr key={t.id} className="border-b last:border-0 hover:bg-slate-50/50">
-                  <td className="px-4 py-3 font-bold text-slate-700">#{t.id.substring(0,8).toUpperCase()}</td>
-                  <td className="px-4 py-3 font-medium">{(t.organizations as any)?.name}</td>
-                  <td className="px-4 py-3 font-medium whitespace-normal min-w-[200px]">{t.subject}</td>
-                  <td className="px-4 py-3 text-slate-500">{CATEGORIES.find(c => c.id === t.category)?.label || t.category}</td>
-                  <td className="px-4 py-3"><Badge>{STATUS_MAP[t.status] || t.status}</Badge></td>
-                  <td className="px-4 py-3"><Badge variant="outline">{PRIORITY_MAP[t.priority] || t.priority}</Badge></td>
-                  <td className="px-4 py-3 text-slate-500">{new Date(t.updated_at).toLocaleString()}</td>
-                  <td className="px-4 py-3">
-                    <Button variant="outline" size="sm" onClick={() => {
-                      setReportedContext(null);
-                      setSelectedTicketId(t.id);
-                    }}>Abrir</Button>
-                  </td>
+        <div className="bg-white rounded-xl border overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-slate-50 border-b whitespace-nowrap">
+                <tr>
+                  <th className="px-4 py-3 font-semibold text-slate-600 w-[100px]">Chamado</th>
+                  <th className="px-4 py-3 font-semibold text-slate-600">Empresa</th>
+                  <th className="px-4 py-3 font-semibold text-slate-600">Assunto</th>
+                  <th className="px-4 py-3 font-semibold text-slate-600 w-32">Categoria</th>
+                  <th className="px-4 py-3 font-semibold text-slate-600 w-28">Status</th>
+                  <th className="px-4 py-3 font-semibold text-slate-600 w-24">Prioridade</th>
+                  <th className="px-4 py-3 font-semibold text-slate-600 w-40">Atualizado</th>
+                  <th className="px-4 py-3 font-semibold text-slate-600 w-20">Ações</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-          {filteredTickets.length === 0 && <div className="p-8 text-center text-slate-500">Nenhum chamado encontrado.</div>}
+              </thead>
+              <tbody>
+                {filteredTickets.map(t => (
+                  <tr key={t.id} className="border-b last:border-0 hover:bg-slate-50/50">
+                    <td className="px-4 py-3 font-bold text-slate-700 whitespace-nowrap">#{t.id.substring(0,8).toUpperCase()}</td>
+                    <td className="px-4 py-3 font-medium truncate max-w-[150px]" title={(t.organizations as any)?.name}>
+                      {(t.organizations as any)?.name}
+                    </td>
+                    <td className="px-4 py-3 font-medium truncate max-w-[200px]" title={t.subject}>
+                      {t.subject}
+                    </td>
+                    <td className="px-4 py-3 text-slate-500 whitespace-nowrap">{CATEGORIES.find(c => c.id === t.category)?.label || t.category}</td>
+                    <td className="px-4 py-3 whitespace-nowrap"><Badge>{STATUS_MAP[t.status] || t.status}</Badge></td>
+                    <td className="px-4 py-3 whitespace-nowrap"><Badge variant="outline">{PRIORITY_MAP[t.priority] || t.priority}</Badge></td>
+                    <td className="px-4 py-3 text-slate-500 whitespace-nowrap">{new Date(t.updated_at).toLocaleString()}</td>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <Button variant="outline" size="sm" onClick={() => {
+                        setReportedContext(null);
+                        setSelectedTicketId(t.id);
+                      }}>Abrir</Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {filteredTickets.length === 0 && <div className="p-8 text-center text-slate-500 border-t">Nenhum chamado encontrado.</div>}
         </div>
       )}
 

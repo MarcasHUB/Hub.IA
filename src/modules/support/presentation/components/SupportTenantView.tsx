@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+﻿import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/infrastructure/supabase/client';
 import { ShieldAlert, Plus, MessageSquare, Clock, CheckCircle, Ticket, X, Search } from 'lucide-react';
@@ -38,6 +38,7 @@ export default function SupportTenantView() {
   const { data: identity } = useAuthenticatedIdentity();
   const [isNewOpen, setIsNewOpen] = useState(false);
   const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
+  const [isCloseConfirmOpen, setIsCloseConfirmOpen] = useState(false);
 
   // Filters
   const [searchTerm, setSearchTerm] = useState('');
@@ -128,6 +129,21 @@ export default function SupportTenantView() {
       queryClient.invalidateQueries({ queryKey: ['support_messages', selectedTicketId] });
       queryClient.invalidateQueries({ queryKey: ['my_support_tickets'] });
       setReplyText('');
+    }
+  });
+
+  const closeTicket = useMutation({
+    mutationFn: async () => {
+      if (!selectedTicketId) return;
+      const { error } = await supabase.rpc('support_close_ticket', {
+        p_ticket_id: selectedTicketId
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['my_support_tickets'] });
+      queryClient.invalidateQueries({ queryKey: ['support_messages', selectedTicketId] });
+      setIsCloseConfirmOpen(false);
     }
   });
 
@@ -237,36 +253,40 @@ export default function SupportTenantView() {
           <div className="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
         </div>
       ) : (
-        <div className="bg-white rounded-xl border overflow-x-auto">
-          <table className="w-full text-left text-sm whitespace-nowrap min-w-[800px]">
-            <thead className="bg-slate-50 border-b">
-              <tr>
-                <th className="px-4 py-3 font-semibold text-slate-600">Chamado</th>
-                <th className="px-4 py-3 font-semibold text-slate-600">Assunto</th>
-                <th className="px-4 py-3 font-semibold text-slate-600">Categoria</th>
-                <th className="px-4 py-3 font-semibold text-slate-600">Status</th>
-                <th className="px-4 py-3 font-semibold text-slate-600">Prioridade</th>
-                <th className="px-4 py-3 font-semibold text-slate-600">Atualizado</th>
-                <th className="px-4 py-3 font-semibold text-slate-600">Ações</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredTickets.map(t => (
-                <tr key={t.id} className="border-b last:border-0 hover:bg-slate-50/50">
-                  <td className="px-4 py-3 font-bold text-slate-700">#{t.id.substring(0,8).toUpperCase()}</td>
-                  <td className="px-4 py-3 font-medium whitespace-normal min-w-[200px]">{t.subject}</td>
-                  <td className="px-4 py-3 text-slate-500">{CATEGORIES.find(c => c.id === t.category)?.label || t.category}</td>
-                  <td className="px-4 py-3"><Badge>{STATUS_MAP[t.status] || t.status}</Badge></td>
-                  <td className="px-4 py-3"><Badge variant="outline">{PRIORITY_MAP[t.priority] || t.priority}</Badge></td>
-                  <td className="px-4 py-3 text-slate-500">{new Date(t.updated_at).toLocaleString()}</td>
-                  <td className="px-4 py-3">
-                    <Button variant="outline" size="sm" onClick={() => setSelectedTicketId(t.id)}>Abrir</Button>
-                  </td>
+        <div className="bg-white rounded-xl border overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-slate-50 border-b whitespace-nowrap">
+                <tr>
+                  <th className="px-4 py-3 font-semibold text-slate-600 w-[100px]">Chamado</th>
+                  <th className="px-4 py-3 font-semibold text-slate-600">Assunto</th>
+                  <th className="px-4 py-3 font-semibold text-slate-600 w-32">Categoria</th>
+                  <th className="px-4 py-3 font-semibold text-slate-600 w-28">Status</th>
+                  <th className="px-4 py-3 font-semibold text-slate-600 w-24">Prioridade</th>
+                  <th className="px-4 py-3 font-semibold text-slate-600 w-40">Atualizado</th>
+                  <th className="px-4 py-3 font-semibold text-slate-600 w-20">Ações</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-          {filteredTickets.length === 0 && <div className="p-8 text-center text-slate-500">Nenhum chamado encontrado.</div>}
+              </thead>
+              <tbody>
+                {filteredTickets.map(t => (
+                  <tr key={t.id} className="border-b last:border-0 hover:bg-slate-50/50">
+                    <td className="px-4 py-3 font-bold text-slate-700 whitespace-nowrap">#{t.id.substring(0,8).toUpperCase()}</td>
+                    <td className="px-4 py-3 font-medium truncate max-w-[300px]" title={t.subject}>
+                      {t.subject}
+                    </td>
+                    <td className="px-4 py-3 text-slate-500 whitespace-nowrap">{CATEGORIES.find(c => c.id === t.category)?.label || t.category}</td>
+                    <td className="px-4 py-3 whitespace-nowrap"><Badge>{STATUS_MAP[t.status] || t.status}</Badge></td>
+                    <td className="px-4 py-3 whitespace-nowrap"><Badge variant="outline">{PRIORITY_MAP[t.priority] || t.priority}</Badge></td>
+                    <td className="px-4 py-3 text-slate-500 whitespace-nowrap">{new Date(t.updated_at).toLocaleString()}</td>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <Button variant="outline" size="sm" onClick={() => setSelectedTicketId(t.id)}>Abrir</Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {filteredTickets.length === 0 && <div className="p-8 text-center text-slate-500 border-t">Nenhum chamado encontrado.</div>}
         </div>
       )}
 
@@ -368,8 +388,15 @@ export default function SupportTenantView() {
                   <div className="p-4 border-b flex justify-between items-start bg-slate-50">
                     <div className="space-y-3 w-full mr-4">
                       <div className="flex justify-between items-center">
-                        <h3 className="font-bold text-xl text-slate-800">Chamado #{selectedTicketId.substring(0,8).toUpperCase()}</h3>
-                        <Badge>{STATUS_MAP[currentTicket?.status || ''] || currentTicket?.status}</Badge>
+                        <div className="flex items-center gap-3">
+                          <h3 className="font-bold text-xl text-slate-800">Chamado #{selectedTicketId.substring(0,8).toUpperCase()}</h3>
+                          <Badge>{STATUS_MAP[currentTicket?.status || ''] || currentTicket?.status}</Badge>
+                        </div>
+                        {currentTicket?.status !== 'closed' && (
+                          <Button variant="outline" size="sm" onClick={() => setIsCloseConfirmOpen(true)} className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200">
+                            Encerrar chamado
+                          </Button>
+                        )}
                       </div>
                       <p className="text-base text-slate-700 font-medium">{currentTicket?.subject}</p>
                       
@@ -425,6 +452,26 @@ export default function SupportTenantView() {
                 </>
               );
             })()}
+          </div>
+        </div>
+      )}
+
+      {/* Confirmation Modal */}
+      {isCloseConfirmOpen && (
+        <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-md p-6 space-y-4 shadow-2xl">
+            <h3 className="text-lg font-bold text-slate-800">Encerrar este chamado?</h3>
+            <p className="text-slate-600 text-sm">
+              O chamado será encerrado e permanecerá disponível no histórico da sua empresa.
+            </p>
+            <div className="flex justify-end gap-3 pt-4 border-t">
+              <Button variant="outline" onClick={() => setIsCloseConfirmOpen(false)} disabled={closeTicket.isPending}>
+                Cancelar
+              </Button>
+              <Button onClick={() => closeTicket.mutate()} disabled={closeTicket.isPending} className="bg-red-600 text-white hover:bg-red-700">
+                {closeTicket.isPending ? 'Encerrando...' : 'Encerrar chamado'}
+              </Button>
+            </div>
           </div>
         </div>
       )}
