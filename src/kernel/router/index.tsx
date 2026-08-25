@@ -195,6 +195,10 @@ export const router = createBrowserRouter([
         element: <CapabilityGuard capability="platform:admin"><SuspenseWrapper><GlobalAdminPage /></SuspenseWrapper></CapabilityGuard>,
       },
       {
+        path: '/admin/suporte',
+        element: <CapabilityGuard capability="platform:admin"><SuspenseWrapper><GlobalAdminPage /></SuspenseWrapper></CapabilityGuard>,
+      },
+      {
         path: '/admin/campo',
         element: <CapabilityGuard capability="platform:admin"><SuspenseWrapper><GlobalAdminPage /></SuspenseWrapper></CapabilityGuard>,
       },
@@ -245,6 +249,10 @@ export const router = createBrowserRouter([
       {
         path: '/empresa/compliance',
         element: <CapabilityGuard capability="logs:view"><SuspenseWrapper><MinhaEmpresaPage /></SuspenseWrapper></CapabilityGuard>,
+      },
+      {
+        path: '/empresa/suporte',
+        element: <CapabilityGuard capability="company:view"><SuspenseWrapper><MinhaEmpresaPage /></SuspenseWrapper></CapabilityGuard>,
       },
       {
         path: '/empresa/empresas',

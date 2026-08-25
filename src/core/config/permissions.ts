@@ -36,3 +36,11 @@ const CAPABILITIES: Record<CanonicalRole, ReadonlySet<Capability>> = {
 export function hasCapability(role: CanonicalRole | null, capability: Capability): boolean {
   return role ? CAPABILITIES[role].has(capability) : false;
 }
+
+export function canIdentity(identity: { isPlatformAdmin: boolean; operatorProfile: CanonicalRole | null } | null, capability: Capability): boolean {
+  if (!identity) return false;
+  if (capability === 'platform:admin') {
+    return identity.isPlatformAdmin;
+  }
+  return hasCapability(identity.operatorProfile, capability);
+}

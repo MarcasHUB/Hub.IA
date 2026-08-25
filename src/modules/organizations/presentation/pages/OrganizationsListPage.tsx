@@ -6,7 +6,7 @@ import { resolveOrganizationLogoUrl } from '@/shared/utils/logoUtils';
 import { Button } from '@/shared/components/ui/Button';
 import { ClearableInput } from '@/shared/components/ui/ClearableInput';
 import { InviteCompanyModal } from '../../../suppliers/presentation/components/InviteCompanyModal';
-import { CompanyProfileModal } from '../components/CompanyProfileModal';
+import { AdminCompanyDetailsModal } from '../../../admin/presentation/components/AdminCompanyDetailsModal';
 import { EntityCard } from '@/shared/components/ui/EntityCard'; // We might use EntityCard or build custom
 import { Eye } from 'lucide-react';
 
@@ -334,14 +334,13 @@ export default function OrganizationsListPage() {
         }}
       />
       
-      <CompanyProfileModal
-        open={isProfileModalOpen}
-        onOpenChange={(open: boolean) => {
-          setIsProfileModalOpen(open);
-          if (!open) setSelectedOrgId(null);
+      <AdminCompanyDetailsModal
+        isOpen={isProfileModalOpen}
+        onClose={() => {
+          setIsProfileModalOpen(false);
+          setSelectedOrgId(null);
         }}
         organizationId={selectedOrgId}
-        mode="view"
       />
       
     </div>
