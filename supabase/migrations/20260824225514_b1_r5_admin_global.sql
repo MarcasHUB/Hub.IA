@@ -2,7 +2,7 @@ CREATE OR REPLACE FUNCTION public.admin_list_organizations_summary()
 RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public, extensions, pg_temp
+SET search_path = ''
 AS $$
 BEGIN
   IF NOT private.is_current_platform_admin() THEN
@@ -34,3 +34,8 @@ BEGIN
   ), '[]'::jsonb);
 END;
 $$;
+
+REVOKE ALL ON FUNCTION public.admin_list_organizations_summary() FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.admin_list_organizations_summary() FROM anon;
+GRANT EXECUTE ON FUNCTION public.admin_list_organizations_summary() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.admin_list_organizations_summary() TO service_role;
