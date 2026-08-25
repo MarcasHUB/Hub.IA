@@ -19,7 +19,7 @@ BEGIN
       'status', o.status,
       'profile_completion', coalesce(o.profile_completion, 0),
       'segment', (
-        SELECT coalesce(jsonb_agg(s.name), '[]'::jsonb)
+        SELECT coalesce(jsonb_agg(s.nome ORDER BY s.nome), '[]'::jsonb)
         FROM public.organization_segments os
         JOIN public.segments s ON os.segment_id = s.id
         WHERE os.organization_id = o.id
@@ -34,4 +34,3 @@ BEGIN
   ), '[]'::jsonb);
 END;
 $$;
-
