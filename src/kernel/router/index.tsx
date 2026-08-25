@@ -251,6 +251,10 @@ export const router = createBrowserRouter([
         element: <CapabilityGuard capability="logs:view"><SuspenseWrapper><MinhaEmpresaPage /></SuspenseWrapper></CapabilityGuard>,
       },
       {
+        path: '/empresa/suporte',
+        element: <CapabilityGuard capability="company:view"><SuspenseWrapper><MinhaEmpresaPage /></SuspenseWrapper></CapabilityGuard>,
+      },
+      {
         path: '/empresa/empresas',
         element: <Navigate to="/admin/empresas" replace />,
       }

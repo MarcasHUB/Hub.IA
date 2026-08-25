@@ -3,7 +3,7 @@ import { useLocation, Link } from 'react-router-dom';
 import {
   Building2, Upload, FileText, CheckCircle2, ChevronRight, Save, Store, Truck, BadgeDollarSign, ShieldCheck, Mail, MapPin,
   Users, Layers, ArrowLeftRight, ScrollText,
-  Globe, Phone, Hash, Shield, UserCheck,
+  Globe, Phone, Hash, Shield, UserCheck, ShieldAlert,
   Sparkles, ChevronDown, Tag, XCircle
 } from 'lucide-react';
 import { Button } from '@/shared/components/ui/Button';
@@ -13,11 +13,12 @@ import DelegationsPage from '../../../employees/presentation/pages/DelegationsPa
 import AccessLogsPage from '../../../employees/presentation/pages/AccessLogsPage';
 import OperatorsPage from '../../../employees/presentation/pages/OperatorsPage';
 import { complianceRepository, ComplianceEvent } from '../../infrastructure/repositories/SupabaseComplianceRepository';
+import SupportTenantView from '../../../support/presentation/components/SupportTenantView';
 import { useAuthenticatedIdentity } from '@/modules/auth/presentation/hooks/useAuthenticatedIdentity';
 import { hasCapability, type Capability } from '@/core/config/permissions';
 import type { CanonicalRole } from '@/core/config/roles';
 // â”€â”€â”€ Tipos â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-type Tab = 'dados' | 'comercial' | 'colaboradores' | 'solicitantes' | 'permissoes' | 'aprovacoes' | 'delegacoes' | 'logs';
+type Tab = 'dados' | 'comercial' | 'colaboradores' | 'solicitantes' | 'permissoes' | 'aprovacoes' | 'delegacoes' | 'logs' | 'suporte';
 type CompanyTab = Tab | 'compliance';
 
 const EMPRESA_SECTIONS: Array<{
@@ -50,6 +51,12 @@ const EMPRESA_SECTIONS: Array<{
     items: [
       { id: 'delegacoes', label: 'Delegações', icon: ArrowLeftRight, href: '/empresa/delegacoes', capability: 'delegations:view' },
       { id: 'logs', label: 'Logs', icon: ScrollText, href: '/empresa/logs', capability: 'logs:view' },
+    ]
+  },
+  {
+    title: 'SUPORTE',
+    items: [
+      { id: 'suporte', label: 'Suporte Hub.IA', icon: ShieldAlert, href: '/empresa/suporte', capability: 'company:view' },
     ]
   }
 ];
@@ -332,6 +339,8 @@ export default function CompanyProfileView() {
     if (location.pathname.includes('/delegacoes')) return 'delegacoes';
     if (location.pathname.includes('/logs')) return 'logs';
     if (location.pathname.includes('/compliance')) return 'compliance';
+    if (location.pathname.includes('/suporte')) return 'suporte';
+    if (location.pathname.includes('/comercial')) return 'comercial';
     return 'dados';
   })();
 
@@ -430,6 +439,7 @@ export default function CompanyProfileView() {
             {activeTab === 'compliance' && <ComplianceTab organizationId={organizationId} />}
             {activeTab === 'delegacoes' && <DelegationsPage />}
             {activeTab === 'logs' && <AccessLogsPage />}
+            {activeTab === 'suporte' && <SupportTenantView />}
           </main>
         </div>
       </div>
