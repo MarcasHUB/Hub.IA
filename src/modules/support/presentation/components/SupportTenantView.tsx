@@ -1,4 +1,4 @@
-﻿import { useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/infrastructure/supabase/client';
 import { ShieldAlert, Plus, MessageSquare, Clock, CheckCircle, Ticket, X, Search } from 'lucide-react';
@@ -102,7 +102,7 @@ export default function SupportTenantView() {
         p_category: form.category,
         p_module: moduleStr,
         p_priority: form.priority,
-        p_initial_message: form.content,
+        p_content: form.content,
         p_affected_entity_type: form.affected_entity_type,
         p_affected_entity_id: form.affected_entity_id
       });
