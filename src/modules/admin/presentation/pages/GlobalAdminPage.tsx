@@ -6,6 +6,7 @@ import OrganizationsListPage from '../../../organizations/presentation/pages/Org
 import ProductsListPage from '../../../products/presentation/pages/ProductsListPage';
 import { CategoriesPage } from '../../../categories/presentation/pages/CategoriesPage';
 import SegmentsPage from '../../../employees/presentation/pages/SegmentsPage';
+import SupportAdminView from '../../../support/presentation/components/SupportAdminView';
 
 const ADMIN_SECTIONS = [
   {
@@ -126,6 +127,7 @@ export default function GlobalAdminPage() {
             {activeTab === 'materiais' && <ProductsListPage />}
             {activeTab === 'categorias' && <CategoriesPage />}
             {activeTab === 'segmentos' && <SegmentsPage />}
+            {activeTab === 'suporte' && <SupportAdminView />}
             {activeTab === 'campo' && (
               <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-200">
                 <h2 className="text-xl font-bold text-slate-800 mb-4">App Campo</h2>
