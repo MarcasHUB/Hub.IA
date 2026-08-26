@@ -1,27 +1,17 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+﻿import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { supabase, isMockMode } from '@/infrastructure/supabase/client';
-
-// ─── Tipos ────────────────────────────────────────────────────────────────────
-
-export type NotificationType =
-  | 'connection_request_received'
-  | 'connection_request_accepted'
-  | 'quotation_received'
-  | 'quotation_responded'
-  | 'quotation_rejected'
-  | 'sla_overdue'
-  | 'price_anomaly'
-  | 'sourcing_suggestion';
 
 export interface Notification {
   id: string;
-  type: NotificationType;
+  type: string;
   title: string;
-  message: string;
-  is_read: boolean;
+  body: string;
+  read_at: string | null;
   action_url?: string;
   metadata?: Record<string, unknown>;
   created_at: string;
+  priority: string;
+  organization_id?: string;
 }
 
 interface NotificationContextValue {
@@ -30,106 +20,90 @@ interface NotificationContextValue {
   isLoading: boolean;
   markAsRead: (id: string) => Promise<void>;
   markAllAsRead: () => Promise<void>;
-  addMockNotification: (n: Omit<Notification, 'id' | 'created_at'>) => void;
 }
-
-// ─── Mock data (usado enquanto Supabase Auth não está conectado) ──────────────
-
-// Mocks de notificações removidos para transição de dados reais.
-
-// ─── Context ──────────────────────────────────────────────────────────────────
 
 const NotificationContext = createContext<NotificationContextValue | null>(null);
 
 export function NotificationProvider({ children }: { children: React.ReactNode }) {
-  const [notifications, setNotifications] = useState<Notification[]>(() => {
-    const saved = localStorage.getItem('supplyhub_notifications');
-    return saved ? JSON.parse(saved) : []; // Inicia vazio
-  });
-  const [isLoading, setIsLoading] = useState(false);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [userId, setUserId] = useState<string | null>(null);
 
-  const unreadCount = notifications.filter((n) => !n.is_read).length;
+  const unreadCount = notifications.filter((n) => n.read_at === null).length;
 
-  // TODO: quando Auth real estiver conectado, substituir por:
-  //   const { data } = await supabase.from('notifications').select('*').order('created_at', { ascending: false });
-  //   setNotifications(data ?? []);
-  // e configurar realtime subscription:
-  //   supabase.channel('notifications').on('postgres_changes', ..., handleNewNotification).subscribe();
-
-  const fetchNotifications = useCallback(async () => {
-    // Em modo mock (sem Supabase real configurado), mantém os dados de demonstração
-    if (isMockMode) {
-      const saved = localStorage.getItem('supplyhub_notifications');
-      if (saved) {
-        setNotifications(JSON.parse(saved));
-      }
-      setIsLoading(false);
-      return;
-    }
+  const fetchNotifications = useCallback(async (uid: string) => {
     setIsLoading(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        setIsLoading(false);
-        return;
-      }
       const { data, error } = await supabase
         .from('notifications')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_id', uid)
         .order('created_at', { ascending: false })
         .limit(50);
       if (!error && data) {
         setNotifications(data as Notification[]);
       }
     } catch {
-      // Fallback para mock em dev
+      // ignore
     } finally {
       setIsLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    fetchNotifications();
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+    
+    async function init() {
+      if (isMockMode) {
+        setIsLoading(false);
+        return;
+      }
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        setIsLoading(false);
+        return;
+      }
+      setUserId(user.id);
+      await fetchNotifications(user.id);
+
+      channel = supabase
+        .channel(`notifications_${user.id}`)
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${user.id}` }, (payload) => {
+          setNotifications(prev => {
+            // Dedupe locally if needed
+            if (prev.some(n => n.id === payload.new.id)) return prev;
+            return [payload.new as Notification, ...prev];
+          });
+        })
+        .subscribe();
+    }
+    
+    init();
+
+    return () => {
+      if (channel) {
+        supabase.removeChannel(channel);
+      }
+    };
   }, [fetchNotifications]);
 
   const markAsRead = useCallback(async (id: string) => {
-    setNotifications((prev) => {
-      const updated = prev.map((n) => (n.id === id ? { ...n, is_read: true } : n));
-      localStorage.setItem('supplyhub_notifications', JSON.stringify(updated));
-      return updated;
-    });
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      await supabase.from('notifications').update({ is_read: true }).eq('id', id);
+    setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read_at: new Date().toISOString() } : n)));
+    if (userId) {
+      await supabase.from('notifications').update({ read_at: new Date().toISOString() }).eq('id', id);
     }
-  }, []);
+  }, [userId]);
 
   const markAllAsRead = useCallback(async () => {
-    setNotifications((prev) => {
-      const updated = prev.map((n) => ({ ...n, is_read: true }));
-      localStorage.setItem('supplyhub_notifications', JSON.stringify(updated));
-      return updated;
-    });
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      await supabase.from('notifications').update({ is_read: true }).eq('user_id', user.id).eq('is_read', false);
+    const now = new Date().toISOString();
+    setNotifications((prev) => prev.map((n) => (n.read_at === null ? { ...n, read_at: now } : n)));
+    if (userId) {
+      await supabase.from('notifications').update({ read_at: now }).eq('user_id', userId).is('read_at', null);
     }
-  }, []);
-
-  const addMockNotification = useCallback((n: Omit<Notification, 'id' | 'created_at'>) => {
-    setNotifications((prev) => {
-      const updated = [
-        { ...n, id: Date.now().toString(), created_at: new Date().toISOString() },
-        ...prev,
-      ];
-      localStorage.setItem('supplyhub_notifications', JSON.stringify(updated));
-      return updated;
-    });
-  }, []);
+  }, [userId]);
 
   return (
-    <NotificationContext.Provider value={{ notifications, unreadCount, isLoading, markAsRead, markAllAsRead, addMockNotification }}>
+    <NotificationContext.Provider value={{ notifications, unreadCount, isLoading, markAsRead, markAllAsRead }}>
       {children}
     </NotificationContext.Provider>
   );

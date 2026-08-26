@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+﻿import { useState, useEffect, useMemo, useCallback } from 'react';
 import { supabase } from '@/infrastructure/supabase/client';
 import { Search, Network, Building2, Mail, MapPin, Globe, CheckCircle2, Clock, ExternalLink, X, Loader2, PackageOpen, LayoutGrid, Package, Sparkles } from 'lucide-react';
 import { ClearableInput } from '@/shared/components/ui/ClearableInput';
@@ -12,11 +12,11 @@ import { SupabasePartnerConnectionRepository } from '../../infrastructure/reposi
 import { getUserFacingConnectionError } from '../../application/services/companyConnectionFlow';
 import { hasCapability } from '@/core/config/permissions';
 
-// UUID raiz da organização Hub.IA (SupplyHub Ltda)
+// UUID raiz da organizaÃ§Ã£o Hub.IA (SupplyHub Ltda)
 const HUB_IA_ORG_ID = 'a0000000-0000-0000-0000-000000000001';
 const connectionRepository = new SupabasePartnerConnectionRepository();
 
-// ─── ConnectConfirmModal ───────────────────────────────────────────────────────
+// â”€â”€â”€ ConnectConfirmModal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 interface ConnectConfirmProps {
   org: NetworkOrg;
@@ -36,7 +36,7 @@ function ConnectConfirmModal({ org, onClose, onConfirm }: ConnectConfirmProps) {
     try {
       await onConfirm(message.trim());
     } catch (e: unknown) {
-      setError(getUserFacingConnectionError(e, 'Não foi possível solicitar a conexão. Tente novamente.'));
+      setError(getUserFacingConnectionError(e, 'NÃ£o foi possÃ­vel solicitar a conexÃ£o. Tente novamente.'));
     } finally {
       setIsSending(false);
     }
@@ -50,7 +50,7 @@ function ConnectConfirmModal({ org, onClose, onConfirm }: ConnectConfirmProps) {
           <div>
             <h3 className="text-lg font-bold text-slate-900">Conectar com {displayName}</h3>
             <p className="text-sm text-slate-500 mt-1">
-              Você está enviando uma solicitação de parceria para {displayName}.
+              VocÃª estÃ¡ enviando uma solicitaÃ§Ã£o de parceria para {displayName}.
             </p>
           </div>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-700 transition-colors">
@@ -63,7 +63,7 @@ function ConnectConfirmModal({ org, onClose, onConfirm }: ConnectConfirmProps) {
           <textarea
             value={message}
             onChange={e => setMessage(e.target.value)}
-            placeholder="Olá! Gostaríamos de estabelecer uma parceria comercial..."
+            placeholder="OlÃ¡! GostarÃ­amos de estabelecer uma parceria comercial..."
             rows={3}
             className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 resize-none"
           />
@@ -80,7 +80,7 @@ function ConnectConfirmModal({ org, onClose, onConfirm }: ConnectConfirmProps) {
             disabled={isSending}
             className="flex-1 h-10 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
           >
-            {isSending ? <><Loader2 className="h-4 w-4 animate-spin" /> Solicitando...</> : <><Network className="h-4 w-4" /> Solicitar conexão</>}
+            {isSending ? <><Loader2 className="h-4 w-4 animate-spin" /> Solicitando...</> : <><Network className="h-4 w-4" /> Solicitar conexÃ£o</>}
           </button>
         </div>
       </div>
@@ -88,7 +88,7 @@ function ConnectConfirmModal({ org, onClose, onConfirm }: ConnectConfirmProps) {
   );
 }
 
-// ─── CompanyCard ───────────────────────────────────────────────────────────────
+// â”€â”€â”€ CompanyCard â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function CompanyCard({
   org,
@@ -118,7 +118,7 @@ function CompanyCard({
     if (r === 'buyer' || r === 'comprador') return 'Comprador';
     if (r === 'seller' || r === 'fornecedor') return 'Fornecedor';
     if (r === 'both' || r === 'ambos' || r === 'comprador e fornecedor') return 'Comprador & Fornecedor';
-    return r ? r.charAt(0).toUpperCase() + r.slice(1) : 'Não informado';
+    return r ? r.charAt(0).toUpperCase() + r.slice(1) : 'NÃ£o informado';
   })();
 
   const cityState = [publicProfile?.city || org.city, publicProfile?.state || org.state].filter(Boolean).join(' - ');
@@ -152,7 +152,7 @@ function CompanyCard({
           </div>
         </div>
         
-        {/* Informações detalhadas */}
+        {/* InformaÃ§Ãµes detalhadas */}
         <div className="space-y-2 mb-4 text-xs font-semibold text-slate-600">
           <div className="flex flex-col gap-1.5 min-h-[96px]">
             {isProfileLoading ? (
@@ -161,7 +161,7 @@ function CompanyCard({
               </div>
             ) : (
               <>
-                {roleLabel !== 'Não informado' && (
+                {roleLabel !== 'NÃ£o informado' && (
                   <span className="flex items-center gap-1.5 text-slate-700">
                     <Building2 className="h-3.5 w-3.5 text-indigo-500" /> {roleLabel}
                   </span>
@@ -175,7 +175,7 @@ function CompanyCard({
                 
                 {radius && (
                   <span className="flex items-center gap-1.5 text-slate-500">
-                    <Globe className="h-3.5 w-3.5 text-slate-400" /> Atende até {radius} km
+                    <Globe className="h-3.5 w-3.5 text-slate-400" /> Atende atÃ© {radius} km
                   </span>
                 )}
                 
@@ -188,7 +188,7 @@ function CompanyCard({
                     ))}
                     {certs.split(',').length > 3 && (
                       <span className="text-[10px] text-slate-400 ml-5 font-medium">
-                        +{certs.split(',').length - 3} Certificações
+                        +{certs.split(',').length - 3} CertificaÃ§Ãµes
                       </span>
                     )}
                   </div>
@@ -222,7 +222,7 @@ function CompanyCard({
           </div>
         </div>
 
-        {/* Botões */}
+        {/* BotÃµes */}
         <div className="mt-auto pt-4 flex gap-2">
           <button 
             onClick={(e) => { e.stopPropagation(); onClick(org); }}
@@ -235,7 +235,7 @@ function CompanyCard({
               disabled
               className="w-full bg-slate-100 text-slate-500 font-bold text-[11px] px-2 h-9 flex items-center justify-center rounded-lg border border-slate-200 cursor-not-allowed"
             >
-              Solicitação enviada
+              SolicitaÃ§Ã£o enviada
             </button>
           ) : org.isPendingReceived && canRespondConnections ? (
             <button 
@@ -259,7 +259,7 @@ function CompanyCard({
   );
 }
 
-// ─── NetworkPage ───────────────────────────────────────────────────────────────
+// â”€â”€â”€ NetworkPage â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export default function NetworkPage() {
   const [orgs, setOrgs] = useState<NetworkOrg[]>([]);
@@ -271,7 +271,7 @@ export default function NetworkPage() {
   const [tenantId, setTenantId] = useState('');
   const [canRequestConnections, setCanRequestConnections] = useState(false);
   const [canRespondConnections, setCanRespondConnections] = useState(false);
-  const { addMockNotification } = useNotifications();
+  
 
   const isHubIA = tenantId === HUB_IA_ORG_ID;
 
@@ -300,11 +300,11 @@ export default function NetworkPage() {
         return {
           ...o,
           certifications: certs || null,
-          score_hubia: null // Mock temporário
+          score_hubia: null // Mock temporÃ¡rio
         };
       });
 
-      // Busca conexões aceitas bidirecionais
+      // Busca conexÃµes aceitas bidirecionais
       const connections = await connectionRepository.list();
       const partnerIds = new Set<string>();
       const pendingSentIds = new Set<string>();
@@ -375,8 +375,8 @@ export default function NetworkPage() {
     return () => window.removeEventListener('hubia:organization-status-changed', handleStatusChanged);
   }, [loadOrgs]);
 
-  // Filtra: remove apenas parceiros aceitos (isPartner) e oculta quem está com convite mas logado não é nem admin.
-  // Solicitações pendentes ficam na lista e são identificadas no card.
+  // Filtra: remove apenas parceiros aceitos (isPartner) e oculta quem estÃ¡ com convite mas logado nÃ£o Ã© nem admin.
+  // SolicitaÃ§Ãµes pendentes ficam na lista e sÃ£o identificadas no card.
   const networkOrgs = useMemo(() =>
     orgs.filter(o => !o.isPartner),
     [orgs]
@@ -394,7 +394,7 @@ export default function NetworkPage() {
     });
   }, [networkOrgs, search]);
 
-  // Solicitar conexão
+  // Solicitar conexÃ£o
   const handleConnect = useCallback(async (org: NetworkOrg) => {
     if (!canRequestConnections) return;
     setConnectTarget(org);
@@ -411,13 +411,8 @@ export default function NetworkPage() {
     ));
     setConnectTarget(null);
 
-    addMockNotification({
-      title: 'Solicitação enviada!',
-      message: `Solicitação de parceria enviada para ${displayName}.`,
-      type: 'connection_request_received',
-      is_read: false,
-    });
-  }, [addMockNotification]);
+    alert(`Solicitação de parceria enviada com sucesso!`);
+  }, []);
 
   return (
     <div className="flex-1 bg-slate-50 min-h-full flex flex-col font-sans">
@@ -447,11 +442,11 @@ export default function NetworkPage() {
         </div>
       </div>
 
-      {/* CONTEÚDO */}
+      {/* CONTEÃšDO */}
       <div className="flex-1 px-6 pb-8">
         <div className="max-w-[1600px] mx-auto space-y-6">
           
-          {/* PAINEL SUPERIOR: MÉTRICAS */}
+          {/* PAINEL SUPERIOR: MÃ‰TRICAS */}
           {!isLoading && (
             <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
               <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-sm flex flex-col justify-center">
@@ -508,7 +503,7 @@ export default function NetworkPage() {
                 <PackageOpen className="h-8 w-8 text-slate-400" />
               </div>
               <h3 className="text-base font-bold text-slate-900">
-                {search ? 'Nenhuma empresa encontrada.' : 'Todas as empresas da rede já são suas parceiras!'}
+                {search ? 'Nenhuma empresa encontrada.' : 'Todas as empresas da rede jÃ¡ sÃ£o suas parceiras!'}
               </h3>
             </div>
           ) : (
@@ -542,7 +537,7 @@ export default function NetworkPage() {
         }}
       />
 
-      {/* Modal de conexão */}
+      {/* Modal de conexÃ£o */}
       {connectTarget && (
         <ConnectConfirmModal
           org={connectTarget}

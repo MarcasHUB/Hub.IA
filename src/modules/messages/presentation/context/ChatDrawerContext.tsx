@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
+﻿import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import { supabase } from '@/infrastructure/supabase/client';
 import { chatRepository, ChatMessage } from '../../infrastructure/repositories/SupabaseChatRepository';
 import { useNotifications } from '@/modules/notifications/presentation/context/NotificationContext';
@@ -30,7 +30,7 @@ export function ChatDrawerProvider({ children }: { children: React.ReactNode }) 
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'inbox' | 'chat'>('inbox');
   const [conversations, setConversations] = useState<any[]>([]);
-  const { addMockNotification } = useNotifications();
+  
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const unreadChatCount = conversations.reduce((acc, conv) => acc + (conv.unreadCount || 0), 0);
@@ -118,17 +118,7 @@ export function ChatDrawerProvider({ children }: { children: React.ReactNode }) 
           
           if (!isDrawerOpenHere) {
              const partnerName = message.sender_organization_id; // Will update after reload
-             addMockNotification({
-               type: 'chat_message' as any,
-               title: 'Nova mensagem',
-               message: 'Nova mensagem recebida',
-               is_read: false,
-               metadata: {
-                 conversationId: message.conversation_id,
-                 messageId: message.id,
-                 partnerOrganizationId: message.sender_organization_id
-               }
-             });
+             
              
              setToastMessage(`Nova mensagem recebida`);
              setTimeout(() => setToastMessage(null), 4000);
@@ -143,7 +133,7 @@ export function ChatDrawerProvider({ children }: { children: React.ReactNode }) 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [activeOrgId, addMockNotification]);
+  }, [activeOrgId, ]);
 
   const openChat = useCallback(async (partnerId: string, partnerData?: any) => {
     setActivePartnerId(partnerId);

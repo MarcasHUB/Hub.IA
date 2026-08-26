@@ -1,22 +1,22 @@
-import { useState, useRef, useEffect } from 'react';
+﻿import { useState, useRef, useEffect } from 'react';
 import { Bell, X, CheckCheck, ArrowRight, Wifi, TrendingDown, Lightbulb, Handshake, FileText, UserCheck, MessageSquare } from 'lucide-react';
-import { useNotifications, Notification, NotificationType } from '../context/NotificationContext';
+import { useNotifications, Notification } from '../context/NotificationContext';
 import { useNavigate } from 'react-router-dom';
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function formatRelativeTime(isoDate: string): string {
   const diff = Date.now() - new Date(isoDate).getTime();
   const minutes = Math.floor(diff / 60000);
   if (minutes < 1) return 'Agora';
-  if (minutes < 60) return `${minutes}min atrás`;
+  if (minutes < 60) return `${minutes}min atrÃ¡s`;
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h atrás`;
+  if (hours < 24) return `${hours}h atrÃ¡s`;
   const days = Math.floor(hours / 24);
-  return `${days}d atrás`;
+  return `${days}d atrÃ¡s`;
 }
 
-function getNotificationIcon(type: NotificationType | 'chat_message') {
+function getNotificationIcon(type: string) {
   const iconProps = { className: 'h-5 w-5 flex-shrink-0' };
   switch (type) {
     case 'chat_message':                return <MessageSquare {...iconProps} className="h-5 w-5 flex-shrink-0 text-indigo-500" />;
@@ -32,7 +32,7 @@ function getNotificationIcon(type: NotificationType | 'chat_message') {
   }
 }
 
-function getNotificationAccent(type: NotificationType | 'chat_message'): string {
+function getNotificationAccent(type: string): string {
   switch (type) {
     case 'chat_message':                return 'border-l-indigo-400 bg-indigo-50/60';
     case 'connection_request_received': return 'border-l-blue-400 bg-blue-50/60';
@@ -47,7 +47,7 @@ function getNotificationAccent(type: NotificationType | 'chat_message'): string 
   }
 }
 
-// ─── NotificationCard ─────────────────────────────────────────────────────────
+// â”€â”€â”€ NotificationCard â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function NotificationCard({ notification, onAction }: { notification: Notification; onAction: () => void }) {
   const { markAsRead } = useNotifications();
@@ -75,30 +75,30 @@ function NotificationCard({ notification, onAction }: { notification: Notificati
       className={`
         relative flex gap-3 p-4 rounded-lg border border-l-4 cursor-pointer
         transition-all duration-150 hover:shadow-sm
-        ${notification.is_read
+        ${(notification.read_at !== null)
           ? 'border-slate-200 bg-white/60'
           : `${getNotificationAccent(notification.type)} border-t border-r border-b border-t-slate-200 border-r-slate-200 border-b-slate-200`
         }
       `}
       onClick={handleClick}
     >
-      {/* Ícone */}
+      {/* Ãcone */}
       <div className="mt-0.5">
         {getNotificationIcon(notification.type)}
       </div>
 
-      {/* Conteúdo */}
+      {/* ConteÃºdo */}
       <div className="flex-1 min-w-0">
         <div className="flex items-start justify-between gap-2">
-          <p className={`text-sm font-semibold leading-tight ${notification.is_read ? 'text-slate-500' : 'text-slate-900'}`}>
+          <p className={`text-sm font-semibold leading-tight ${(notification.read_at !== null) ? 'text-slate-500' : 'text-slate-900'}`}>
             {notification.title}
           </p>
-          {!notification.is_read && (
+          {!(notification.read_at !== null) && (
             <span className="mt-1 h-2 w-2 rounded-full bg-indigo-500 flex-shrink-0" />
           )}
         </div>
         <p className="mt-1 text-xs text-slate-500 leading-relaxed line-clamp-2">
-          {notification.message}
+          {notification.body}
         </p>
         <div className="mt-2 flex items-center gap-3">
           <span className="text-[10px] text-slate-400 font-medium">
@@ -115,7 +115,7 @@ function NotificationCard({ notification, onAction }: { notification: Notificati
   );
 }
 
-// ─── NotificationBell (componente principal) ──────────────────────────────────
+// â”€â”€â”€ NotificationBell (componente principal) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export function NotificationBell() {
   const { notifications, unreadCount, markAllAsRead, isLoading } = useNotifications();
@@ -137,22 +137,22 @@ export function NotificationBell() {
     return () => document.removeEventListener('mousedown', handleOutsideClick);
   }, [isOpen]);
 
-  const unread = notifications.filter((n) => !n.is_read);
-  const read   = notifications.filter((n) =>  n.is_read);
+  const unread = notifications.filter((n) => n.read_at === null);
+  const read   = notifications.filter((n) =>  n.read_at !== null);
 
   return (
     <div className="relative">
-      {/* Botão Sino */}
+      {/* BotÃ£o Sino */}
       <button
         ref={buttonRef}
         id="notification-bell-btn"
         onClick={() => setIsOpen((prev) => !prev)}
         className="relative p-2 text-slate-600 hover:bg-slate-100 rounded-full transition-colors"
-        aria-label="Notificações"
+        aria-label="NotificaÃ§Ãµes"
       >
         <Bell className="h-5 w-5" />
         {unreadCount > 0 && (
-          <span className="absolute top-0.5 right-0.5 h-4 w-4 min-w-[1rem] rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center animate-pulse">
+          <span className="absolute top-0.5 right-0.5 h-4 w-4 min-w-[1rem] rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center ">
             {unreadCount > 9 ? '9+' : unreadCount}
           </span>
         )}
@@ -171,10 +171,10 @@ export function NotificationBell() {
             <div>
               <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
                 <Bell className="h-4 w-4 text-indigo-600" />
-                Central de Notificações
+                Central de NotificaÃ§Ãµes
               </h3>
               {unreadCount > 0 && (
-                <p className="text-xs text-slate-500 mt-0.5">{unreadCount} não lida{unreadCount > 1 ? 's' : ''}</p>
+                <p className="text-xs text-slate-500 mt-0.5">{unreadCount} nÃ£o lida{unreadCount > 1 ? 's' : ''}</p>
               )}
             </div>
             <div className="flex items-center gap-2">
@@ -196,7 +196,7 @@ export function NotificationBell() {
             </div>
           </div>
 
-          {/* Lista de notificações */}
+          {/* Lista de notificaÃ§Ãµes */}
           <div className="flex-1 overflow-y-auto p-3 space-y-2">
             {isLoading ? (
               <div className="flex items-center justify-center py-12 text-slate-400">
@@ -206,11 +206,11 @@ export function NotificationBell() {
               <div className="flex flex-col items-center justify-center py-16 text-slate-400">
                 <Bell className="h-12 w-12 mb-3 text-slate-200" />
                 <p className="text-sm font-medium">Tudo em dia!</p>
-                <p className="text-xs mt-1">Nenhuma notificação no momento.</p>
+                <p className="text-xs mt-1">Nenhuma notificaÃ§Ã£o no momento.</p>
               </div>
             ) : (
               <>
-                {/* Não lidas */}
+                {/* NÃ£o lidas */}
                 {unread.length > 0 && (
                   <div className="space-y-2">
                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-1 pt-1">Novas</p>
@@ -236,7 +236,7 @@ export function NotificationBell() {
           {/* Footer */}
           <div className="border-t border-slate-100 px-4 py-3 shrink-0 bg-slate-50/80">
             <p className="text-[10px] text-slate-400 text-center">
-              IA Hub.IA · Notificações inteligentes em tempo real
+              IA Hub.IA Â· NotificaÃ§Ãµes inteligentes em tempo real
             </p>
           </div>
         </div>
