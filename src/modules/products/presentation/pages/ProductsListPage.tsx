@@ -10,6 +10,7 @@ import { useQuotationCart } from '@/modules/quotations/presentation/context/Quot
 import { SupabaseProductRepository } from '../../infrastructure/repositories/SupabaseProductRepository';
 import ProductFormPage from './ProductFormPage';
 import { useAuthenticatedIdentity } from '@/modules/auth/presentation/hooks/useAuthenticatedIdentity';
+import { LinkMaterialModal } from '../components/LinkMaterialModal';
 
 const repo = new SupabaseProductRepository();
 
@@ -38,21 +39,12 @@ export default function ProductsListPage() {
   const navigate = useNavigate();
   const [products, setProducts] = useState<Product[]>([]);
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
+  const [isLinkMaterialOpen, setIsLinkMaterialOpen] = useState(false);
 
   // Tenant ID mockado temporariamente (em produção virá do auth context)
   const tenantId = identity?.organizationId || '';
-  const [isSupplier, setIsSupplier] = useState(false);
-
   async function loadProducts() {
     try {
-      const { supabase } = await import('@/infrastructure/supabase/client');
-      if (tenantId) {
-        const { data: orgData } = await supabase.from('organizations').select('profile_type').eq('id', tenantId).maybeSingle();
-        if (orgData?.profile_type === 'seller' || orgData?.profile_type === 'both') {
-          setIsSupplier(true);
-        }
-      }
-
       const data = await repo.findAll(tenantId);
       // Map domain to UI format
       setProducts(data.map(p => ({
@@ -165,23 +157,18 @@ export default function ProductsListPage() {
           </div>
           
           <div className="flex items-center gap-3 shrink-0">
-            {isSupplier ? (
-              <Button onClick={() => alert('Vincular Material ainda será implementado')} className="bg-indigo-600 hover:bg-indigo-700 text-white h-10 px-5 font-bold shadow-md shadow-indigo-600/20">
+              <Button onClick={() => setIsLinkMaterialOpen(true)} variant="outline" className="h-10 px-5 font-bold shadow-sm">
                 <Search className="h-4 w-4 mr-1.5" />
                 Vincular Material
               </Button>
-            ) : (
-              <>
-                <Button variant="outline" className="h-10 px-4 font-bold shadow-sm">
-                  <Upload className="h-4 w-4 mr-2 text-indigo-600" />
-                  Importar em Massa
-                </Button>
-                <Button onClick={() => navigate('/products/new')} className="bg-indigo-600 hover:bg-indigo-700 text-white h-10 px-5 font-bold shadow-md shadow-indigo-600/20">
-                  <Plus className="h-4 w-4 mr-1.5" />
-                  Novo Produto
-                </Button>
-              </>
-            )}
+              <Button variant="outline" className="h-10 px-4 font-bold shadow-sm">
+                <Upload className="h-4 w-4 mr-2 text-indigo-600" />
+                Importar em Massa
+              </Button>
+              <Button onClick={() => navigate('/products/new')} className="bg-indigo-600 hover:bg-indigo-700 text-white h-10 px-5 font-bold shadow-md shadow-indigo-600/20">
+                <Plus className="h-4 w-4 mr-1.5" />
+                Novo Material
+              </Button>
           </div>
         </div>
 
@@ -299,15 +286,14 @@ export default function ProductsListPage() {
               <p className="text-sm text-slate-500 mt-1 max-w-sm">
                 Cadastre novos itens ou importe sua planilha de materiais para começar a gerenciar seu catálogo.
               </p>
-              {isSupplier ? (
-                <Button onClick={() => alert('Vincular Material ainda será implementado')} className="mt-6 bg-indigo-600 hover:bg-indigo-700 font-bold">
-                  <Search className="h-4 w-4 mr-1.5" /> Adicionar Primeiro Produto
+              <div className="mt-6 flex gap-3">
+                <Button onClick={() => setIsLinkMaterialOpen(true)} variant="outline" className="font-bold">
+                  <Search className="h-4 w-4 mr-1.5" /> Vincular material existente
                 </Button>
-              ) : (
                 <Button onClick={() => navigate('/products/new')} className="mt-6 bg-indigo-600 hover:bg-indigo-700 font-bold">
-                  <Plus className="h-4 w-4 mr-1.5" /> Adicionar Primeiro Produto
+                  <Plus className="h-4 w-4 mr-1.5" /> Cadastrar novo material
                 </Button>
-              )}
+              </div>
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 pb-24">
@@ -426,6 +412,14 @@ export default function ProductsListPage() {
         productNames={selectedProductNames} 
         preselectedProductIds={selectedProductIds}
       />
+
+      {isLinkMaterialOpen && tenantId && (
+        <LinkMaterialModal
+          organizationId={tenantId}
+          onClose={() => setIsLinkMaterialOpen(false)}
+          onLinked={() => loadProducts()}
+        />
+      )}
 
       {/* OVERLAY / MODAL CENTRAL DE EDIÇÃO DE MATERIAL */}
       {editingProductId && (

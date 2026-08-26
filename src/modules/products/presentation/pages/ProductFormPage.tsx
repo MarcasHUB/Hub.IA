@@ -24,13 +24,20 @@ import { SupabaseCategoryRepository } from '../../../categories/infrastructure/r
 import { Product, ProductStatus } from '../../domain/entities/Product'; 
 import { LinkSupplierModal } from '../components/LinkSupplierModal';
 import { supabase } from '@/infrastructure/supabase/client';
-import { CategoryModal } from '../../../categories/presentation/pages/CategoriesPage';
-import { Category } from '../../../categories/domain/entities/Category';
 import { useAuthenticatedIdentity } from '@/modules/auth/presentation/hooks/useAuthenticatedIdentity';
 
 const repo = new SupabaseProductRepository();
 const productSupplierRepo = new SupabaseProductSupplierRepository();
 const categoryRepo = new SupabaseCategoryRepository();
+
+const normalizeCatalogKey = (value: string) => value
+  .normalize('NFD')
+  .replace(/[\u0300-\u036f]/g, '')
+  .trim()
+  .replace(/\s+/g, ' ')
+  .toLowerCase();
+
+const normalizeManufacturerCode = (value: string) => value.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
 
 export default function ProductFormPage({
   productId,
@@ -99,7 +106,6 @@ export default function ProductFormPage({
 
   // Related data states
   const [availableCategories, setAvailableCategories] = useState<{id: string, name: string}[]>([]);
-  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [attachmentsList, setAttachmentsList] = useState<{type: string, filename: string, base64: string, uploadedAt: string, user: string}[]>([]);
 
   // Segmentos não mais usados no form, substituídos por categorias
@@ -112,14 +118,15 @@ export default function ProductFormPage({
       try {
         const { data: materials, error } = await supabase
           .from('materials')
-          .select('*')
-          .or(`manufacturer_code.ilike.%${basicInfo.manufacturerCode}%,name.ilike.%${basicInfo.name}%`)
-          .limit(10);
+          .select('id, official_name, description, unit, manufacturer_code, normalized_manufacturer_code, manufacturers!inner(name, normalized_name)')
+          .eq('normalized_manufacturer_code', normalizeManufacturerCode(basicInfo.manufacturerCode))
+          .eq('manufacturers.normalized_name', normalizeCatalogKey(basicInfo.manufacturer))
+          .limit(2);
           
         if (error) throw error;
         
         // Busca determinística por Código do Fabricante
-        const match = materials?.find(m => m.manufacturer_code === basicInfo.manufacturerCode);
+        const match = materials?.find(m => m.normalized_manufacturer_code === normalizeManufacturerCode(basicInfo.manufacturerCode));
         
         if (match && match.id !== basicInfo.materialId) {
           const matchedProduct = new Product(
@@ -127,11 +134,11 @@ export default function ProductFormPage({
             tenantId,
             '', // supplierId
             '', // categoryId
-            match.name,
+            match.official_name,
             match.description || '',
             '', // sku
-            'UN', // unit
-            match.manufacturer || '',
+            match.unit || 'UN', // unit
+            (Array.isArray(match.manufacturers) ? match.manufacturers[0]?.name : (match.manufacturers as any)?.name) || '',
             0,
             ProductStatus.ACTIVE,
             match.id,
@@ -224,17 +231,72 @@ export default function ProductFormPage({
     loadData();
   }, [id, isEditing]);
 
-  const handleSaveCategory = async (c: Category) => {
-    try {
-      await categoryRepo.save(c);
-      const cats = await categoryRepo.findAll(tenantId);
-      setAvailableCategories(cats.filter(c => c.status === 'Active').map(c => ({id: c.id, name: c.name})));
-      setClassification(prev => ({ ...prev, category: c.id }));
-      setIsCategoryModalOpen(false);
-    } catch (e: any) {
-      console.error(e);
-      alert(`Erro ao salvar categoria: ${e?.message || JSON.stringify(e)}`);
+  const resolveCanonicalMaterial = async (): Promise<string> => {
+    if (!tenantId || !identity?.userId) throw new Error('Identidade da organização indisponível.');
+    const normalizedManufacturer = normalizeCatalogKey(basicInfo.manufacturer);
+    const normalizedCode = normalizeManufacturerCode(basicInfo.manufacturerCode);
+    if (!normalizedManufacturer || !normalizedCode) throw new Error('Fabricante e código do fabricante são obrigatórios.');
+
+    const manufacturerLookup = await supabase
+      .from('manufacturers')
+      .select('id, name')
+      .eq('normalized_name', normalizedManufacturer)
+      .maybeSingle();
+    if (manufacturerLookup.error) throw manufacturerLookup.error;
+    let manufacturer = manufacturerLookup.data;
+
+    if (!manufacturer) {
+      const created = await supabase
+        .from('manufacturers')
+        .insert({ name: basicInfo.manufacturer.trim(), normalized_name: normalizedManufacturer, created_by: identity.userId })
+        .select('id, name')
+        .single();
+      if (created.error) {
+        if (created.error.code !== '23505') throw created.error;
+        const retry = await supabase.from('manufacturers').select('id, name').eq('normalized_name', normalizedManufacturer).single();
+        if (retry.error) throw retry.error;
+        manufacturer = retry.data;
+      } else {
+        manufacturer = created.data;
+      }
     }
+
+    const existing = await supabase
+      .from('materials')
+      .select('id')
+      .eq('manufacturer_id', manufacturer.id)
+      .eq('normalized_manufacturer_code', normalizedCode)
+      .maybeSingle();
+    if (existing.error) throw existing.error;
+    if (existing.data) return existing.data.id;
+
+    const createdMaterial = await supabase
+      .from('materials')
+      .insert({
+        official_name: basicInfo.name.trim(),
+        normalized_official_name: normalizeCatalogKey(basicInfo.name),
+        description: classification.description.trim() || basicInfo.description.trim() || null,
+        unit: classification.baseUom || 'UN',
+        manufacturer_id: manufacturer.id,
+        manufacturer_code: basicInfo.manufacturerCode.trim(),
+        normalized_manufacturer_code: normalizedCode,
+        validation_status: 'pending_review',
+        visibility: 'shared',
+        created_source: 'manual',
+        master_owner_organization_id: tenantId,
+        created_by: identity.userId,
+        is_active: true,
+      })
+      .select('id')
+      .single();
+
+    if (createdMaterial.error) {
+      if (createdMaterial.error.code !== '23505') throw createdMaterial.error;
+      const retry = await supabase.from('materials').select('id').eq('manufacturer_id', manufacturer.id).eq('normalized_manufacturer_code', normalizedCode).single();
+      if (retry.error) throw retry.error;
+      return retry.data.id;
+    }
+    return createdMaterial.data.id;
   };
 
   const handleSave = async (forceDraft: boolean = false) => {
@@ -258,6 +320,7 @@ export default function ProductFormPage({
     }
 
     try {
+      const materialId = basicInfo.materialId || (statusToSave === 'Draft' ? '' : await resolveCanonicalMaterial());
       const newProduct = new Product(
         isEditing && id ? id : crypto.randomUUID(),
         tenantId,
@@ -270,7 +333,7 @@ export default function ProductFormPage({
         basicInfo.manufacturer,
         Number(commercial.targetPrice) || 0,
         statusToSave === 'Draft' ? ProductStatus.DRAFT : ProductStatus.ACTIVE,
-        basicInfo.materialId || undefined, // Preserva o materialId caso exista
+        materialId || undefined,
         new Date(),
         new Date(),
         undefined, // categoryName (not needed for save)
@@ -285,17 +348,35 @@ export default function ProductFormPage({
       // Save to products (tenant data)
       await repo.save(newProduct);
 
+      if (materialId) {
+        const relationshipType = businessModel === 'manufacturer' ? 'fabricante' : businessModel === 'reseller' ? 'revendedor' : 'fornecedor';
+        const { error: linkError } = await supabase.from('organization_materials').upsert({
+          organization_id: tenantId,
+          material_id: materialId,
+          category_id: classification.category || null,
+          internal_sku: basicInfo.sku || null,
+          erp_code: basicInfo.sku || null,
+          display_name: basicInfo.name || null,
+          is_active: statusToSave !== 'Inactive',
+          available_for_purchase: basicInfo.availableForPurchase,
+          available_for_sale: basicInfo.availableForSale,
+          commercial_config: commercial,
+          logistics_config: logistics,
+          relationship_type: relationshipType,
+        }, { onConflict: 'organization_id,material_id' });
+        if (linkError) throw new Error(`Falha ao vincular material à grade da empresa: ${linkError.message}`);
+      }
+
       // Update materials (global catalog) if admin
-      if (canEditGlobalMaterial && basicInfo.materialId) {
-        const { data: oldMaterial } = await supabase.from('materials').select('*').eq('id', basicInfo.materialId).limit(1).maybeSingle();
+      if (canEditGlobalMaterial && materialId) {
+        const { data: oldMaterial } = await supabase.from('materials').select('*').eq('id', materialId).limit(1).maybeSingle();
         
         const { error: updateError } = await supabase.from('materials').update({
           official_name: basicInfo.name,
           manufacturer_code: basicInfo.manufacturerCode,
-          manufacturer_name: basicInfo.manufacturer,
           description: classification.description,
           updated_at: new Date().toISOString()
-        }).eq('id', basicInfo.materialId);
+        }).eq('id', materialId);
         
         if (updateError) throw new Error(`Falha ao atualizar Material Global: ${updateError.message}`);
         
@@ -303,7 +384,7 @@ export default function ProductFormPage({
         await supabase.from('audit_logs').insert({
           action: 'UPDATE',
           entity_name: 'materials',
-          entity_id: basicInfo.materialId,
+          entity_id: materialId,
           user_id: authData?.user?.id || null,
           organization_id: tenantId,
           old_data: oldMaterial || {},
@@ -601,10 +682,10 @@ export default function ProductFormPage({
                           <div className="flex items-center justify-between h-5">
                             <Label htmlFor="category">Categoria Interna *</Label>
                             <button 
-                              onClick={() => setIsCategoryModalOpen(true)}
+                              onClick={() => navigate('/empresa/suporte')}
                               className="text-[10px] font-bold text-indigo-600 hover:text-indigo-700 flex items-center gap-1"
                             >
-                              <Plus className="h-3 w-3" /> Nova Categoria
+                              <Plus className="h-3 w-3" /> Solicitar categoria
                             </button>
                           </div>
                           <select 
@@ -1053,9 +1134,9 @@ export default function ProductFormPage({
                   <Package className="h-6 w-6" />
                 </div>
                 <div>
-                  <h3 className="text-xl font-bold text-slate-900">Encontramos um material semelhante.</h3>
+                  <h3 className="text-xl font-bold text-slate-900">Este material já existe no catálogo.</h3>
                   <p className="text-sm text-slate-500 mt-1">
-                    Deseja visualizar o cadastro antes de criar um novo?
+                    Vincule o cadastro canônico à grade da sua empresa para evitar duplicidade.
                   </p>
                 </div>
                 <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 w-full text-left">
@@ -1068,18 +1149,17 @@ export default function ProductFormPage({
                 <Button 
                   onClick={() => {
                     setIsSimilarModalOpen(false);
-                    navigate(`/products/${similarProduct.id}`);
+                    setBasicInfo(current => ({
+                      ...current,
+                      materialId: similarProduct.id,
+                      name: similarProduct.name,
+                      manufacturer: similarProduct.manufacturer || current.manufacturer,
+                      manufacturerCode: similarProduct.manufacturerCode || current.manufacturerCode,
+                    }));
                   }} 
                   className="w-full bg-indigo-600 hover:bg-indigo-700 text-white h-11"
                 >
-                  Visualizar cadastro
-                </Button>
-                <Button 
-                  onClick={() => setIsSimilarModalOpen(false)} 
-                  variant="outline"
-                  className="w-full h-11 bg-white"
-                >
-                  Continuar criando novo
+                  Vincular este material
                 </Button>
                 <button 
                   onClick={() => {
@@ -1095,13 +1175,6 @@ export default function ProductFormPage({
           </div>
         )}
 
-        {isCategoryModalOpen && (
-          <CategoryModal 
-            tenantId={tenantId}
-            onClose={() => setIsCategoryModalOpen(false)}
-            onSave={handleSaveCategory}
-          />
-        )}
       </div>
     </div>
   );

@@ -168,7 +168,7 @@ export function CompanyProfileForm({
         });
     });
 
-    supabase.from('certifications').select('id, name')
+    supabase.from('certifications').select('id, name').eq('is_active', true)
       .then(({ data }) => {
         if (data) setAvailableCertifications(data);
       });

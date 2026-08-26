@@ -8,23 +8,17 @@ export class SupabaseProductRepository implements IProductRepository {
         return (await getAuthenticatedIdentity()).organizationId;
     }
 
-    private async resolveCategoryId(actualTenant: string): Promise<string> {
-        const { data, error } = await supabase.from('categories').select('id').eq('organization_id', actualTenant).limit(1).limit(1).maybeSingle();
+    private async resolveCategoryId(_actualTenant: string): Promise<string> {
+        const { data, error } = await supabase
+            .from('categories')
+            .select('id')
+            .eq('is_active', true)
+            .order('name')
+            .limit(1)
+            .maybeSingle();
         if (data) return data.id;
-
-        const newCategoryId = crypto.randomUUID();
-        const { error: insertError } = await supabase.from('categories').insert({ 
-            id: newCategoryId, 
-            organization_id: actualTenant, 
-            name: 'Categoria Geral', 
-            is_active: true
-        });
-
-        if (insertError) {
-             console.error('Failed to create default category:', insertError);
-             throw insertError;
-        }
-        return newCategoryId;
+        if (error) throw error;
+        throw new Error('Nenhuma categoria ativa está disponível. Solicite um cadastro pelo Suporte.');
     }
 
     async findById(id: string, tenantId: string): Promise<Product | null> {

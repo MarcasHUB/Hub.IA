@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Layers, Plus, Search, CheckCircle2, XCircle,
@@ -12,18 +12,20 @@ import { Segment } from '@/modules/employees/domain/entities/Segment';
 import { SupabaseSegmentRepository } from '../../infrastructure/repositories/SupabaseSegmentRepository';
 import { useAuthenticatedIdentity } from '@/modules/auth/presentation/hooks/useAuthenticatedIdentity';
 import { privateQueryKeys } from '@/modules/auth/application/query/privateQueryKeys';
+import { useSearchParams } from 'react-router-dom';
 
 // ─── Modal de Segmento ────────────────────────────────────────────────────────
 function SegmentModal({
-  seg, organizationId, onClose, onSave,
+  seg, organizationId, initialValues, onClose, onSave,
 }: {
   seg?: Segment;
   organizationId: string;
+  initialValues?: { nome?: string; descricao?: string };
   onClose: () => void;
   onSave: (s: Segment) => void;
 }) {
-  const [nome, setNome] = useState(seg?.nome || '');
-  const [descricao, setDescricao] = useState(seg?.descricao || '');
+  const [nome, setNome] = useState(seg?.nome || initialValues?.nome || '');
+  const [descricao, setDescricao] = useState(seg?.descricao || initialValues?.descricao || '');
 
   const handleSave = () => {
     if (!nome.trim()) return;
@@ -107,7 +109,8 @@ function SegmentModal({
 export default function SegmentsPage() {
   const queryClient = useQueryClient();
   const { data: identity } = useAuthenticatedIdentity();
-  const orgId = identity?.organizationId || '';
+  const [searchParams, setSearchParams] = useSearchParams();
+  const orgId = identity?.isPlatformAdmin ? 'GLOBAL' : (identity?.organizationId || '');
   const authUserId = identity?.userId || '';
   const segmentsKey = privateQueryKeys.segments(authUserId || 'signed-out', orgId || 'none');
   const repo = new SupabaseSegmentRepository();
@@ -134,6 +137,7 @@ export default function SegmentsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: segmentsKey });
       setModal({ open: false });
+      setInitialValues(undefined);
     }
   });
 
@@ -150,7 +154,18 @@ export default function SegmentsPage() {
 
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState<'Todos' | 'Ativos' | 'Inativos'>('Todos');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [modal, setModal] = useState<{ open: boolean; seg?: Segment }>({ open: false });
+  const [initialValues, setInitialValues] = useState<{ nome?: string; descricao?: string }>();
+
+  useEffect(() => {
+    const nome = searchParams.get('prefill_name');
+    if (!nome || orgId !== 'GLOBAL') return;
+    setInitialValues({ nome, descricao: searchParams.get('prefill_description') || '' });
+    setModal({ open: true });
+    setSearchParams({}, { replace: true });
+  }, [orgId, searchParams, setSearchParams]);
 
   const filtered = segments.filter(s => {
     if (filterStatus === 'Ativos' && s.status !== 'ativo') return false;
@@ -168,6 +183,9 @@ export default function SegmentsPage() {
 
   const ativos = segments.filter(s => s.status === 'ativo').length;
   const inativos = segments.filter(s => s.status === 'inativo').length;
+  useEffect(() => setPage(1), [search, filterStatus, pageSize]);
+  const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const visibleSegments = filtered.slice((page - 1) * pageSize, page * pageSize);
 
   return (
     <div className="space-y-6 font-sans">
@@ -175,7 +193,8 @@ export default function SegmentsPage() {
         <SegmentModal
           seg={modal.seg}
           organizationId={orgId}
-          onClose={() => setModal({ open: false })}
+          initialValues={initialValues}
+          onClose={() => { setModal({ open: false }); setInitialValues(undefined); }}
           onSave={handleSave}
         />
       )}
@@ -189,13 +208,13 @@ export default function SegmentsPage() {
               Gestão de Segmentos
             </h1>
             <p className="text-slate-500 mt-1 text-sm max-w-2xl">
-              Organize os segmentos de atuação da sua rede de parceiros e fornecedores.
+              Gerencie o catálogo global de segmentos disponível para toda a Rede Hub.IA.
             </p>
           </div>
           
           <div className="flex items-center gap-3 shrink-0">
             <Button 
-              onClick={() => setModal({ open: true })} 
+              onClick={() => { setInitialValues(undefined); setModal({ open: true }); }}
               className="bg-indigo-600 hover:bg-indigo-700 text-white h-10 px-5 font-bold shadow-md shadow-indigo-600/20"
             >
               <Plus className="h-4 w-4 mr-1.5" />
@@ -256,7 +275,7 @@ export default function SegmentsPage() {
       {/* GRID DE SEGMENTOS */}
       <div className="max-w-[1600px] mx-auto w-full px-6">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {filtered.map(seg => (
+          {visibleSegments.map(seg => (
             <Card
               key={seg.id}
               className={`rounded-2xl border shadow-sm transition-all duration-150 ${
@@ -286,12 +305,12 @@ export default function SegmentsPage() {
 
                 <div className="flex items-center gap-2 text-[10px] text-slate-400 mb-4">
                   <Building2 className="h-3 w-3" />
-                  <span>0 empresa(s)</span>
+                  <span>Criado {new Date(seg.created_at).toLocaleDateString('pt-BR')} · Atualizado {new Date(seg.updated_at).toLocaleDateString('pt-BR')}</span>
                 </div>
 
                 <div className="flex items-center gap-2 pt-3 border-t border-slate-100">
                   <button
-                    onClick={() => setModal({ open: true, seg })}
+                    onClick={() => { setInitialValues(undefined); setModal({ open: true, seg }); }}
                     className="flex-1 flex items-center justify-center gap-1 text-[10px] font-bold text-slate-600 hover:text-indigo-700 hover:bg-indigo-50 py-1.5 rounded-lg transition-colors"
                   >
                     <Edit2 className="h-3 w-3" /> Editar
@@ -314,6 +333,10 @@ export default function SegmentsPage() {
             </Card>
           ))}
 
+        </div>
+        <div className="mt-4 flex flex-col items-center justify-between gap-3 rounded-xl border bg-white px-4 py-3 sm:flex-row">
+          <div className="flex items-center gap-2 text-xs text-slate-500"><span>Itens por página</span><select value={pageSize} onChange={event => setPageSize(Number(event.target.value))} className="rounded border px-2 py-1"><option>10</option><option>25</option><option>50</option><option>100</option></select></div>
+          <div className="flex items-center gap-2"><Button size="sm" variant="outline" disabled={page <= 1} onClick={() => setPage(value => value - 1)}>Anterior</Button><span className="text-xs text-slate-500">Página {page} de {pageCount}</span><Button size="sm" variant="outline" disabled={page >= pageCount} onClick={() => setPage(value => value + 1)}>Próxima</Button></div>
         </div>
       </div>
     </div>

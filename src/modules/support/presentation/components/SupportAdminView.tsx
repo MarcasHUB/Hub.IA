@@ -5,6 +5,7 @@ import { ShieldAlert, FileText, CheckCircle, Clock, Search, X, Ticket } from 'lu
 import { Button } from '@/shared/components/ui/Button';
 import { Input } from '@/shared/components/ui/Input';
 import { Badge } from '@/shared/components/ui/Badge';
+import { useNavigate } from 'react-router-dom';
 
 const CATEGORIES = [
   { id: 'access', label: 'Acesso', module: 'Auth' },
@@ -12,6 +13,7 @@ const CATEGORIES = [
   { id: 'invites', label: 'Convites', module: 'Rede' },
   { id: 'network_partners', label: 'Rede / Parceiros', module: 'Rede' },
   { id: 'materials', label: 'Materiais', module: 'Materiais' },
+  { id: 'master_data_request', label: 'Solicitação de cadastro', module: 'Cadastros Master' },
   { id: 'quotations', label: 'Cotações', module: 'Cotações' },
   { id: 'system_error', label: 'Erro do Sistema', module: 'Sistema' },
   { id: 'other', label: 'Outro', module: 'Geral' },
@@ -34,6 +36,7 @@ const PRIORITY_MAP: Record<string, string> = {
 
 export default function SupportAdminView() {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
 
   // Filters
@@ -41,6 +44,7 @@ export default function SupportAdminView() {
   const [filterCategory, setFilterCategory] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
   const [filterPriority, setFilterPriority] = useState('');
+  const [filterRequestType, setFilterRequestType] = useState('');
 
   const [replyText, setReplyText] = useState('');
   const [reportedContext, setReportedContext] = useState<any>(null);
@@ -147,11 +151,12 @@ export default function SupportAdminView() {
       const catMatch = !filterCategory || t.category === filterCategory;
       const statusMatch = !filterStatus || t.status === filterStatus;
       const prioMatch = !filterPriority || t.priority === filterPriority;
-      return searchMatch && catMatch && statusMatch && prioMatch;
+      const requestTypeMatch = !filterRequestType || t.request_type === filterRequestType;
+      return searchMatch && catMatch && statusMatch && prioMatch && requestTypeMatch;
     });
-  }, [tickets, searchTerm, filterCategory, filterStatus, filterPriority]);
+  }, [tickets, searchTerm, filterCategory, filterStatus, filterPriority, filterRequestType]);
 
-  const hasActiveFilters = !!(searchTerm || filterCategory || filterStatus || filterPriority);
+  const hasActiveFilters = !!(searchTerm || filterCategory || filterStatus || filterPriority || filterRequestType);
 
   return (
     <div className="space-y-6">
@@ -215,6 +220,14 @@ export default function SupportAdminView() {
           <option value="">Todas as categorias</option>
           {CATEGORIES.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
         </select>
+        {(filterCategory === 'master_data_request' || filterRequestType) && (
+          <select className="border rounded-md px-3 h-10 text-sm bg-white" value={filterRequestType} onChange={e => setFilterRequestType(e.target.value)}>
+            <option value="">Todos os tipos</option>
+            <option value="category">Categorias</option>
+            <option value="segment">Segmentos</option>
+            <option value="certification">Certificações</option>
+          </select>
+        )}
         <select className="border rounded-md px-3 h-10 text-sm bg-white" value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
           <option value="">Todos os status</option>
           <option value="open">Aberto</option>
@@ -231,7 +244,7 @@ export default function SupportAdminView() {
           <option value="urgent">Urgente</option>
         </select>
         {hasActiveFilters && (
-          <Button variant="ghost" size="sm" onClick={() => { setSearchTerm(''); setFilterCategory(''); setFilterStatus(''); setFilterPriority(''); }}>
+          <Button variant="ghost" size="sm" onClick={() => { setSearchTerm(''); setFilterCategory(''); setFilterStatus(''); setFilterPriority(''); setFilterRequestType(''); }}>
             Limpar
           </Button>
         )}
@@ -381,6 +394,34 @@ export default function SupportAdminView() {
                       </div>
 
                       <div className="pt-4 border-t space-y-3">
+                        {currentTicket?.category === 'master_data_request' && (() => {
+                          const payload = (currentTicket.request_payload || {}) as Record<string, string>;
+                          const labels: Record<string, string> = { category: 'Categoria', segment: 'Segmento', certification: 'Certificação' };
+                          const routeByType: Record<string, string> = { category: '/admin/categorias', segment: '/admin/segmentos', certification: '/admin/certificacoes' };
+                          const actionByType: Record<string, string> = { category: 'Cadastrar categoria', segment: 'Cadastrar segmento', certification: 'Cadastrar certificação' };
+                          return (
+                            <div className="rounded-xl border border-indigo-200 bg-indigo-50 p-4 space-y-3">
+                              <p className="text-xs font-extrabold uppercase tracking-wider text-indigo-700">Solicitação de cadastro</p>
+                              <div><span className="block text-[10px] font-bold uppercase text-slate-500">Tipo</span><span>{labels[currentTicket.request_type] || currentTicket.request_type}</span></div>
+                              <div><span className="block text-[10px] font-bold uppercase text-slate-500">Nome</span><span className="font-semibold">{payload.name || '—'}</span></div>
+                              <div><span className="block text-[10px] font-bold uppercase text-slate-500">Descrição</span><span>{payload.description || '—'}</span></div>
+                              <div><span className="block text-[10px] font-bold uppercase text-slate-500">Justificativa</span><span>{payload.reason || '—'}</span></div>
+                              {payload.issuer && <div><span className="block text-[10px] font-bold uppercase text-slate-500">Órgão emissor / referência</span><span>{payload.issuer}</span></div>}
+                              {payload.parent_category_id && <div><span className="block text-[10px] font-bold uppercase text-slate-500">Categoria pai sugerida</span><span>{payload.parent_category_id}</span></div>}
+                              <Button
+                                className="w-full bg-indigo-600 text-white"
+                                onClick={() => {
+                                  const params = new URLSearchParams({ prefill_name: payload.name || '', prefill_description: payload.description || '' });
+                                  if (payload.parent_category_id) params.set('prefill_parent_id', payload.parent_category_id);
+                                  navigate(`${routeByType[currentTicket.request_type]}?${params.toString()}`);
+                                }}
+                              >
+                                {actionByType[currentTicket.request_type] || 'Abrir cadastro'}
+                              </Button>
+                              <p className="text-[10px] text-slate-500">O cadastro só será criado após revisão e confirmação na tela administrativa.</p>
+                            </div>
+                          );
+                        })()}
                         <div>
                           <span className="font-semibold text-slate-600 block text-xs uppercase mb-0.5">Empresa</span>
                           <span className="text-slate-800">{(currentTicket?.organizations as any)?.name}</span>

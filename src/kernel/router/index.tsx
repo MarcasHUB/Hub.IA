@@ -195,6 +195,10 @@ export const router = createBrowserRouter([
         element: <CapabilityGuard capability="platform:admin"><SuspenseWrapper><GlobalAdminPage /></SuspenseWrapper></CapabilityGuard>,
       },
       {
+        path: '/admin/certificacoes',
+        element: <CapabilityGuard capability="platform:admin"><SuspenseWrapper><GlobalAdminPage /></SuspenseWrapper></CapabilityGuard>,
+      },
+      {
         path: '/admin/suporte',
         element: <CapabilityGuard capability="platform:admin"><SuspenseWrapper><GlobalAdminPage /></SuspenseWrapper></CapabilityGuard>,
       },

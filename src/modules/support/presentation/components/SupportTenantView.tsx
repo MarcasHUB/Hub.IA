@@ -13,6 +13,7 @@ const CATEGORIES = [
   { id: 'invites', label: 'Convites', module: 'Rede' },
   { id: 'network_partners', label: 'Rede / Parceiros', module: 'Rede' },
   { id: 'materials', label: 'Materiais', module: 'Materiais' },
+  { id: 'master_data_request', label: 'Solicitação de cadastro', module: 'Cadastros Master' },
   { id: 'quotations', label: 'Cotações', module: 'Cotações' },
   { id: 'system_error', label: 'Erro do Sistema', module: 'Sistema' },
   { id: 'other', label: 'Outro', module: 'Geral' },
@@ -32,6 +33,19 @@ const PRIORITY_MAP: Record<string, string> = {
   high: 'Alta',
   urgent: 'Urgente'
 };
+
+const MASTER_DATA_TYPES = [
+  { id: 'category', label: 'Categoria' },
+  { id: 'segment', label: 'Segmento' },
+  { id: 'certification', label: 'Certificação' },
+] as const;
+
+const normalizeCatalogName = (value: string) => value
+  .normalize('NFD')
+  .replace(/[\u0300-\u036f]/g, '')
+  .trim()
+  .replace(/\s+/g, ' ')
+  .toLowerCase();
 
 export default function SupportTenantView() {
   const queryClient = useQueryClient();
@@ -53,6 +67,14 @@ export default function SupportTenantView() {
     content: '',
     affected_entity_type: null as string | null,
     affected_entity_id: null as string | null
+  });
+  const [masterRequest, setMasterRequest] = useState({
+    type: 'category' as 'category' | 'segment' | 'certification',
+    name: '',
+    parent_category_id: '',
+    description: '',
+    issuer: '',
+    reason: '',
   });
 
   const [replyText, setReplyText] = useState('');
@@ -79,6 +101,33 @@ export default function SupportTenantView() {
       return { requests: requests || [], responses: responses || [] };
     }
   });
+
+  const { data: masterCatalog } = useQuery({
+    queryKey: ['support-master-catalog'],
+    enabled: isNewOpen && form.category === 'master_data_request',
+    queryFn: async () => {
+      const [categories, segments, certifications] = await Promise.all([
+        supabase.from('categories').select('id, name').eq('is_active', true).order('name'),
+        supabase.from('segments').select('id, nome').eq('status', 'ativo').is('deleted_at', null).order('nome'),
+        supabase.from('certifications').select('id, name').eq('is_active', true).order('name'),
+      ]);
+      if (categories.error) throw categories.error;
+      if (segments.error) throw segments.error;
+      if (certifications.error) throw certifications.error;
+      return { categories: categories.data || [], segments: segments.data || [], certifications: certifications.data || [] };
+    },
+  });
+
+  const duplicateMessage = useMemo(() => {
+    if (form.category !== 'master_data_request' || !masterRequest.name.trim() || !masterCatalog) return '';
+    const normalized = normalizeCatalogName(masterRequest.name);
+    const exists = masterRequest.type === 'category'
+      ? masterCatalog.categories.some(item => normalizeCatalogName(item.name) === normalized)
+      : masterRequest.type === 'segment'
+        ? masterCatalog.segments.some(item => normalizeCatalogName(item.nome) === normalized)
+        : masterCatalog.certifications.some(item => normalizeCatalogName(item.name) === normalized);
+    return exists ? 'Este cadastro já existe no catálogo compartilhado. Selecione o registro existente em vez de abrir uma solicitação.' : '';
+  }, [form.category, masterCatalog, masterRequest.name, masterRequest.type]);
 
   const { data: messages } = useQuery({
     queryKey: ['support_messages', selectedTicketId],
@@ -117,14 +166,35 @@ export default function SupportTenantView() {
   const createTicket = useMutation({
     mutationFn: async () => {
       const moduleStr = CATEGORIES.find(c => c.id === form.category)?.module || 'Geral';
+      const isMasterData = form.category === 'master_data_request';
+      if (duplicateMessage) throw new Error(duplicateMessage);
+      const requestPayload = isMasterData ? {
+        name: masterRequest.name.trim(),
+        description: masterRequest.description.trim(),
+        reason: masterRequest.reason.trim(),
+        ...(masterRequest.type === 'category' && masterRequest.parent_category_id ? { parent_category_id: masterRequest.parent_category_id } : {}),
+        ...(masterRequest.type === 'certification' && masterRequest.issuer.trim() ? { issuer: masterRequest.issuer.trim() } : {}),
+      } : {};
+      const typeLabel = MASTER_DATA_TYPES.find(item => item.id === masterRequest.type)?.label.toLowerCase() || '';
+      const generatedSubject = isMasterData ? `Solicitação de nova ${typeLabel} — ${masterRequest.name.trim()}` : form.subject;
+      const generatedContent = isMasterData
+        ? [
+            `Nome: ${masterRequest.name.trim()}`,
+            masterRequest.description.trim() && `Descrição: ${masterRequest.description.trim()}`,
+            masterRequest.issuer.trim() && `Órgão emissor/referência: ${masterRequest.issuer.trim()}`,
+            `Justificativa: ${masterRequest.reason.trim()}`,
+          ].filter(Boolean).join('\n')
+        : form.content;
       const { data, error } = await supabase.rpc('support_create_ticket', {
-        p_subject: form.subject,
+        p_subject: generatedSubject,
         p_category: form.category,
         p_module: moduleStr,
         p_priority: form.priority,
-        p_content: form.content,
+        p_content: generatedContent,
         p_affected_entity_type: form.affected_entity_type,
-        p_affected_entity_id: form.affected_entity_id
+        p_affected_entity_id: form.affected_entity_id,
+        p_request_type: isMasterData ? masterRequest.type : null,
+        p_request_payload: requestPayload,
       });
       if (error) throw error;
       return data;
@@ -133,7 +203,9 @@ export default function SupportTenantView() {
       queryClient.invalidateQueries({ queryKey: ['my_support_tickets'] });
       setIsNewOpen(false);
       setForm({ subject: '', category: 'access', priority: 'normal', content: '', affected_entity_type: null, affected_entity_id: null });
-    }
+      setMasterRequest({ type: 'category', name: '', parent_category_id: '', description: '', issuer: '', reason: '' });
+    },
+    onError: (error: any) => alert(error?.message || 'Não foi possível abrir o chamado.'),
   });
 
   const sendMessage = useMutation({
@@ -320,10 +392,10 @@ export default function SupportTenantView() {
             </div>
             
             <div className="space-y-3">
-              <div>
+              {form.category !== 'master_data_request' && <div>
                 <label className="text-xs font-bold text-slate-500 uppercase block mb-1">Assunto</label>
                 <Input value={form.subject} onChange={e => setForm({...form, subject: e.target.value})} placeholder="Ex: Problema de acesso" />
-              </div>
+              </div>}
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs font-bold text-slate-500 uppercase block mb-1">Categoria</label>
@@ -376,7 +448,51 @@ export default function SupportTenantView() {
                 </div>
               )}
 
-              <div>
+              {form.category === 'master_data_request' && (
+                <div className="space-y-3 rounded-xl border border-indigo-100 bg-indigo-50/50 p-4">
+                  <div>
+                    <label className="text-xs font-bold text-slate-500 uppercase block mb-1">Tipo *</label>
+                    <select
+                      className="w-full h-10 border rounded-md px-3 text-sm bg-white"
+                      value={masterRequest.type}
+                      onChange={event => setMasterRequest({ ...masterRequest, type: event.target.value as typeof masterRequest.type, parent_category_id: '', issuer: '' })}
+                    >
+                      {MASTER_DATA_TYPES.map(item => <option key={item.id} value={item.id}>{item.label}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-slate-500 uppercase block mb-1">Nome *</label>
+                    <Input value={masterRequest.name} onChange={event => setMasterRequest({ ...masterRequest, name: event.target.value })} placeholder="Nome sugerido para o cadastro" />
+                  </div>
+                  {masterRequest.type === 'category' && (
+                    <div>
+                      <label className="text-xs font-bold text-slate-500 uppercase block mb-1">Categoria pai sugerida</label>
+                      <select className="w-full h-10 border rounded-md px-3 text-sm bg-white" value={masterRequest.parent_category_id} onChange={event => setMasterRequest({ ...masterRequest, parent_category_id: event.target.value })}>
+                        <option value="">Sem categoria pai sugerida</option>
+                        {masterCatalog?.categories.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
+                      </select>
+                    </div>
+                  )}
+                  <div>
+                    <label className="text-xs font-bold text-slate-500 uppercase block mb-1">Descrição</label>
+                    <textarea className="w-full border rounded-md p-3 text-sm" rows={3} value={masterRequest.description} onChange={event => setMasterRequest({ ...masterRequest, description: event.target.value })} placeholder="Descreva o cadastro solicitado." />
+                  </div>
+                  {masterRequest.type === 'certification' && (
+                    <div>
+                      <label className="text-xs font-bold text-slate-500 uppercase block mb-1">Órgão emissor / referência</label>
+                      <Input value={masterRequest.issuer} onChange={event => setMasterRequest({ ...masterRequest, issuer: event.target.value })} />
+                    </div>
+                  )}
+                  <div>
+                    <label className="text-xs font-bold text-slate-500 uppercase block mb-1">Justificativa / uso esperado *</label>
+                    <textarea className="w-full border rounded-md p-3 text-sm" rows={3} value={masterRequest.reason} onChange={event => setMasterRequest({ ...masterRequest, reason: event.target.value })} placeholder="Explique a aplicação deste cadastro." />
+                  </div>
+                  {duplicateMessage && <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs font-semibold text-amber-700">{duplicateMessage}</p>}
+                  {masterRequest.name.trim() && <p className="text-xs text-slate-500">Assunto: Solicitação de nova {MASTER_DATA_TYPES.find(item => item.id === masterRequest.type)?.label.toLowerCase()} — {masterRequest.name.trim()}</p>}
+                </div>
+              )}
+
+              {form.category !== 'master_data_request' && <div>
                 <label className="text-xs font-bold text-slate-500 uppercase block mb-1">Descrição</label>
                 <textarea 
                   className="w-full border rounded-md p-3 text-sm min-h-[120px]" 
@@ -384,12 +500,16 @@ export default function SupportTenantView() {
                   onChange={e => setForm({...form, content: e.target.value})}
                   placeholder="Detalhe sua solicitação..."
                 />
-              </div>
+              </div>}
             </div>
 
             <div className="flex justify-end gap-2 pt-4 border-t">
               <Button variant="outline" onClick={() => setIsNewOpen(false)}>Cancelar</Button>
-              <Button onClick={() => createTicket.mutate()} disabled={createTicket.isPending || !form.subject.trim() || !form.content.trim()} className="bg-indigo-600 text-white">
+              <Button
+                onClick={() => createTicket.mutate()}
+                disabled={createTicket.isPending || Boolean(duplicateMessage) || (form.category === 'master_data_request' ? !masterRequest.name.trim() || !masterRequest.reason.trim() : !form.subject.trim() || !form.content.trim())}
+                className="bg-indigo-600 text-white"
+              >
                 {createTicket.isPending ? 'Enviando...' : 'Abrir Chamado'}
               </Button>
             </div>

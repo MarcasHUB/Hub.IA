@@ -4,7 +4,7 @@ import { ICategoryRepository } from '../../domain/repositories/ICategoryReposito
 import { getAuthenticatedIdentity } from '@/modules/auth/application/services/getAuthenticatedIdentity';
 
 export class CategoryAlreadyExistsError extends Error {
-  constructor(message: string = 'Já existe uma categoria com esse nome nesta empresa.') {
+  constructor(message: string = 'Já existe uma categoria com esse nome no catálogo.') {
     super(message);
     this.name = 'CategoryAlreadyExistsError';
   }
@@ -16,25 +16,28 @@ export class SupabaseCategoryRepository implements ICategoryRepository {
     }
 
     async findById(id: string, tenantId: string): Promise<Category | null> {
-        const actualTenant = await this.resolveTenantId(tenantId);
-        const { data, error } = await supabase
+        let query = supabase
             .from('categories')
             .select('*')
-            .eq('id', id)
-            .or(`organization_id.eq.${actualTenant},organization_id.is.null`)
-            .limit(1).maybeSingle();
+            .eq('id', id);
+
+        if (tenantId === 'GLOBAL') query = query.is('organization_id', null);
+
+        const { data, error } = await query.limit(1).maybeSingle();
 
         if (error || !data) return null;
         return this.mapToDomain(data);
     }
 
     async findAll(tenantId: string): Promise<Category[]> {
-        const actualTenant = await this.resolveTenantId(tenantId);
-        const { data, error } = await supabase
+        let query = supabase
             .from('categories')
             .select('*')
-            .or(`organization_id.eq.${actualTenant},organization_id.is.null`)
             .order('name', { ascending: true });
+
+        if (tenantId === 'GLOBAL') query = query.is('organization_id', null);
+
+        const { data, error } = await query;
 
         if (error || !data) return [];
         
@@ -46,11 +49,7 @@ export class SupabaseCategoryRepository implements ICategoryRepository {
            if (!uniqueMap.has(key)) {
                uniqueMap.set(key, row);
            } else {
-               // Se já existe, preferir a local sobre a global
-               const existing = uniqueMap.get(key);
-               if (!existing.organization_id && row.organization_id) {
-                   uniqueMap.set(key, row);
-               }
+               // Shared catalog: keep the first canonical row returned by name.
            }
         }
 
@@ -87,12 +86,18 @@ export class SupabaseCategoryRepository implements ICategoryRepository {
     }
 
     async delete(id: string, tenantId: string): Promise<void> {
-        const actualTenant = await this.resolveTenantId(tenantId);
-        const { error } = await supabase
+        let query = supabase
             .from('categories')
             .delete()
-            .eq('id', id)
-            .eq('organization_id', actualTenant);
+            .eq('id', id);
+
+        if (tenantId === 'GLOBAL') {
+            query = query.is('organization_id', null);
+        } else {
+            query = query.eq('organization_id', await this.resolveTenantId(tenantId));
+        }
+
+        const { error } = await query;
 
         if (error) {
             console.error('Supabase delete category error:', error);

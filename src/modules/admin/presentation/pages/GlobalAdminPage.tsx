@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Shield, ShieldAlert, Building2, Layers, Smartphone, Loader2 } from 'lucide-react';
+import { Shield, ShieldAlert, Building2, Layers, Smartphone, Loader2, Award } from 'lucide-react';
 import { useAuthenticatedIdentity } from '@/modules/auth/presentation/hooks/useAuthenticatedIdentity';
 
 import OrganizationsListPage from '../../../organizations/presentation/pages/OrganizationsListPage';
@@ -7,6 +7,7 @@ import ProductsListPage from '../../../products/presentation/pages/ProductsListP
 import { CategoriesPage } from '../../../categories/presentation/pages/CategoriesPage';
 import SegmentsPage from '../../../employees/presentation/pages/SegmentsPage';
 import SupportAdminView from '../../../support/presentation/components/SupportAdminView';
+import CertificationsPage from './CertificationsPage';
 
 const ADMIN_SECTIONS = [
   {
@@ -16,6 +17,7 @@ const ADMIN_SECTIONS = [
       { id: 'materiais', label: 'Materiais', icon: Layers, href: '/admin/materiais' },
       { id: 'categorias', label: 'Categorias', icon: Layers, href: '/admin/categorias' },
       { id: 'segmentos', label: 'Segmentos', icon: Layers, href: '/admin/segmentos' },
+      { id: 'certificacoes', label: 'Certificações', icon: Award, href: '/admin/certificacoes' },
     ]
   },
   {
@@ -36,12 +38,13 @@ export default function GlobalAdminPage() {
   const location = useLocation();
   const { data: identity, isLoading } = useAuthenticatedIdentity();
 
-  type Tab = 'empresas' | 'materiais' | 'categorias' | 'segmentos' | 'suporte' | 'campo';
+  type Tab = 'empresas' | 'materiais' | 'categorias' | 'segmentos' | 'certificacoes' | 'suporte' | 'campo';
 
   const activeTab: Tab = (() => {
     if (location.pathname.includes('/materiais')) return 'materiais';
     if (location.pathname.includes('/categorias')) return 'categorias';
     if (location.pathname.includes('/segmentos')) return 'segmentos';
+    if (location.pathname.includes('/certificacoes')) return 'certificacoes';
     if (location.pathname.includes('/suporte')) return 'suporte';
     if (location.pathname.includes('/campo')) return 'campo';
     return 'empresas';
@@ -127,6 +130,7 @@ export default function GlobalAdminPage() {
             {activeTab === 'materiais' && <ProductsListPage />}
             {activeTab === 'categorias' && <CategoriesPage />}
             {activeTab === 'segmentos' && <SegmentsPage />}
+            {activeTab === 'certificacoes' && <CertificationsPage />}
             {activeTab === 'suporte' && <SupportAdminView />}
             {activeTab === 'campo' && (
               <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-200">

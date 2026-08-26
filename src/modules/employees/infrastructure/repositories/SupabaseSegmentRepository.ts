@@ -4,11 +4,15 @@ import { ISegmentRepository } from '../../domain/repositories/ISegmentRepository
 
 export class SupabaseSegmentRepository implements ISegmentRepository {
   async listSegments(organizationId: string): Promise<Segment[]> {
-    const { data, error } = await supabase
+    let query = supabase
       .from('segments')
       .select('*')
-      .or(`organization_id.eq.${organizationId},organization_id.is.null`)
+      .is('deleted_at', null)
       .order('nome', { ascending: true });
+
+    if (organizationId === 'GLOBAL') query = query.is('organization_id', null);
+
+    const { data, error } = await query;
 
     if (error) throw error;
     return data as Segment[];

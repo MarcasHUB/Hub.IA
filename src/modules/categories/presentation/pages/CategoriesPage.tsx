@@ -8,17 +8,22 @@ import { Category, CategoryStatus } from '../../domain/entities/Category';
 import { SupabaseCategoryRepository } from '../../infrastructure/repositories/SupabaseCategoryRepository';
 import { supabase } from '@/infrastructure/supabase/client';
 import { useAuthenticatedIdentity } from '@/modules/auth/presentation/hooks/useAuthenticatedIdentity';
+import { useSearchParams } from 'react-router-dom';
 
 export function CategoryModal({
-  cat, tenantId = 'GLOBAL', onClose, onSave,
+  cat, tenantId = 'GLOBAL', parents = [], initialValues, onClose, onSave,
 }: {
   cat?: Category;
   tenantId?: string;
+  parents?: Category[];
+  initialValues?: { name?: string; description?: string; parentId?: string };
   onClose: () => void;
   onSave: (c: Category) => void;
 }) {
-  const [name, setName] = useState(cat?.name || '');
-  const [description, setDescription] = useState(cat?.description || '');
+  const [name, setName] = useState(cat?.name || initialValues?.name || '');
+  const [description, setDescription] = useState(cat?.description || initialValues?.description || '');
+  const [parentId, setParentId] = useState(cat?.parentId || initialValues?.parentId || '');
+  const [status, setStatus] = useState(cat?.status || CategoryStatus.ACTIVE);
 
   const handleSave = () => {
     if (!name.trim()) return;
@@ -29,8 +34,8 @@ export function CategoryModal({
         cat.tenantId,
         name.trim(),
         description.trim(),
-        cat.parentId,
-        cat.status,
+        parentId || undefined,
+        status,
         cat.createdAt,
         new Date()
       ));
@@ -40,8 +45,8 @@ export function CategoryModal({
         tenantId,
         name.trim(),
         description.trim(),
-        undefined,
-        CategoryStatus.ACTIVE,
+        parentId || undefined,
+        status,
         new Date(),
         new Date()
       ));
@@ -69,6 +74,32 @@ export function CategoryModal({
               placeholder="Ex: EPI, Rolamentos, Ferramenta Elétrica..."
               className="h-9 text-sm"
             />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Categoria pai</label>
+              <select
+                value={parentId}
+                onChange={e => setParentId(e.target.value)}
+                className="w-full h-9 px-3 rounded-lg border border-slate-300 text-sm bg-white"
+              >
+                <option value="">Sem categoria pai</option>
+                {parents.filter(parent => parent.id !== cat?.id).map(parent => (
+                  <option key={parent.id} value={parent.id}>{parent.name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Status</label>
+              <select
+                value={status}
+                onChange={e => setStatus(e.target.value as CategoryStatus)}
+                className="w-full h-9 px-3 rounded-lg border border-slate-300 text-sm bg-white"
+              >
+                <option value={CategoryStatus.ACTIVE}>Ativa</option>
+                <option value={CategoryStatus.INACTIVE}>Inativa</option>
+              </select>
+            </div>
           </div>
           <div className="space-y-1">
             <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Descrição</label>
@@ -106,13 +137,17 @@ export function CategoryModal({
 
 export function CategoriesPage() {
   const { data: identity } = useAuthenticatedIdentity();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [categories, setCategories] = useState<Category[]>([]);
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState<'Todos' | 'Ativos' | 'Inativos'>('Todos');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Category | undefined>();
+  const [initialValues, setInitialValues] = useState<{ name?: string; description?: string; parentId?: string }>();
   const repo = new SupabaseCategoryRepository();
-  const tenantId = identity?.organizationId || '';
+  const tenantId = identity?.isPlatformAdmin ? 'GLOBAL' : (identity?.organizationId || '');
 
   const [productCounts, setProductCounts] = useState<Record<string, number>>({});
   
@@ -123,8 +158,7 @@ export function CategoriesPage() {
       
       const { data: countsData } = await supabase
          .from('products')
-         .select('category_id')
-         .eq('organization_id', tenantId);
+         .select('category_id');
          
       if (countsData) {
         const counts = countsData.reduce((acc: Record<string, number>, row: any) => {
@@ -142,12 +176,26 @@ export function CategoriesPage() {
     if (tenantId) loadData();
   }, [tenantId]);
 
+  useEffect(() => {
+    const name = searchParams.get('prefill_name');
+    if (!name || tenantId !== 'GLOBAL') return;
+    setEditingCategory(undefined);
+    setInitialValues({
+      name,
+      description: searchParams.get('prefill_description') || '',
+      parentId: searchParams.get('prefill_parent_id') || undefined,
+    });
+    setModalOpen(true);
+    setSearchParams({}, { replace: true });
+  }, [searchParams, setSearchParams, tenantId]);
+
   const handleSave = async (c: Category) => {
     try {
       await repo.save(c);
       await loadData();
       setModalOpen(false);
       setEditingCategory(undefined);
+      setInitialValues(undefined);
     } catch (e: any) {
       console.error("Erro ao salvar categoria:", e);
       alert(`Erro ao salvar categoria: ${e?.message || JSON.stringify(e)}`);
@@ -177,6 +225,9 @@ export function CategoriesPage() {
     if (filterStatus === 'Inativos' && c.status !== CategoryStatus.INACTIVE) return false;
     return c.name.toLowerCase().includes(search.toLowerCase());
   });
+  useEffect(() => setPage(1), [search, filterStatus, pageSize]);
+  const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const visibleCategories = filtered.slice((page - 1) * pageSize, page * pageSize);
 
   const ativos = categories.filter(c => c.status === CategoryStatus.ACTIVE).length;
   const inativos = categories.filter(c => c.status === CategoryStatus.INACTIVE).length;
@@ -187,7 +238,9 @@ export function CategoriesPage() {
         <CategoryModal
           cat={editingCategory}
           tenantId={tenantId}
-          onClose={() => { setModalOpen(false); setEditingCategory(undefined); }}
+          parents={categories.filter(category => category.status === CategoryStatus.ACTIVE)}
+          initialValues={initialValues}
+          onClose={() => { setModalOpen(false); setEditingCategory(undefined); setInitialValues(undefined); }}
           onSave={handleSave}
         />
       )}
@@ -201,13 +254,13 @@ export function CategoriesPage() {
               Gestão de Categorias
             </h1>
             <p className="text-slate-500 mt-1 text-sm max-w-2xl">
-              Organize os materiais da sua empresa em categorias hierárquicas.
+              Gerencie o catálogo global de categorias disponível para toda a Rede Hub.IA.
             </p>
           </div>
           
           <div className="flex items-center gap-3 shrink-0">
             <Button 
-              onClick={() => { setEditingCategory(undefined); setModalOpen(true); }} 
+              onClick={() => { setEditingCategory(undefined); setInitialValues(undefined); setModalOpen(true); }}
               className="bg-indigo-600 hover:bg-indigo-700 text-white h-10 px-5 font-bold shadow-md shadow-indigo-600/20"
             >
               <Plus className="h-4 w-4 mr-1.5" />
@@ -268,7 +321,7 @@ export function CategoriesPage() {
       {/* GRID DE CATEGORIAS */}
       <div className="max-w-[1600px] mx-auto w-full px-6">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {filtered.map(cat => (
+          {visibleCategories.map(cat => (
             <Card
               key={cat.id}
               className={`rounded-2xl border shadow-sm transition-all duration-150 ${
@@ -292,18 +345,19 @@ export function CategoriesPage() {
                 </div>
 
                 <h3 className="font-bold text-slate-900 text-sm mb-1">{cat.name}</h3>
+                <p className="text-[10px] text-slate-400 mb-1">Pai: {categories.find(item => item.id === cat.parentId)?.name || '—'}</p>
                 {cat.description && (
                   <p className="text-xs text-slate-500 mb-3 leading-relaxed line-clamp-2">{cat.description}</p>
                 )}
                 
                 <div className="flex items-center gap-2 text-[10px] text-slate-400 mb-4">
                   <Package className="h-3 w-3" />
-                  <span>{productCounts[cat.id] || 0} material(is)</span>
+                  <span>{productCounts[cat.id] || 0} material(is) · Criada {cat.createdAt.toLocaleDateString('pt-BR')} · Atualizada {cat.updatedAt.toLocaleDateString('pt-BR')}</span>
                 </div>
 
                 <div className="flex items-center gap-2 pt-3 border-t border-slate-100">
                   <button
-                    onClick={() => { setEditingCategory(cat); setModalOpen(true); }}
+                    onClick={() => { setEditingCategory(cat); setInitialValues(undefined); setModalOpen(true); }}
                     className="flex-1 flex items-center justify-center gap-1 text-[10px] font-bold text-slate-600 hover:text-indigo-700 hover:bg-indigo-50 py-1.5 rounded-lg transition-colors"
                   >
                     <Edit2 className="h-3 w-3" /> Editar
@@ -326,6 +380,10 @@ export function CategoriesPage() {
             </Card>
           ))}
 
+        </div>
+        <div className="mt-4 flex flex-col items-center justify-between gap-3 rounded-xl border bg-white px-4 py-3 sm:flex-row">
+          <div className="flex items-center gap-2 text-xs text-slate-500"><span>Itens por página</span><select value={pageSize} onChange={event => setPageSize(Number(event.target.value))} className="rounded border px-2 py-1"><option>10</option><option>25</option><option>50</option><option>100</option></select></div>
+          <div className="flex items-center gap-2"><Button size="sm" variant="outline" disabled={page <= 1} onClick={() => setPage(value => value - 1)}>Anterior</Button><span className="text-xs text-slate-500">Página {page} de {pageCount}</span><Button size="sm" variant="outline" disabled={page >= pageCount} onClick={() => setPage(value => value + 1)}>Próxima</Button></div>
         </div>
       </div>
     </div>

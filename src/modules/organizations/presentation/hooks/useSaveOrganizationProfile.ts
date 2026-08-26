@@ -51,7 +51,11 @@ export function useSaveOrganizationProfile() {
     const resolvedSegments: any[] = [];
     
     if (rawSegments.length > 0) {
-      const { data: catalogSegs, error: segsErr } = await supabase.from('segments').select('id, nome').eq('status', 'ativo').or(`organization_id.is.null,organization_id.eq.${organizationId}`);
+      const { data: catalogSegs, error: segsErr } = await supabase
+        .from('segments')
+        .select('id, nome')
+        .eq('status', 'ativo')
+        .is('deleted_at', null);
       if (segsErr) throw new Error('Falha ao carregar catálogo de segmentos');
       
       const segmentsByNormalizedName = new Map(
