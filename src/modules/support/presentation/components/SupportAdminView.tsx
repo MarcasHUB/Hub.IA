@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/infrastructure/supabase/client';
 import { ShieldAlert, FileText, CheckCircle, Clock, Search, X, Ticket } from 'lucide-react';
@@ -87,6 +87,25 @@ export default function SupportAdminView() {
       setReplyText('');
     }
   });
+
+  useEffect(() => {
+    const channel = supabase
+      .channel('support_admin_tickets')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'support_tickets' }, () => {
+        queryClient.invalidateQueries({ queryKey: ['admin_support_tickets'] });
+      }).subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [queryClient]);
+
+  useEffect(() => {
+    if (!selectedTicketId) return;
+    const channel = supabase
+      .channel(`support_admin_messages_${selectedTicketId}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'support_messages', filter: `ticket_id=eq.${selectedTicketId}` }, () => {
+        queryClient.invalidateQueries({ queryKey: ['support_messages', selectedTicketId] });
+      }).subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [selectedTicketId, queryClient]);
 
   const updateTicket = useMutation({
     mutationFn: async (vars: { status?: string, priority?: string }) => {

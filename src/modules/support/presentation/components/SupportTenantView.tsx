@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/infrastructure/supabase/client';
 import { ShieldAlert, Plus, MessageSquare, Clock, CheckCircle, Ticket, X, Search } from 'lucide-react';
@@ -93,6 +93,26 @@ export default function SupportTenantView() {
       return data;
     }
   });
+
+  useEffect(() => {
+    if (!identity?.organizationId) return;
+    const channel = supabase
+      .channel(`support_tenant_tickets_${identity.organizationId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'support_tickets', filter: `organization_id=eq.${identity.organizationId}` }, () => {
+        queryClient.invalidateQueries({ queryKey: ['my_support_tickets', identity.organizationId] });
+      }).subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [identity?.organizationId, queryClient]);
+
+  useEffect(() => {
+    if (!selectedTicketId) return;
+    const channel = supabase
+      .channel(`support_tenant_messages_${selectedTicketId}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'support_messages', filter: `ticket_id=eq.${selectedTicketId}` }, () => {
+        queryClient.invalidateQueries({ queryKey: ['support_messages', selectedTicketId] });
+      }).subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [selectedTicketId, queryClient]);
 
   const createTicket = useMutation({
     mutationFn: async () => {
