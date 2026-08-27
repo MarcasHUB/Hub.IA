@@ -19,6 +19,12 @@ export interface ChatMessage {
   read_at?: string;
 }
 
+export interface ResolvedChatConversation {
+  conversationId: string;
+  partnerOrganizationId: string;
+  partnerName: string;
+}
+
 export class SupabaseChatRepository {
   async getOrCreateConversation(orgIdA: string, orgIdB: string): Promise<string> {
     const partnerOrgId = orgIdB; // O frontend chama getOrCreateConversation(activeOrgId, partnerId)
@@ -55,6 +61,48 @@ export class SupabaseChatRepository {
       throw error;
     }
     return data || [];
+  }
+
+  async getConversationForCurrentOrganization(
+    conversationId: string,
+    activeOrgId: string,
+  ): Promise<ResolvedChatConversation | null> {
+    const { data, error } = await supabase
+      .from('conversations')
+      .select('id, organization_a_id, organization_b_id')
+      .eq('id', conversationId)
+      .or(`organization_a_id.eq.${activeOrgId},organization_b_id.eq.${activeOrgId}`)
+      .maybeSingle();
+
+    if (error) {
+      console.error('Error resolving conversation deep link', error);
+      throw error;
+    }
+    if (!data) return null;
+
+    const partnerOrganizationId = data.organization_a_id === activeOrgId
+      ? data.organization_b_id
+      : data.organization_a_id;
+
+    if (!partnerOrganizationId) return null;
+
+    const { data: identities, error: identitiesError } = await supabase.rpc('get_partner_identities');
+    if (identitiesError) {
+      console.error('Error resolving chat partner identity', identitiesError);
+    }
+
+    const partnerIdentity = identities?.find(
+      (item: { partner_organization_id: string }) => item.partner_organization_id === partnerOrganizationId,
+    );
+    const partnerName = partnerIdentity?.razao_social
+      || partnerIdentity?.nome_fantasia
+      || 'Empresa Parceira';
+
+    return {
+      conversationId: data.id,
+      partnerOrganizationId,
+      partnerName,
+    };
   }
 
   async sendMessage(conversationId: string, senderOrgId: string, content: string, senderUserId?: string, metadata?: any): Promise<ChatMessage> {

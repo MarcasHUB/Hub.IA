@@ -16,6 +16,7 @@ import { useQuotationCart } from "@/modules/quotations/presentation/context/Quot
 import { NotificationBell } from "@/modules/notifications/presentation/components/NotificationBell";
 import { useChatDrawer } from "@/modules/messages/presentation/context/ChatDrawerContext";
 import { ChatDrawer } from "@/modules/messages/presentation/components/ChatDrawer";
+import { ChatDeepLinkHandler } from "@/modules/messages/presentation/components/ChatDeepLinkHandler";
 import { QuotationTypeModal } from "@/modules/quotations/presentation/components/QuotationTypeModal";
 import { resolveOrganizationLogoUrl } from "@/shared/utils/logoUtils";
 import { getCompactRoleLabel } from "@/shared/utils/roleUtils";
@@ -654,6 +655,7 @@ export function AppLayout() {
         </>
       )}
       {/* Chat lateral retrátil */}
+      <ChatDeepLinkHandler />
       <ChatDrawer />
 
       <QuotationTypeModal

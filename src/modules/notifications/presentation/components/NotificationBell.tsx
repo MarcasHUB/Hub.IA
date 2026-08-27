@@ -2,6 +2,11 @@
 import { Bell, X, CheckCheck, ArrowRight, Wifi, TrendingDown, Lightbulb, Handshake, FileText, UserCheck, MessageSquare } from 'lucide-react';
 import { useNotifications, Notification } from '../context/NotificationContext';
 import { useNavigate } from 'react-router-dom';
+import { useChatDrawer } from '@/modules/messages/presentation/context/ChatDrawerContext';
+import {
+  getNotificationConversationId,
+  isChatNotificationType,
+} from '@/modules/messages/application/services/chatDeepLink';
 
 // â”€â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
@@ -18,8 +23,10 @@ function formatRelativeTime(isoDate: string): string {
 
 function getNotificationIcon(type: string) {
   const iconProps = { className: 'h-5 w-5 flex-shrink-0' };
+  if (isChatNotificationType(type)) {
+    return <MessageSquare {...iconProps} className="h-5 w-5 flex-shrink-0 text-indigo-500" />;
+  }
   switch (type) {
-    case 'chat_message':                return <MessageSquare {...iconProps} className="h-5 w-5 flex-shrink-0 text-indigo-500" />;
     case 'connection_request_received': return <Wifi {...iconProps} className="h-5 w-5 flex-shrink-0 text-blue-500" />;
     case 'connection_request_accepted': return <Handshake {...iconProps} className="h-5 w-5 flex-shrink-0 text-green-500" />;
     case 'quotation_received':          return <FileText {...iconProps} className="h-5 w-5 flex-shrink-0 text-violet-500" />;
@@ -33,8 +40,8 @@ function getNotificationIcon(type: string) {
 }
 
 function getNotificationAccent(type: string): string {
+  if (isChatNotificationType(type)) return 'border-l-indigo-400 bg-indigo-50/60';
   switch (type) {
-    case 'chat_message':                return 'border-l-indigo-400 bg-indigo-50/60';
     case 'connection_request_received': return 'border-l-blue-400 bg-blue-50/60';
     case 'connection_request_accepted': return 'border-l-green-400 bg-green-50/60';
     case 'quotation_received':          return 'border-l-violet-400 bg-violet-50/60';
@@ -51,20 +58,20 @@ function getNotificationAccent(type: string): string {
 
 function NotificationCard({ notification, onAction }: { notification: Notification; onAction: () => void }) {
   const { markAsRead } = useNotifications();
+  const { openConversation } = useChatDrawer();
   const navigate = useNavigate();
 
   const handleClick = async () => {
     await markAsRead(notification.id);
-    if ((notification.type as string) === 'chat_message' && notification.metadata?.partnerOrganizationId) {
-      window.dispatchEvent(new CustomEvent('supplyhub:open-chat', { 
-        detail: {
-          conversationId: notification.metadata.conversationId,
-          partnerOrganizationId: notification.metadata.partnerOrganizationId,
-          partnerName: notification.metadata.partnerName,
-          messageId: notification.metadata.messageId,
-        }
-      }));
-    } else if (notification.action_url) {
+    if (isChatNotificationType(notification.type)) {
+      const conversationId = getNotificationConversationId(notification.metadata);
+      if (conversationId && await openConversation(conversationId)) {
+        onAction();
+        return;
+      }
+    }
+
+    if (notification.action_url) {
       navigate(notification.action_url);
     }
     onAction();

@@ -12,6 +12,7 @@ interface ChatDrawerContextType {
   activeConversationId: string | null;
   viewMode: 'inbox' | 'chat';
   openChat: (partnerId: string, partnerData?: any) => void;
+  openConversation: (conversationId: string) => Promise<boolean>;
   openInbox: () => void;
   backToInbox: () => void;
   closeChat: () => void;
@@ -152,16 +153,48 @@ export function ChatDrawerProvider({ children }: { children: React.ReactNode }) 
     }
   }, [activeOrgId]);
 
+  const openConversation = useCallback(async (conversationId: string): Promise<boolean> => {
+    if (!activeOrgId || !conversationId) return false;
+
+    try {
+      const conversation = await chatRepository.getConversationForCurrentOrganization(
+        conversationId,
+        activeOrgId,
+      );
+      if (!conversation) {
+        console.warn('Conversation deep link is not available for the active organization', { conversationId });
+        return false;
+      }
+
+      setActivePartnerId(conversation.partnerOrganizationId);
+      setActivePartnerData({
+        id: conversation.partnerOrganizationId,
+        name: conversation.partnerName,
+        isConnected: true,
+      });
+      setActiveConversationId(conversation.conversationId);
+      setViewMode('chat');
+      setIsChatOpen(true);
+      void loadConversations();
+      return true;
+    } catch (error) {
+      console.error('Failed to open conversation deep link', error);
+      return false;
+    }
+  }, [activeOrgId, loadConversations]);
+
   useEffect(() => {
     const handleOpenChatEvent = (e: Event) => {
       const customEvent = e as CustomEvent;
-      if (customEvent.detail?.partnerOrganizationId) {
+      if (customEvent.detail?.conversationId) {
+        void openConversation(customEvent.detail.conversationId);
+      } else if (customEvent.detail?.partnerOrganizationId) {
         openChat(customEvent.detail.partnerOrganizationId, { name: customEvent.detail.partnerName });
       }
     };
     window.addEventListener('supplyhub:open-chat', handleOpenChatEvent);
     return () => window.removeEventListener('supplyhub:open-chat', handleOpenChatEvent);
-  }, [openChat]);
+  }, [openChat, openConversation]);
 
 
 
@@ -188,7 +221,7 @@ export function ChatDrawerProvider({ children }: { children: React.ReactNode }) 
   return (
     <ChatDrawerContext.Provider value={{ 
       isChatOpen, activePartnerId, activePartnerData, activeConversationId, viewMode, 
-      openChat, openInbox, backToInbox, closeChat, 
+      openChat, openConversation, openInbox, backToInbox, closeChat,
       conversations, unreadChatCount, unlockAudio 
     }}>
       {children}

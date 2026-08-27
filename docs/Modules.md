@@ -34,10 +34,10 @@ Integrado na aba **Dados Gerais**, há um mecanismo de busca que simula uma cons
 
 O módulo de Mensagens fornece uma central de chat interna e direta entre empresas parceiras na plataforma (conexão aceita). Ele visa facilitar a negociação direta e a cotação de produtos.
 
-### Tela: Mensagens (`/messages`)
-A tela de chat apresenta uma interface dividida em duas colunas principais:
-*   **Barra Lateral**: Lista as conversas ativas com foto/avatar, iniciais do parceiro, segmento e indicador online/offline. Mostra a última mensagem enviada e a quantidade de mensagens não lidas.
-*   **Janela de Chat**: Apresenta as mensagens em balões de diálogo com timestamp e recibos de entrega/leitura (estilo WhatsApp Web). Possui atalhos para iniciar cotações e compartilhar arquivos.
+### Interface canônica: ChatDrawer
+O `ChatDrawer` lateral é a única interface de conversas. Ele mantém a lista de conversas, mensagens, contadores de não lidas e subscriptions de Realtime em uma única fonte de estado.
+
+A rota `/messages` foi descontinuada como interface independente. Ela permanece somente como ponte de compatibilidade: links antigos no formato `/messages?conversation=<uuid>` redirecionam para o dashboard, abrem a conversa no drawer e eliminam o parâmetro transitório. Novos deep links usam `chatConversation=<uuid>` e também são removidos da URL após o processamento.
 
 ### Políticas de Compliance Automáticas
 Integrado no envio de mensagens, há um motor de compliance executado no cliente (`ComplianceFilter.ts`) que analisa o texto de forma reativa antes de ser transmitido para evitar fraudes ou vazamento comercial:

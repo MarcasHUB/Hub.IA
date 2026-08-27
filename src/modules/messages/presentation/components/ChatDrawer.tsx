@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import {
   Send, X, Paperclip, FileText, ShieldAlert,
-  AlertTriangle, Maximize2, Check, CheckCheck,
+  AlertTriangle, Check, CheckCheck,
   Bell, BellOff, MessageSquare, ArrowLeft, Search,
   Download, Image as ImageIcon
 } from 'lucide-react';
@@ -400,13 +400,6 @@ export function ChatDrawer() {
                   title={soundEnabled ? 'Som ativado' : 'Som desativado'}
                 >
                   {soundEnabled ? <Bell className="h-4 w-4" /> : <BellOff className="h-4 w-4" />}
-                </button>
-                <button
-                  onClick={() => { window.open('/messages', '_blank'); }}
-                  className="p-1.5 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100 transition-colors"
-                  title="Abrir Central em Nova Aba"
-                >
-                  <Maximize2 className="h-4 w-4" />
                 </button>
                 <button
                   onClick={closeChat}
