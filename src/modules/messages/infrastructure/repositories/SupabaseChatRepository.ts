@@ -128,22 +128,21 @@ export class SupabaseChatRepository {
       throw rpcError;
     }
 
-    // As the RPC returns a UUID, we mock a ChatMessage structure to not break the frontend that expects the created object back.
-    // In a real app we might want the RPC to return the full record, or fetch it.
-    return {
-      id: msgId,
-      conversation_id: conversationId,
-      sender_id: senderUserId,
-      sender_organization_id: senderOrgId,
-      content: content,
-      metadata: metadata,
-      created_at: new Date().toISOString()
-    };
+    const { data: persisted, error: fetchError } = await supabase
+      .from('messages')
+      .select('*')
+      .eq('id', msgId)
+      .eq('conversation_id', conversationId)
+      .single();
+    if (fetchError || !persisted) {
+      throw fetchError || new Error('A mensagem foi persistida, mas o registro não pôde ser confirmado.');
+    }
+    return persisted as ChatMessage;
   }
 
   async uploadAttachment(conversationId: string, senderOrgId: string, file: File, senderUserId?: string, complianceData?: any): Promise<ChatMessage> {
     const fileExt = file.name.split('.').pop();
-    const fileName = `${conversationId}/${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+    const fileName = `${conversationId}/${crypto.randomUUID()}.${fileExt}`;
 
     const { error: uploadError } = await supabase.storage
       .from('messages')

@@ -14,10 +14,13 @@ import AccessLogsPage from '../../../employees/presentation/pages/AccessLogsPage
 import OperatorsPage from '../../../employees/presentation/pages/OperatorsPage';
 import { complianceRepository, ComplianceEvent } from '../../infrastructure/repositories/SupabaseComplianceRepository';
 import SupportTenantView from '../../../support/presentation/components/SupportTenantView';
+import RequestersPage from '../pages/RequestersPage';
+import QuotationApprovalsPage from '../pages/QuotationApprovalsPage';
 import { useAuthenticatedIdentity } from '@/modules/auth/presentation/hooks/useAuthenticatedIdentity';
 import { canIdentity, type Capability } from '@/core/config/permissions';
 import type { CanonicalRole } from '@/core/config/roles';
-// â”€â”€â”€ Tipos â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+import { calculateOrganizationProfileCompletion, getOrganizationProfileMissingFields } from '../../application/utils/profileCompletion';
+// Types
 type Tab = 'dados' | 'comercial' | 'colaboradores' | 'solicitantes' | 'permissoes' | 'aprovacoes' | 'delegacoes' | 'logs' | 'suporte';
 type CompanyTab = Tab | 'compliance';
 
@@ -118,6 +121,7 @@ function DadosEmpresaTab({ authUserId, organizationId, isOrgAdmin }: { authUserI
   const { 
     organization, 
     cnaes, 
+    primaryCnae,
     secondaryCnaes, 
     segments, 
     certifications, 
@@ -128,6 +132,32 @@ function DadosEmpresaTab({ authUserId, organizationId, isOrgAdmin }: { authUserI
 
   const queryClient = useQueryClient();
   const { saveProfile } = useSaveOrganizationProfile();
+
+  const completionInput = organization ? {
+    razaoSocial: organization.name,
+    nomeFantasia: organization.trade_name,
+    cnpj: organization.document,
+    emailCorporativo: organization.commercial_email,
+    telefone: organization.phone,
+    whatsapp: organization.whatsapp,
+    addressZipCode: organization.address_zip_code,
+    addressStreet: organization.address_street,
+    addressNumber: organization.address_number,
+    addressNeighborhood: organization.address_neighborhood,
+    city: organization.address_city,
+    state: organization.address_state,
+    logoUrl: organization.logo_url,
+    website: organization.website,
+    tipoEmpresa: organization.tipo_empresa,
+    perfilComercial: organization.commercialProfile,
+    cnaePrincipal: primaryCnae,
+    geographicCoverageType: organization.geographic_coverage_type,
+    raioAtendimentoKm: organization.raio_atendimento_km,
+    estadosAtendidos: coverageStates,
+    segmentIds: segments,
+  } : null;
+  const currentCompletion = completionInput ? calculateOrganizationProfileCompletion(completionInput) : 0;
+  const missingFields = completionInput ? getOrganizationProfileMissingFields(completionInput) : [];
 
   const handleSave = async (formData: any) => {
     await saveProfile(organizationId, formData);
@@ -152,22 +182,27 @@ function DadosEmpresaTab({ authUserId, organizationId, isOrgAdmin }: { authUserI
         <div className="bg-white px-4 py-2 rounded-xl border border-slate-200 shadow-sm flex items-center gap-3">
           <div className="flex-1">
             <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Perfil Público</p>
-            <p className="text-sm font-bold text-slate-900">{organization?.profile_completion || 50}% Completo</p>
+            <p className="text-sm font-bold text-slate-900">{currentCompletion}% Completo</p>
           </div>
           <div className="h-10 w-10 rounded-full border-[3px] border-slate-100 flex items-center justify-center relative">
             <svg className="absolute inset-0 h-full w-full -rotate-90 transform" viewBox="0 0 36 36">
               <path
                 d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                 fill="none"
-                stroke={organization?.profile_completion === 100 ? '#10b981' : '#4f46e5'}
+                stroke={currentCompletion === 100 ? '#10b981' : '#4f46e5'}
                 strokeWidth="3"
-                strokeDasharray={`${organization?.profile_completion || 50}, 100`}
+                strokeDasharray={`${currentCompletion}, 100`}
               />
             </svg>
-            <span className="text-[9px] font-bold text-slate-600">{organization?.profile_completion || 50}%</span>
+            <span className="text-[9px] font-bold text-slate-600">{currentCompletion}%</span>
           </div>
         </div>
       </div>
+      {missingFields.length > 0 && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-900">
+          <strong>Campos pendentes:</strong> {missingFields.join(', ')}.
+        </div>
+      )}
       
       <CompanyProfileForm 
         authUserId={authUserId}
@@ -205,6 +240,10 @@ function DadosEmpresaTab({ authUserId, organizationId, isOrgAdmin }: { authUserI
 function ComplianceTab({ organizationId }: { organizationId: string }) {
   const [events, setEvents] = useState<ComplianceEvent[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedEvent, setSelectedEvent] = useState<ComplianceEvent | null>(null);
+  const [analysis, setAnalysis] = useState('');
+  const [analysisError, setAnalysisError] = useState('');
+  const [analysisLoading, setAnalysisLoading] = useState(false);
 
   useEffect(() => {
     complianceRepository.getEvents(organizationId).then(data => {
@@ -214,12 +253,17 @@ function ComplianceTab({ organizationId }: { organizationId: string }) {
 
   if (loading) return <div className="p-8 flex justify-center text-slate-500">Carregando compliance...</div>;
 
-  const handleAnalyzeContext = async (eventId: string) => {
+  const handleAnalyzeContext = async (event: ComplianceEvent) => {
+    setSelectedEvent(event);
+    setAnalysis('');
+    setAnalysisError('');
+    setAnalysisLoading(true);
     try {
-      const summary = await complianceRepository.analyzeContext(eventId);
-      alert(summary);
-    } catch (err: any) {
-      alert('Erro ao analisar contexto: ' + err.message);
+      setAnalysis(await complianceRepository.analyzeContext(event.id));
+    } catch (err) {
+      setAnalysisError(err instanceof Error ? err.message : 'Não foi possível analisar o contexto.');
+    } finally {
+      setAnalysisLoading(false);
     }
   };
 
@@ -302,7 +346,7 @@ function ComplianceTab({ organizationId }: { organizationId: string }) {
                      </td>
                      <td className="p-3">
                        <button 
-                         onClick={() => handleAnalyzeContext(ev.id)}
+                         onClick={() => void handleAnalyzeContext(ev)}
                          className="px-3 py-1 text-sm bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-100 transition-colors font-medium whitespace-nowrap"
                        >
                          Analisar contexto
@@ -315,6 +359,16 @@ function ComplianceTab({ organizationId }: { organizationId: string }) {
            </div>
          )}
        </div>
+       {selectedEvent && (
+         <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-sm">
+           <div className="max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-2xl border bg-white p-6 shadow-2xl">
+             <div className="flex items-start justify-between gap-4"><div><h3 className="text-lg font-bold text-slate-900">Análise de contexto</h3><p className="mt-1 text-xs text-slate-500">Evento {selectedEvent.event_type} · {new Date(selectedEvent.created_at).toLocaleString('pt-BR')}</p></div><button onClick={() => setSelectedEvent(null)} className="rounded-full p-2 hover:bg-slate-100"><XCircle className="h-5 w-5" /></button></div>
+             <div className="mt-5 grid grid-cols-2 gap-3 text-sm"><div className="rounded-xl border bg-slate-50 p-3"><strong className="block text-[10px] uppercase text-slate-400">Usuário</strong>{selectedEvent.sender_name || selectedEvent.sender_user?.full_name || selectedEvent.sender_user_id}</div><div className="rounded-xl border bg-slate-50 p-3"><strong className="block text-[10px] uppercase text-slate-400">Destino</strong>{selectedEvent.recipient_name || selectedEvent.recipient_organization?.name || 'Não aplicável'}</div><div className="rounded-xl border bg-slate-50 p-3"><strong className="block text-[10px] uppercase text-slate-400">Risco</strong>{selectedEvent.risk_level}</div><div className="rounded-xl border bg-slate-50 p-3"><strong className="block text-[10px] uppercase text-slate-400">Arquivo</strong>{selectedEvent.file_name || 'Não aplicável'}</div></div>
+             <div className="mt-4 rounded-xl border border-indigo-100 bg-indigo-50 p-4"><strong className="text-xs uppercase text-indigo-700">Resultado da análise</strong>{analysisLoading ? <p className="mt-2 text-sm text-slate-600">Analisando contexto persistido...</p> : analysisError ? <p className="mt-2 text-sm text-red-700">{analysisError}</p> : <p className="mt-2 whitespace-pre-wrap text-sm text-slate-700">{analysis}</p>}</div>
+             <div className="mt-5 flex justify-end"><Button variant="outline" onClick={() => setSelectedEvent(null)}>Fechar</Button></div>
+           </div>
+         </div>
+       )}
     </div>
   );
 }
@@ -406,24 +460,9 @@ export default function CompanyProfileView() {
             {activeTab === 'dados' && <DadosEmpresaTab authUserId={identity.userId} organizationId={organizationId} isOrgAdmin={isOrgAdmin} />}
             
             {activeTab === 'colaboradores' && <OperatorsPage />}
-            {activeTab === 'solicitantes' && (
-              <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-200">
-                <h2 className="text-xl font-bold text-slate-800 mb-4">Solicitantes</h2>
-                <p className="text-slate-600">Gestão de solicitantes (Em breve).</p>
-              </div>
-            )}
-            {activeTab === 'permissoes' && (
-              <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-200">
-                <h2 className="text-xl font-bold text-slate-800 mb-4">Permissões</h2>
-                <p className="text-slate-600">Gestão de permissões de acesso (Em breve).</p>
-              </div>
-            )}
-            {activeTab === 'aprovacoes' && (
-              <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-200">
-                <h2 className="text-xl font-bold text-slate-800 mb-4">Aprovações</h2>
-                <p className="text-slate-600">Gestão de alçadas de aprovação (Em breve).</p>
-              </div>
-            )}
+            {activeTab === 'solicitantes' && <RequestersPage />}
+            {activeTab === 'permissoes' && <OperatorsPage />}
+            {activeTab === 'aprovacoes' && <QuotationApprovalsPage />}
             {activeTab === 'compliance' && <ComplianceTab organizationId={organizationId} />}
             {activeTab === 'delegacoes' && <DelegationsPage />}
             {activeTab === 'logs' && <AccessLogsPage />}
@@ -434,5 +473,3 @@ export default function CompanyProfileView() {
     </div>
   );
 }
-
-

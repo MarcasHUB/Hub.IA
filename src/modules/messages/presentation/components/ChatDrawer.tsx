@@ -3,13 +3,14 @@ import {
   Send, X, Paperclip, FileText, ShieldAlert,
   AlertTriangle, Check, CheckCheck,
   Bell, BellOff, MessageSquare, ArrowLeft, Search,
-  Download, Image as ImageIcon
+  Download, Image as ImageIcon, ExternalLink
 } from 'lucide-react';
 import { useChatDrawer } from '../context/ChatDrawerContext';
 import { useNotifications } from '@/modules/notifications/presentation/context/NotificationContext';
 import { checkCompliance } from '../../domain/compliance/ComplianceFilter';
 import { classifyAttachmentRisk } from '../../application/utils/classifyAttachmentRisk';
 import { QuotationTypeModal } from '@/modules/quotations/presentation/components/QuotationTypeModal';
+import type { CreatedQuotation } from '@/modules/quotations/infrastructure/repositories/SupabaseQuotationRepository';
 
 // ─── Interfaces ──────────────────────────────────────────────────────────────
 
@@ -36,25 +37,6 @@ import { chatRepository, ChatConversation, ChatMessage } from '../../infrastruct
 import { supabase } from '@/infrastructure/supabase/client';
 import { useAuthenticatedIdentity } from '@/modules/auth/presentation/hooks/useAuthenticatedIdentity';
 
-// Carrega parceiros e mensagens do localStorage dinamicamente
-const getPartnersMap = (): Record<string, Partner> => {
-  const saved = localStorage.getItem('supplyhub_partners');
-  const list = saved ? JSON.parse(saved) : [];
-  const map: Record<string, Partner> = {};
-  list.forEach((p: any) => {
-    map[p.id] = {
-      id: p.id,
-      name: p.name,
-      segment: p.segment,
-      initials: p.name.split(' ').slice(0, 2).map((w: string) => w[0]).join('').toUpperCase(),
-      gradient: 'from-indigo-500 to-violet-600',
-      isOnline: true,
-      isConnected: true
-    };
-  });
-  return map;
-};
-
 export function ChatDrawer() {
   const { data: identity } = useAuthenticatedIdentity();
   const { isChatOpen, activePartnerId, activePartnerData, activeConversationId, viewMode, openChat, backToInbox, closeChat, conversations, unlockAudio } = useChatDrawer();
@@ -65,7 +47,7 @@ export function ChatDrawer() {
   const [complianceError, setComplianceError] = useState<string | null>(null);
   const [isQuotationModalOpen, setIsQuotationModalOpen] = useState(false);
   const [showPartnerSelector, setShowPartnerSelector] = useState(false);
-  const [userId, setUserId] = useState<string | undefined>(undefined);
+  const userId = identity?.userId;
   const activeOrgId = identity?.organizationId || null;
 
   const [soundEnabled, setSoundEnabled] = useState(localStorage.getItem('hubia_chat_sound_enabled') !== 'false');
@@ -83,12 +65,7 @@ export function ChatDrawer() {
     localStorage.setItem('hubia_chat_sound_enabled', String(newValue));
   };
 
-  const partnersMap = getPartnersMap();
-  const partnersList = Object.values(partnersMap);
-  let partner = activePartnerId ? partnersMap[activePartnerId] : null;
-
-  if (!partner && activePartnerData) {
-    partner = {
+  const partner: Partner | null = activePartnerData ? {
       id: activePartnerData.id,
       name: activePartnerData.name || activePartnerData.razao_social || 'Empresa',
       segment: activePartnerData.segment || 'Não definido',
@@ -96,14 +73,7 @@ export function ChatDrawer() {
       gradient: 'from-indigo-500 to-violet-600',
       isOnline: true,
       isConnected: activePartnerData.isConnected !== undefined ? activePartnerData.isConnected : true
-    };
-  }
-
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }: any) => {
-      if (user) setUserId(user.id);
-    });
-  }, []);
+    } : null;
 
   useEffect(() => {
     if (activeConversationId) {
@@ -259,9 +229,9 @@ export function ChatDrawer() {
   };
 
   // Abre a cotação a mercado ou direta
-  const handleCreateQuotation = (data: { type: 'BID' | 'DIRECT'; code: string; productName: string }) => {
+  const handleCreateQuotation = (data: CreatedQuotation) => {
     setIsQuotationModalOpen(false);
-    handleSend(`Solicitei uma cotação: ${data.productName} (${data.code})`);
+    void handleSend(`Solicitei uma cotação (${data.title}).`);
   };
 
   const filteredConversations = (conversations || []).filter(c =>
@@ -394,6 +364,14 @@ export function ChatDrawer() {
               {/* Dropdown Seletor de Parceiros Removido - Inbox substitui isso */}
 
               <div className="flex items-center gap-1 shrink-0">
+                <button
+                  onClick={() => activeConversationId && window.open(`/messages?conversation=${encodeURIComponent(activeConversationId)}`, '_blank', 'noopener,noreferrer')}
+                  disabled={!activeConversationId}
+                  className="p-1.5 text-slate-400 hover:text-indigo-600 rounded-full hover:bg-slate-100 transition-colors disabled:opacity-40"
+                  title="Abrir em nova janela"
+                >
+                  <ExternalLink className="h-4 w-4" />
+                </button>
                 <button
                   onClick={toggleSound}
                   className="p-1.5 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100 transition-colors"

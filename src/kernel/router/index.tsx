@@ -9,6 +9,7 @@ const GlobalAdminPage = lazy(() => import('../../modules/admin/presentation/page
 const LoginPage = React.lazy(() => import('../../modules/auth/presentation/pages/LoginPage'));
 const OnboardingWizardPage = React.lazy(() => import('../../modules/auth/presentation/pages/OnboardingWizardPage'));
 const DashboardPage = React.lazy(() => import('../../modules/dashboard/presentation/pages/DashboardPage'));
+const HubConnectPage = React.lazy(() => import('../../modules/suppliers/presentation/pages/HubConnectPage'));
 const IntelligenceDashboardPage = React.lazy(() => import('../../modules/intelligence/presentation/pages/IntelligenceDashboardPage'));
 const SuppliersListPage = React.lazy(() => import('../../modules/suppliers/presentation/pages/SuppliersListPage'));
 const SupplierFormPage = React.lazy(() => import('../../modules/suppliers/presentation/pages/SupplierFormPage'));
@@ -17,7 +18,6 @@ const ProductsListPage = React.lazy(() => import('../../modules/products/present
 const ProductFormPage = React.lazy(() => import('../../modules/products/presentation/pages/ProductFormPage'));
 const SearchResultsPage = React.lazy(() => import('../../modules/search/presentation/pages/SearchResultsPage'));
 const QuotationsListPage = React.lazy(() => import('../../modules/quotations/presentation/pages/QuotationsListPage'));
-const NewQuotationPage = React.lazy(() => import('../../modules/quotations/presentation/pages/NewQuotationPage'));
 const QuotationComparisonPage = React.lazy(() => import('../../modules/quotations/presentation/pages/QuotationComparisonPage'));
 // OrganizationPage was removed
 const OrganizationsListPage = React.lazy(() => import('../../modules/organizations/presentation/pages/OrganizationsListPage'));
@@ -107,6 +107,10 @@ export const router = createBrowserRouter([
         element: <SuspenseWrapper><DashboardPage /></SuspenseWrapper>,
       },
       {
+        path: '/hubconnect',
+        element: <SuspenseWrapper><HubConnectPage /></SuspenseWrapper>,
+      },
+      {
         path: '/intelligence',
         element: <SuspenseWrapper><IntelligenceDashboardPage /></SuspenseWrapper>,
       },
@@ -144,7 +148,7 @@ export const router = createBrowserRouter([
       },
       {
         path: '/quotations/new',
-        element: <SuspenseWrapper><NewQuotationPage /></SuspenseWrapper>,
+        element: <Navigate to="/products" replace />,
       },
       {
         path: '/quotations/:id/compare',

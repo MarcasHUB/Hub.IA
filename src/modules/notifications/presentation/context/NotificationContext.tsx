@@ -1,5 +1,6 @@
-﻿import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { supabase, isMockMode } from '@/infrastructure/supabase/client';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { supabase } from '@/infrastructure/supabase/client';
+import { useAuthenticatedIdentity } from '@/modules/auth/presentation/hooks/useAuthenticatedIdentity';
 
 export interface Notification {
   id: string;
@@ -7,6 +8,7 @@ export interface Notification {
   title: string;
   body: string;
   read_at: string | null;
+  archived_at?: string | null;
   action_url?: string;
   metadata?: Record<string, unknown>;
   created_at: string;
@@ -20,97 +22,73 @@ interface NotificationContextValue {
   isLoading: boolean;
   markAsRead: (id: string) => Promise<void>;
   markAllAsRead: () => Promise<void>;
+  clearNotifications: () => Promise<void>;
 }
 
 const NotificationContext = createContext<NotificationContextValue | null>(null);
 
 export function NotificationProvider({ children }: { children: React.ReactNode }) {
+  const { data: identity } = useAuthenticatedIdentity();
+  const userId = identity?.userId || null;
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [userId, setUserId] = useState<string | null>(null);
-
-  const unreadCount = notifications.filter((n) => n.read_at === null).length;
+  const unreadCount = useMemo(() => notifications.filter(notification => notification.read_at === null).length, [notifications]);
 
   const fetchNotifications = useCallback(async (uid: string) => {
     setIsLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from('notifications')
-        .select('*')
-        .eq('user_id', uid)
-        .order('created_at', { ascending: false })
-        .limit(50);
-      if (!error && data) {
-        setNotifications(data as Notification[]);
-      }
-    } catch {
-      // ignore
-    } finally {
-      setIsLoading(false);
-    }
+    const { data, error } = await supabase
+      .from('notifications')
+      .select('*')
+      .eq('user_id', uid)
+      .is('archived_at', null)
+      .order('created_at', { ascending: false })
+      .limit(50);
+    if (error) console.error('Notification inbox unavailable', error);
+    else setNotifications((data ?? []) as Notification[]);
+    setIsLoading(false);
   }, []);
 
   useEffect(() => {
-    let channel: ReturnType<typeof supabase.channel> | null = null;
-    
-    async function init() {
-      if (isMockMode) {
-        setIsLoading(false);
-        return;
-      }
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        setIsLoading(false);
-        return;
-      }
-      setUserId(user.id);
-      await fetchNotifications(user.id);
-
-      channel = supabase
-        .channel(`notifications_${user.id}`)
-        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${user.id}` }, (payload) => {
-          setNotifications(prev => {
-            // Dedupe locally if needed
-            if (prev.some(n => n.id === payload.new.id)) return prev;
-            return [payload.new as Notification, ...prev];
-          });
-        })
-        .subscribe();
-    }
-    
-    init();
-
-    return () => {
-      if (channel) {
-        supabase.removeChannel(channel);
-      }
-    };
-  }, [fetchNotifications]);
+    if (!userId) { setNotifications([]); setIsLoading(false); return; }
+    void fetchNotifications(userId);
+    const channel = supabase
+      .channel(`notifications_${userId}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${userId}` }, payload => {
+        const inserted = payload.new as Notification;
+        setNotifications(previous => previous.some(item => item.id === inserted.id) ? previous : [inserted, ...previous]);
+      })
+      .subscribe();
+    return () => { void supabase.removeChannel(channel); };
+  }, [fetchNotifications, userId]);
 
   const markAsRead = useCallback(async (id: string) => {
-    setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read_at: new Date().toISOString() } : n)));
-    if (userId) {
-      await supabase.from('notifications').update({ read_at: new Date().toISOString() }).eq('id', id);
-    }
+    if (!userId) return;
+    const now = new Date().toISOString();
+    const { error } = await supabase.from('notifications').update({ read_at: now }).eq('id', id).eq('user_id', userId);
+    if (error) throw error;
+    setNotifications(previous => previous.map(item => item.id === id ? { ...item, read_at: now } : item));
   }, [userId]);
 
   const markAllAsRead = useCallback(async () => {
+    if (!userId) return;
     const now = new Date().toISOString();
-    setNotifications((prev) => prev.map((n) => (n.read_at === null ? { ...n, read_at: now } : n)));
-    if (userId) {
-      await supabase.from('notifications').update({ read_at: now }).eq('user_id', userId).is('read_at', null);
-    }
+    const { error } = await supabase.from('notifications').update({ read_at: now }).eq('user_id', userId).is('read_at', null).is('archived_at', null);
+    if (error) throw error;
+    setNotifications(previous => previous.map(item => item.read_at === null ? { ...item, read_at: now } : item));
   }, [userId]);
 
-  return (
-    <NotificationContext.Provider value={{ notifications, unreadCount, isLoading, markAsRead, markAllAsRead }}>
-      {children}
-    </NotificationContext.Provider>
-  );
+  const clearNotifications = useCallback(async () => {
+    if (!userId) return;
+    const { error } = await supabase.from('notifications').update({ archived_at: new Date().toISOString() }).eq('user_id', userId).is('archived_at', null);
+    if (error) throw error;
+    setNotifications([]);
+  }, [userId]);
+
+  return <NotificationContext.Provider value={{ notifications, unreadCount, isLoading, markAsRead, markAllAsRead, clearNotifications }}>{children}</NotificationContext.Provider>;
 }
 
 export function useNotifications() {
-  const ctx = useContext(NotificationContext);
-  if (!ctx) throw new Error('useNotifications must be used inside NotificationProvider');
-  return ctx;
+  const context = useContext(NotificationContext);
+  if (!context) throw new Error('useNotifications must be used inside NotificationProvider');
+  return context;
 }

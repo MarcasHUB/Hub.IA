@@ -31,6 +31,14 @@ export function hasMeaningfulValue(value?: string | null): boolean {
   return value !== undefined && value !== null && value.trim().length > 0;
 }
 
+export function parseCnaeEntry(value: string): { code: string; description: string | null } | null {
+  const normalized = String(value || '').trim();
+  if (!normalized) return null;
+  const [code, ...descriptionParts] = normalized.split(/\s+-\s+/);
+  if (!code.trim()) return null;
+  return { code: code.trim(), description: descriptionParts.join(' - ').trim() || null };
+}
+
 export function hasValidCnae(value?: string | null): boolean {
   if (!value) return false;
 
@@ -136,4 +144,23 @@ export function calculateOrganizationProfileCompletion(data: OrganizationProfile
   if (hasSegments) score += 12;
 
   return Math.max(0, Math.min(100, Math.round(score)));
+}
+
+export function getOrganizationProfileMissingFields(data: OrganizationProfileCompletionInput): string[] {
+  const missing: string[] = [];
+  if (!hasMeaningfulValue(data.razaoSocial)) missing.push('Razão social');
+  if (!hasMeaningfulValue(data.nomeFantasia)) missing.push('Nome fantasia');
+  if (!hasMeaningfulValue(data.cnpj)) missing.push('CNPJ');
+  if (!hasMeaningfulValue(data.emailCorporativo)) missing.push('E-mail corporativo');
+  if (!hasMeaningfulValue(data.telefone) && !hasMeaningfulValue(data.whatsapp)) missing.push('Telefone ou WhatsApp');
+  if (!hasMeaningfulValue(data.logoUrl)) missing.push('Logotipo');
+  if (!hasMeaningfulValue(data.website)) missing.push('Website');
+  const address = [data.addressZipCode, data.addressStreet, data.addressNumber, data.addressNeighborhood, data.city, data.state];
+  if (address.some(value => !hasMeaningfulValue(value))) missing.push('Endereço completo');
+  if (!hasMeaningfulValue(data.tipoEmpresa)) missing.push('Tipo de empresa');
+  if (!hasMeaningfulValue(data.perfilComercial)) missing.push('Perfil comercial');
+  if (!hasValidCnae(data.cnaePrincipal)) missing.push('CNAE principal');
+  if (calculateCoverageScore(data.geographicCoverageType, data.raioAtendimentoKm, data.estadosAtendidos) === 0) missing.push('Cobertura geográfica');
+  if (!Array.isArray(data.segmentIds) || data.segmentIds.length === 0) missing.push('Segmentos');
+  return missing;
 }

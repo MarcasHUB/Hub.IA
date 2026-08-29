@@ -183,94 +183,7 @@ export function AppLayout() {
     setIsPreviewModalOpen(true);
   };
 
-  const handleSaveQuotation = (data: any) => {
-    const newQuotation = {
-      id: data.code,
-      title: data.productName,
-      type: data.type,
-      itemsCount: items.length,
-      status: "Open" as const,
-      date: new Date().toLocaleDateString("pt-BR"),
-      targetSupplierName: data.targetSupplierName || "Fornecedor",
-      requester: data.requester || "Comprador B2B",
-      deliveryDate: data.deliveryDate,
-      additionalDesc: data.additionalDesc,
-      selectedProducts: items.map((item) => ({
-        id: item.productId,
-        name: item.name,
-        price: 150.0,
-        measures: item.uom,
-        manufacturer: item.manufacturer,
-        sku: item.sku,
-        partNumber: item.partNumber,
-      })),
-      productQuantities: items.reduce(
-        (acc, item) => {
-          acc[item.productId] = String(item.quantity);
-          return acc;
-        },
-        {} as Record<string, string>,
-      ),
-      proposals:
-        data.type === "BID"
-          ? [
-              {
-                supplierName: "Brasil Cabos",
-                price: items.reduce(
-                  (sum, i) => sum + i.quantity * 150 * 0.94,
-                  0,
-                ),
-                deliveryDays: 2,
-                relationshipScore: 95,
-              },
-              {
-                supplierName: "Eletro Tudo B2B",
-                price: items.reduce(
-                  (sum, i) => sum + i.quantity * 150 * 0.98,
-                  0,
-                ),
-                deliveryDays: 3,
-                relationshipScore: 84,
-              },
-              {
-                supplierName: "Fixação Ind.",
-                price: items.reduce(
-                  (sum, i) => sum + i.quantity * 150 * 1.02,
-                  0,
-                ),
-                deliveryDays: 5,
-                relationshipScore: 72,
-              },
-            ]
-          : [
-              {
-                supplierName:
-                  data.targetSupplierName || "Fornecedor Direcionado",
-                price: items.reduce(
-                  (sum, i) => sum + i.quantity * 150 * 0.95,
-                  0,
-                ),
-                deliveryDays: 4,
-                relationshipScore: 92,
-              },
-            ],
-    };
-
-    // Salva em supplyhub_quotations (listagem)
-    const savedQuotes = localStorage.getItem("supplyhub_quotations");
-    const quotesList = savedQuotes ? JSON.parse(savedQuotes) : [];
-    quotesList.unshift(newQuotation);
-    localStorage.setItem("supplyhub_quotations", JSON.stringify(quotesList));
-
-    // Salva em supplyhub_sent_quotations (detalhes/comparação)
-    const savedSentQuotes = localStorage.getItem("supplyhub_sent_quotations");
-    const sentQuotesList = savedSentQuotes ? JSON.parse(savedSentQuotes) : [];
-    sentQuotesList.unshift(newQuotation);
-    localStorage.setItem(
-      "supplyhub_sent_quotations",
-      JSON.stringify(sentQuotesList),
-    );
-
+  const handleSaveQuotation = () => {
     clearCart();
     setIsPreviewModalOpen(false);
     navigate("/quotations");
@@ -284,18 +197,30 @@ export function AppLayout() {
       <header className="bg-white border-b border-slate-200 h-16 flex justify-center shrink-0 z-30 sticky top-0 shadow-sm">
         {/* Container centralizador para evitar que espalhe em telas largas */}
         <div className="w-full max-w-[1440px] px-6 flex items-center justify-between">
-          {/* BLOCO DA ESQUERDA: Logo */}
-          <Link
-            to="/"
-            className="flex items-center hover:opacity-80 transition-opacity shrink-0"
-          >
-            <span className="text-[22px] font-extrabold text-indigo-700 tracking-tight leading-none">
-              Hub.IA
-            </span>
-            <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest leading-none ml-2 mt-1">
-              Suprimentos
-            </span>
-          </Link>
+          {/* BLOCO DA ESQUERDA: HubConnect+ antes da marca Hub.IA */}
+          <div className="flex items-center gap-3 shrink-0">
+            <Link
+              to="/hubconnect"
+              className={cn(
+                "text-[13px] font-black tracking-tight transition-colors",
+                location.pathname.startsWith('/hubconnect') ? "text-indigo-700" : "text-slate-500 hover:text-indigo-700",
+              )}
+            >
+              HubConnect+
+            </Link>
+            <div className="h-5 w-px bg-slate-200" />
+            <Link
+              to="/"
+              className="flex items-center hover:opacity-80 transition-opacity"
+            >
+              <span className="text-[22px] font-extrabold text-indigo-700 tracking-tight leading-none">
+                Hub.IA
+              </span>
+              <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest leading-none ml-2 mt-1">
+                Suprimentos
+              </span>
+            </Link>
+          </div>
 
           {/* BLOCO CENTRAL: Navegação e Rede */}
           <nav className="hidden lg:flex items-center justify-center flex-1 shrink-0 px-8">

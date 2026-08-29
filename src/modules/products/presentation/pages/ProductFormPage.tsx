@@ -25,6 +25,10 @@ import { Product, ProductStatus } from '../../domain/entities/Product';
 import { LinkSupplierModal } from '../components/LinkSupplierModal';
 import { supabase } from '@/infrastructure/supabase/client';
 import { useAuthenticatedIdentity } from '@/modules/auth/presentation/hooks/useAuthenticatedIdentity';
+import {
+  canMaintainGlobalMaster,
+  requiresLinkedMasterForSave,
+} from '../../application/policies/materialSaveIntegrity';
 
 const repo = new SupabaseProductRepository();
 const productSupplierRepo = new SupabaseProductSupplierRepository();
@@ -42,11 +46,13 @@ const normalizeManufacturerCode = (value: string) => value.trim().toUpperCase().
 export default function ProductFormPage({
   productId,
   onClose,
-  onSaveSuccess
+  onSaveSuccess,
+  masterMaintenanceMode = false,
 }: {
   productId?: string;
   onClose?: () => void;
   onSaveSuccess?: () => void;
+  masterMaintenanceMode?: boolean;
 } = {}) {
   const navigate = useNavigate();
   const { data: identity } = useAuthenticatedIdentity();
@@ -54,7 +60,7 @@ export default function ProductFormPage({
   const { id: routeId } = useParams();
   const id = productId || routeId;
   const isEditing = Boolean(id);
-  const canEditGlobalMaterial = identity?.isPlatformAdmin === true;
+  const canEditGlobalMaterial = canMaintainGlobalMaster(identity?.isPlatformAdmin, masterMaintenanceMode);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -74,6 +80,13 @@ export default function ProductFormPage({
     purchasingGroup: '',
     baseUom: 'UN',
     description: ''
+  });
+  const [masterInfo, setMasterInfo] = useState({
+    officialName: '',
+    manufacturer: '',
+    manufacturerCode: '',
+    description: '',
+    categoryName: '',
   });
   const [commercial, setCommercial] = useState({
     costCenter: '', targetPrice: '', moq: '', multiple: ''
@@ -208,17 +221,34 @@ export default function ProductFormPage({
             // Se tiver materialId, buscar dados complementares do Material Global
             if (product.materialId) {
                try {
-                 const { data: matData } = await supabase.from('materials').select('description').eq('id', product.materialId).maybeSingle();
+                 const { data: matData, error: materialError } = await supabase
+                   .from('materials')
+                   .select('official_name, description, manufacturer_code, manufacturers(name), categories(name)')
+                   .eq('id', product.materialId)
+                   .maybeSingle();
+                 if (materialError) throw materialError;
                  if (matData) {
-                   setClassification(prev => ({ ...prev, description: matData.description || '' }));
+                   const manufacturerRelation = Array.isArray(matData.manufacturers)
+                     ? matData.manufacturers[0]
+                     : matData.manufacturers;
+                   const categoryRelation = Array.isArray(matData.categories)
+                     ? matData.categories[0]
+                     : matData.categories;
+                   setMasterInfo({
+                     officialName: matData.official_name || '',
+                     manufacturer: manufacturerRelation?.name || '',
+                     manufacturerCode: matData.manufacturer_code || '',
+                     description: matData.description || '',
+                     categoryName: categoryRelation?.name || '',
+                   });
+                   setClassification(prev => ({
+                     ...prev,
+                     globalCategory: categoryRelation?.name || '',
+                   }));
                  }
                } catch (e) { console.error('Erro ao buscar material global', e); }
             }
             
-            // Mocked supplier mapping
-            if (product.supplierId) {
-               setSuppliers([{ id: '', name: 'Fornecedor', document: '' }]);
-            }
             if (product.attachments && Array.isArray(product.attachments)) {
                setAttachmentsList(product.attachments);
             }
@@ -230,74 +260,6 @@ export default function ProductFormPage({
     }
     loadData();
   }, [id, isEditing]);
-
-  const resolveCanonicalMaterial = async (): Promise<string> => {
-    if (!tenantId || !identity?.userId) throw new Error('Identidade da organização indisponível.');
-    const normalizedManufacturer = normalizeCatalogKey(basicInfo.manufacturer);
-    const normalizedCode = normalizeManufacturerCode(basicInfo.manufacturerCode);
-    if (!normalizedManufacturer || !normalizedCode) throw new Error('Fabricante e código do fabricante são obrigatórios.');
-
-    const manufacturerLookup = await supabase
-      .from('manufacturers')
-      .select('id, name')
-      .eq('normalized_name', normalizedManufacturer)
-      .maybeSingle();
-    if (manufacturerLookup.error) throw manufacturerLookup.error;
-    let manufacturer = manufacturerLookup.data;
-
-    if (!manufacturer) {
-      const created = await supabase
-        .from('manufacturers')
-        .insert({ name: basicInfo.manufacturer.trim(), normalized_name: normalizedManufacturer, created_by: identity.userId })
-        .select('id, name')
-        .single();
-      if (created.error) {
-        if (created.error.code !== '23505') throw created.error;
-        const retry = await supabase.from('manufacturers').select('id, name').eq('normalized_name', normalizedManufacturer).single();
-        if (retry.error) throw retry.error;
-        manufacturer = retry.data;
-      } else {
-        manufacturer = created.data;
-      }
-    }
-
-    const existing = await supabase
-      .from('materials')
-      .select('id')
-      .eq('manufacturer_id', manufacturer.id)
-      .eq('normalized_manufacturer_code', normalizedCode)
-      .maybeSingle();
-    if (existing.error) throw existing.error;
-    if (existing.data) return existing.data.id;
-
-    const createdMaterial = await supabase
-      .from('materials')
-      .insert({
-        official_name: basicInfo.name.trim(),
-        normalized_official_name: normalizeCatalogKey(basicInfo.name),
-        description: classification.description.trim() || basicInfo.description.trim() || null,
-        unit: classification.baseUom || 'UN',
-        manufacturer_id: manufacturer.id,
-        manufacturer_code: basicInfo.manufacturerCode.trim(),
-        normalized_manufacturer_code: normalizedCode,
-        validation_status: 'pending_review',
-        visibility: 'shared',
-        created_source: 'manual',
-        master_owner_organization_id: tenantId,
-        created_by: identity.userId,
-        is_active: true,
-      })
-      .select('id')
-      .single();
-
-    if (createdMaterial.error) {
-      if (createdMaterial.error.code !== '23505') throw createdMaterial.error;
-      const retry = await supabase.from('materials').select('id').eq('manufacturer_id', manufacturer.id).eq('normalized_manufacturer_code', normalizedCode).single();
-      if (retry.error) throw retry.error;
-      return retry.data.id;
-    }
-    return createdMaterial.data.id;
-  };
 
   const handleSave = async (forceDraft: boolean = false) => {
     // Basic validation based on business model
@@ -320,12 +282,15 @@ export default function ProductFormPage({
     }
 
     try {
-      const materialId = basicInfo.materialId || (statusToSave === 'Draft' ? '' : await resolveCanonicalMaterial());
+      const materialId = basicInfo.materialId;
+      if (requiresLinkedMasterForSave(statusToSave) && !materialId) {
+        throw new Error('Vincule um Material Hub.IA antes de ativar o item no catálogo da empresa.');
+      }
       const newProduct = new Product(
         isEditing && id ? id : crypto.randomUUID(),
         tenantId,
-        suppliers.length > 0 ? 'supplier-id' : 'mocked-supplier-id', // supplierId
-        classification.category || 'mocked-category-id', // categoryId
+        suppliers[0]?.id || '',
+        classification.category,
         basicInfo.name,
         basicInfo.description,
         basicInfo.sku,
@@ -345,37 +310,59 @@ export default function ProductFormPage({
         attachmentsList
       );
 
-      // Save to products (tenant data)
-      await repo.save(newProduct);
+      const relationshipType = businessModel === 'manufacturer'
+        ? 'fabricante'
+        : businessModel === 'reseller'
+          ? 'revendedor'
+          : 'fornecedor';
 
-      if (materialId) {
-        const relationshipType = businessModel === 'manufacturer' ? 'fabricante' : businessModel === 'reseller' ? 'revendedor' : 'fornecedor';
-        const { error: linkError } = await supabase.from('organization_materials').upsert({
-          organization_id: tenantId,
-          material_id: materialId,
-          category_id: classification.category || null,
-          internal_sku: basicInfo.sku || null,
-          erp_code: basicInfo.sku || null,
-          display_name: basicInfo.name || null,
-          is_active: statusToSave !== 'Inactive',
-          available_for_purchase: basicInfo.availableForPurchase,
-          available_for_sale: basicInfo.availableForSale,
-          commercial_config: commercial,
-          logistics_config: logistics,
-          relationship_type: relationshipType,
-        }, { onConflict: 'organization_id,material_id' });
-        if (linkError) throw new Error(`Falha ao vincular material à grade da empresa: ${linkError.message}`);
-      }
+      // products + organization_materials are committed or rolled back together
+      // by the canonical tenant RPC. The RPC never updates public.materials.
+      await repo.saveTenantMaterial(newProduct, materialId ? {
+        internalSku: basicInfo.sku,
+        erpCode: basicInfo.sku,
+        displayName: basicInfo.name,
+        isActive: statusToSave !== 'Inactive',
+        commercialConfig: commercial,
+        logisticsConfig: logistics,
+        relationshipType,
+      } : undefined);
 
-      // Update materials (global catalog) if admin
+      // Master maintenance is available only from the explicit platform-admin
+      // surface. Being a platform admin inside the tenant route is not enough.
       if (canEditGlobalMaterial && materialId) {
-        const { data: oldMaterial } = await supabase.from('materials').select('*').eq('id', materialId).limit(1).maybeSingle();
-        
+        const normalizedMasterManufacturer = normalizeCatalogKey(masterInfo.manufacturer);
+        const normalizedMasterCode = normalizeManufacturerCode(masterInfo.manufacturerCode);
+        if (Boolean(normalizedMasterManufacturer) !== Boolean(normalizedMasterCode)) {
+          throw new Error('Fabricante e código do fabricante devem ser informados em conjunto no cadastro master.');
+        }
+
+        let manufacturerId: string | null = null;
+        if (normalizedMasterManufacturer && normalizedMasterCode) {
+          const { data: manufacturer, error: manufacturerError } = await supabase
+            .from('manufacturers')
+            .select('id')
+            .eq('normalized_name', normalizedMasterManufacturer)
+            .maybeSingle();
+          if (manufacturerError) throw manufacturerError;
+          if (!manufacturer) {
+            throw new Error('Fabricante master não encontrado. Cadastre-o no fluxo administrativo apropriado.');
+          }
+          manufacturerId = manufacturer.id;
+        }
+
+        const { data: oldMaterial, error: oldMaterialError } = await supabase
+          .from('materials')
+          .select('id, official_name, description, manufacturer_id, manufacturer_code, category_id, updated_at')
+          .eq('id', materialId)
+          .maybeSingle();
+        if (oldMaterialError) throw oldMaterialError;
+
         const { error: updateError } = await supabase.from('materials').update({
-          official_name: basicInfo.name,
-          manufacturer_code: basicInfo.manufacturerCode,
-          description: classification.description,
-          updated_at: new Date().toISOString()
+          official_name: masterInfo.officialName,
+          manufacturer_id: manufacturerId,
+          manufacturer_code: normalizedMasterCode || null,
+          description: masterInfo.description || null,
         }).eq('id', materialId);
         
         if (updateError) throw new Error(`Falha ao atualizar Material Global: ${updateError.message}`);
@@ -389,10 +376,11 @@ export default function ProductFormPage({
           organization_id: tenantId,
           old_data: oldMaterial || {},
           new_data: {
-             official_name: basicInfo.name,
-             manufacturer_code: basicInfo.manufacturerCode,
-             manufacturer_name: basicInfo.manufacturer,
-             description: classification.description
+             official_name: masterInfo.officialName,
+             manufacturer_id: manufacturerId,
+             manufacturer_code: normalizedMasterCode || null,
+             manufacturer_name: masterInfo.manufacturer,
+             description: masterInfo.description,
           },
           details: 'Edição do Material Master pelo ADM GLOBAL'
         });
@@ -521,8 +509,10 @@ export default function ProductFormPage({
                           <Label>Nome do Material *</Label>
                         </div>
                         <Input 
-                          value={basicInfo.name} 
-                          onChange={e => setBasicInfo({...basicInfo, name: e.target.value})}
+                          value={basicInfo.materialId ? masterInfo.officialName : basicInfo.name}
+                          onChange={e => basicInfo.materialId
+                            ? setMasterInfo(current => ({ ...current, officialName: e.target.value }))
+                            : setBasicInfo({ ...basicInfo, name: e.target.value })}
                           placeholder="Ex: Motor Elétrico Trifásico 15CV"
                           disabled={!!basicInfo.materialId && !canEditGlobalMaterial}
                         />
@@ -532,8 +522,10 @@ export default function ProductFormPage({
                           <Label>Fabricante / Marca *</Label>
                         </div>
                         <Input 
-                          value={basicInfo.manufacturer} 
-                          onChange={e => setBasicInfo({...basicInfo, manufacturer: e.target.value})}
+                          value={basicInfo.materialId ? masterInfo.manufacturer : basicInfo.manufacturer}
+                          onChange={e => basicInfo.materialId
+                            ? setMasterInfo(current => ({ ...current, manufacturer: e.target.value }))
+                            : setBasicInfo({ ...basicInfo, manufacturer: e.target.value })}
                           placeholder="Ex: WEG, SKF, 3M"
                           disabled={!!basicInfo.materialId && !canEditGlobalMaterial}
                         />
@@ -543,8 +535,10 @@ export default function ProductFormPage({
                           <Label>Código do Fabricante *</Label>
                         </div>
                         <Input 
-                          value={basicInfo.manufacturerCode} 
-                          onChange={e => setBasicInfo({...basicInfo, manufacturerCode: e.target.value})}
+                          value={basicInfo.materialId ? masterInfo.manufacturerCode : basicInfo.manufacturerCode}
+                          onChange={e => basicInfo.materialId
+                            ? setMasterInfo(current => ({ ...current, manufacturerCode: e.target.value }))
+                            : setBasicInfo({ ...basicInfo, manufacturerCode: e.target.value })}
                           placeholder="Ex: W22-100CV"
                           disabled={!!basicInfo.materialId && !canEditGlobalMaterial}
                         />
@@ -558,10 +552,24 @@ export default function ProductFormPage({
                           className="w-full min-h-[40px] max-h-[80px] resize-y p-3 bg-white border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 disabled:bg-slate-50"
                           placeholder="Descrição geral do material..."
                           maxLength={500}
-                          value={classification.description}
-                          onChange={e => setClassification({...classification, description: e.target.value})}
+                          value={basicInfo.materialId ? masterInfo.description : classification.description}
+                          onChange={e => basicInfo.materialId
+                            ? setMasterInfo(current => ({ ...current, description: e.target.value }))
+                            : setClassification({ ...classification, description: e.target.value })}
                           disabled={!!basicInfo.materialId && !canEditGlobalMaterial}
                         />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Categoria Hub.IA</Label>
+                        <Input
+                          value={basicInfo.materialId
+                            ? masterInfo.categoryName || 'Categoria master pendente'
+                            : 'Vincule um Material Hub.IA'}
+                          disabled
+                        />
+                        <p className="text-[10px] text-slate-500">
+                          Categoria canônica do master; não é alterada pelo cadastro interno da empresa.
+                        </p>
                       </div>
                     </div>
                   </div>
@@ -581,6 +589,17 @@ export default function ProductFormPage({
                   
                   <div className="p-6 bg-white space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2 md:col-span-2">
+                        <Label>Nome interno / comercial *</Label>
+                        <p className="text-[10px] text-slate-500 mb-1">
+                          Nome usado somente no catálogo da sua empresa; não altera o Material Hub.IA.
+                        </p>
+                        <Input
+                          value={basicInfo.name}
+                          onChange={e => setBasicInfo({ ...basicInfo, name: e.target.value })}
+                          placeholder="Ex: Chave de impacto da manutenção"
+                        />
+                      </div>
                       {businessModel !== 'manufacturer' && (
                         <div className="space-y-2">
                           <Label>Código Interno * <span className="text-slate-400 font-normal ml-1">(SKU interno)</span></Label>
@@ -768,7 +787,7 @@ export default function ProductFormPage({
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
-                    <Label>Categoria do Material</Label>
+                    <Label>Categoria interna da empresa</Label>
                     <select 
                       value={classification.category} 
                       onChange={e => setClassification({...classification, category: e.target.value})}

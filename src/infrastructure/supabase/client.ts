@@ -7,13 +7,7 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 const supabaseUrl = rawSupabaseUrl ? rawSupabaseUrl.replace(/\/rest\/v1\/?$/, '') : undefined;
 
 if (!supabaseUrl || !supabaseKey) {
-  console.warn('VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY devem ser configurados no .env para o Supabase funcionar corretamente.');
+  throw new Error('VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY são obrigatórios para iniciar o runtime.');
 }
 
-export const supabase = createClient(
-  supabaseUrl || '',
-  supabaseKey || ''
-);
-
-// Flag para saber se estamos em modo mock (sem Supabase real configurado)
-export const isMockMode = !supabaseUrl || supabaseUrl === '';
+export const supabase = createClient(supabaseUrl, supabaseKey);

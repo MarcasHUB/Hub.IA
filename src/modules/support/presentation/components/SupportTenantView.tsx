@@ -51,6 +51,7 @@ export default function SupportTenantView() {
   const queryClient = useQueryClient();
   const { data: identity } = useAuthenticatedIdentity();
   const [isNewOpen, setIsNewOpen] = useState(false);
+  const [isOnlineSupportOpen, setIsOnlineSupportOpen] = useState(false);
   const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
   const [isCloseConfirmOpen, setIsCloseConfirmOpen] = useState(false);
 
@@ -260,9 +261,14 @@ export default function SupportTenantView() {
           <h2 className="text-2xl font-bold text-slate-800">Meus Chamados</h2>
           <p className="text-slate-500">Histórico de solicitações de suporte da sua empresa.</p>
         </div>
-        <Button onClick={() => setIsNewOpen(true)} className="gap-2 bg-indigo-600 text-white">
-          <Plus className="w-4 h-4" /> Novo Chamado
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setIsOnlineSupportOpen(true)} className="gap-2">
+            <MessageSquare className="w-4 h-4" /> Atendimento Online
+          </Button>
+          <Button onClick={() => setIsNewOpen(true)} className="gap-2 bg-indigo-600 text-white">
+            <Plus className="w-4 h-4" /> Novo Chamado
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
@@ -362,7 +368,7 @@ export default function SupportTenantView() {
               <tbody>
                 {filteredTickets.map(t => (
                   <tr key={t.id} className="border-b last:border-0 hover:bg-slate-50/50">
-                    <td className="px-4 py-3 font-bold text-slate-700 whitespace-nowrap">#{t.id.substring(0,8).toUpperCase()}</td>
+                    <td className="px-4 py-3 whitespace-nowrap"><button onClick={() => setSelectedTicketId(t.id)} className="font-bold text-indigo-700 hover:underline">#{t.id.substring(0,8).toUpperCase()}</button></td>
                     <td className="px-4 py-3 font-medium truncate max-w-[300px]" title={t.subject}>
                       {t.subject}
                     </td>
@@ -383,6 +389,16 @@ export default function SupportTenantView() {
       )}
 
       {/* New Ticket Modal */}
+      {isOnlineSupportOpen && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl">
+            <div className="flex items-start justify-between"><div><h3 className="flex items-center gap-2 text-lg font-bold"><MessageSquare className="h-5 w-5 text-indigo-600" /> Atendimento Online</h3><p className="mt-1 text-sm text-slate-500">Canal Usuário ↔ Hub.IA Support</p></div><button onClick={() => setIsOnlineSupportOpen(false)}><X className="h-5 w-5" /></button></div>
+            <div className="mt-5 rounded-xl border border-indigo-100 bg-indigo-50 p-4 text-sm text-slate-700">O canal está preparado para receber o assistente e o transbordo humano. Nenhuma resposta automática será fabricada antes da integração autorizada.</div>
+            <div className="mt-5 flex justify-end"><Button variant="outline" onClick={() => setIsOnlineSupportOpen(false)}>Fechar</Button></div>
+          </div>
+        </div>
+      )}
+
       {isNewOpen && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl w-full max-w-xl p-6 space-y-4">

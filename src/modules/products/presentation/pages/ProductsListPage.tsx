@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/shared/components/ui/Button';
 import { ClearableInput } from '@/shared/components/ui/ClearableInput';
 import { Badge } from '@/shared/components/ui/Badge';
@@ -7,7 +7,7 @@ import { Card, CardContent } from '@/shared/components/ui/Card';
 import { Search, Plus, Upload, Filter, ShoppingCart, PackageOpen, MoreVertical, ImageOff, X, Edit2, ToggleLeft, ToggleRight, Layers, Package } from 'lucide-react';
 import { QuotationTypeModal } from '@/modules/quotations/presentation/components/QuotationTypeModal';
 import { useQuotationCart } from '@/modules/quotations/presentation/context/QuotationCartContext';
-import { SupabaseProductRepository } from '../../infrastructure/repositories/SupabaseProductRepository';
+import { GlobalCatalogMaterial, SupabaseProductRepository } from '../../infrastructure/repositories/SupabaseProductRepository';
 import ProductFormPage from './ProductFormPage';
 import { useAuthenticatedIdentity } from '@/modules/auth/presentation/hooks/useAuthenticatedIdentity';
 import { LinkMaterialModal } from '../components/LinkMaterialModal';
@@ -34,14 +34,25 @@ interface Product {
   supplierId: string;
 }
 
-export default function ProductsListPage() {
+export default function ProductsListPage({
+  masterMaintenanceMode = false,
+}: {
+  masterMaintenanceMode?: boolean;
+} = {}) {
   const { data: identity } = useAuthenticatedIdentity();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [products, setProducts] = useState<Product[]>([]);
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
   const [isLinkMaterialOpen, setIsLinkMaterialOpen] = useState(false);
+  const [linkMaterialId, setLinkMaterialId] = useState<string>();
+  const [catalogScope, setCatalogScope] = useState<'ALL' | 'MINE' | 'HUBIA'>('MINE');
+  const [globalMaterials, setGlobalMaterials] = useState<GlobalCatalogMaterial[]>([]);
+  const [globalPage, setGlobalPage] = useState(0);
+  const [globalHasMore, setGlobalHasMore] = useState(false);
+  const [globalLoading, setGlobalLoading] = useState(false);
+  const [loadError, setLoadError] = useState('');
 
-  // Tenant ID mockado temporariamente (em produção virá do auth context)
   const tenantId = identity?.organizationId || '';
   async function loadProducts() {
     try {
@@ -52,10 +63,10 @@ export default function ProductsListPage() {
         name: p.name,
         sku: p.sku,
         unit: p.uom || 'UN',
-        partNumber: 'PN-' + p.sku,
-        supplier: p.supplierId || 'Fornecedor',
+        partNumber: p.manufacturerCode || '',
+        supplier: p.supplierId || '',
         category: p.categoryName || 'Sem categoria',
-        manufacturer: p.manufacturer || 'Desconhecido',
+        manufacturer: p.manufacturer || '',
         price: p.price,
         status: p.status, // Preserve Draft, Active, Inactive
         updatedAt: p.updatedAt.toISOString().split('T')[0],
@@ -67,19 +78,45 @@ export default function ProductsListPage() {
         supplierId: p.supplierId || ''
       })));
     } catch (err) {
-      console.error('Failed to load products', err);
+      setLoadError(err instanceof Error ? err.message : 'Não foi possível carregar o catálogo da empresa.');
     }
   }
 
   useEffect(() => {
     if (tenantId) loadProducts();
   }, [tenantId]);
+
+  useEffect(() => {
+    if (searchParams.get('link') === '1') setIsLinkMaterialOpen(true);
+  }, [searchParams]);
   
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState<'ALL' | 'ACTIVE' | 'INACTIVE'>('ALL');
   const { items, addItem, removeItem, clearCart } = useQuotationCart();
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
   const [isQuoteModalOpen, setIsQuoteModalOpen] = useState(false);
+
+  const loadGlobalMaterials = async (page: number, append = false) => {
+    if (!tenantId) return;
+    setGlobalLoading(true);
+    setLoadError('');
+    try {
+      const result = await repo.findGlobalMaterials(tenantId, page, search);
+      setGlobalMaterials(current => append ? [...current, ...result.rows] : result.rows);
+      setGlobalPage(page);
+      setGlobalHasMore(result.hasMore);
+    } catch (caught) {
+      setLoadError(caught instanceof Error ? caught.message : 'Não foi possível carregar o catálogo global.');
+    } finally {
+      setGlobalLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (catalogScope === 'MINE' || !tenantId) return;
+    const timer = window.setTimeout(() => void loadGlobalMaterials(0), 250);
+    return () => window.clearTimeout(timer);
+  }, [catalogScope, search, tenantId]);
 
   const selectedProductIds = useMemo(() => items.map(item => item.productId), [items]);
 
@@ -194,6 +231,17 @@ export default function ProductsListPage() {
         <div className="flex flex-col sm:flex-row gap-4 items-center justify-between bg-white p-3 rounded-2xl border border-slate-200 shadow-sm">
           <div className="flex items-center gap-4 w-full sm:w-auto">
             <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 shrink-0 overflow-x-auto">
+              {([
+                ['ALL', 'Todos'],
+                ['MINE', 'Meu Catálogo'],
+                ['HUBIA', 'Catálogo Hub.IA'],
+              ] as const).map(([scope, label]) => (
+                <button key={scope} onClick={() => setCatalogScope(scope)} className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-colors whitespace-nowrap ${catalogScope === scope ? 'bg-white text-slate-900 shadow-sm border border-slate-200/50' : 'text-slate-500 hover:text-slate-700'}`}>
+                  {label}
+                </button>
+              ))}
+            </div>
+            {catalogScope === 'MINE' && <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 shrink-0 overflow-x-auto">
               <button 
                 onClick={() => setFilterStatus('ALL')}
                 className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-colors whitespace-nowrap ${filterStatus === 'ALL' ? 'bg-white text-slate-900 shadow-sm border border-slate-200/50' : 'text-slate-500 hover:text-slate-700'}`}
@@ -212,7 +260,7 @@ export default function ProductsListPage() {
               >
                 Inativos
               </button>
-            </div>
+            </div>}
           </div>
           <div className="relative w-full sm:max-w-xl">
             <Search className="absolute left-3.5 top-3 h-5 w-5 text-slate-400" />
@@ -255,9 +303,30 @@ export default function ProductsListPage() {
       {/* MAIN CONTENT */}
       <div className="flex-1 overflow-auto p-6">
         <div className="max-w-[1600px] mx-auto space-y-6">
+          {loadError && <p className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{loadError}</p>}
+
+          {catalogScope !== 'MINE' && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {globalMaterials.map(material => (
+                  <Card key={material.id} className="rounded-2xl border-slate-200 bg-white shadow-sm">
+                    <CardContent className="flex h-full flex-col p-5">
+                      <div className="flex items-start justify-between gap-3"><div><p className="font-bold text-slate-900">{material.officialName}</p><p className="mt-1 text-xs text-slate-500">{material.manufacturer || 'Fabricante não informado'} · {material.manufacturerCode || 'Código não informado'}</p></div><Badge variant="outline">{material.unit}</Badge></div>
+                      <p className="mt-3 line-clamp-2 text-xs text-slate-500">{material.description || 'Sem descrição técnica.'}</p>
+                      <p className="mt-3 text-[10px] font-bold uppercase tracking-wide text-indigo-600">{material.category || 'Categoria master pendente'}</p>
+                      <div className="mt-auto pt-5">{material.linked ? <div className="rounded-lg bg-emerald-50 px-3 py-2 text-center text-xs font-bold text-emerald-700">Vinculado à minha empresa</div> : <Button variant="outline" className="w-full" onClick={() => { setLinkMaterialId(material.id); setIsLinkMaterialOpen(true); }} disabled={!material.categoryId}><Plus className="mr-1 h-4 w-4" /> Vincular</Button>}</div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+              {!globalLoading && globalMaterials.length === 0 && <div className="rounded-xl border bg-white p-12 text-center text-sm text-slate-500">Nenhum material master disponível para os filtros informados.</div>}
+              {globalLoading && <p className="py-8 text-center text-sm text-slate-500">Carregando catálogo compartilhado...</p>}
+              {globalHasMore && !globalLoading && <Button variant="outline" className="w-full" onClick={() => void loadGlobalMaterials(globalPage + 1, true)}>Carregar mais materiais</Button>}
+            </div>
+          )}
           
           {/* KPIs */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {catalogScope === 'MINE' && <><div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {[
               { label: 'Total de Materiais', value: products.length, color: 'text-slate-900', desc: 'Materiais cadastrados', filter: 'ALL' },
               { label: 'Ativos', value: ativos, color: 'text-green-600', desc: 'Materiais em uso', filter: 'ACTIVE' },
@@ -402,7 +471,7 @@ export default function ProductsListPage() {
                 );
               })}
             </div>
-          )}
+          )}</>}
         </div>
       </div>
 
@@ -416,8 +485,9 @@ export default function ProductsListPage() {
       {isLinkMaterialOpen && tenantId && (
         <LinkMaterialModal
           organizationId={tenantId}
+          initialMaterialId={linkMaterialId}
           onClose={() => setIsLinkMaterialOpen(false)}
-          onLinked={() => loadProducts()}
+          onLinked={() => { void loadProducts(); if (catalogScope !== 'MINE') void loadGlobalMaterials(0); }}
         />
       )}
 
@@ -443,6 +513,7 @@ export default function ProductsListPage() {
             <div className="flex-1 overflow-y-auto p-0">
               <ProductFormPage 
                 productId={editingProductId} 
+                masterMaintenanceMode={masterMaintenanceMode}
                 onClose={() => setEditingProductId(null)}
                 onSaveSuccess={() => {
                   setEditingProductId(null);

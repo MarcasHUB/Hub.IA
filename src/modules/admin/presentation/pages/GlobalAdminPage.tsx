@@ -127,7 +127,7 @@ export default function GlobalAdminPage() {
           {/* Área de conteúdo */}
           <main className="flex-1 min-w-0">
             {activeTab === 'empresas' && <OrganizationsListPage />}
-            {activeTab === 'materiais' && <ProductsListPage />}
+            {activeTab === 'materiais' && <ProductsListPage masterMaintenanceMode />}
             {activeTab === 'categorias' && <CategoriesPage />}
             {activeTab === 'segmentos' && <SegmentsPage />}
             {activeTab === 'certificacoes' && <CertificationsPage />}

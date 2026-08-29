@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui/Card';
 import {
-  Users, Package, FileText, TrendingDown, Clock, Search, Calendar,
+  Users, Package, FileText, Calendar,
   Sparkles, CheckSquare, X, Eye, RefreshCw
 } from 'lucide-react';
 import { SupabaseSignalRepository, HubIASignal, SignalCriticidade } from '../../infrastructure/repositories/SupabaseSignalRepository';
@@ -24,6 +24,7 @@ export default function DashboardPage() {
   const [signals, setSignals] = useState<HubIASignal[]>([]);
   const [counters, setCounters] = useState({ criticos: 0, abertos: 0, resolvidos: 0 });
   const [loading, setLoading] = useState(true);
+  const [signalError, setSignalError] = useState('');
 
   const sigRepo = new SupabaseSignalRepository();
   const { data: identity } = useAuthenticatedIdentity();
@@ -76,6 +77,7 @@ export default function DashboardPage() {
 
   async function loadSignals() {
     setLoading(true);
+    setSignalError('');
     try {
       const active = await sigRepo.listActiveSignals(orgId);
       setSignals(active);
@@ -83,6 +85,7 @@ export default function DashboardPage() {
       setCounters(counts);
     } catch (err) {
       console.error(err);
+      setSignalError(err instanceof Error ? err.message : 'Alertas Hub.IA indisponíveis.');
     } finally {
       setLoading(false);
     }
@@ -92,9 +95,13 @@ export default function DashboardPage() {
     if (orgId) loadSignals();
   }, [orgId]);
 
-  const handleAction = async (id: string, status: 'lido' | 'resolvido' | 'ignorado') => {
-    await sigRepo.updateSignalStatus(id, status);
-    loadSignals();
+  const handleAction = async (id: string, status: 'read' | 'resolved' | 'ignored') => {
+    try {
+      await sigRepo.updateSignalStatus(id, status);
+      await loadSignals();
+    } catch (err) {
+      setSignalError(err instanceof Error ? err.message : 'Não foi possível atualizar o alerta.');
+    }
   };
 
   return (
@@ -130,7 +137,7 @@ export default function DashboardPage() {
 
 
           {/* Grid de KPIs dentro do Banner Azul */}
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+          <div className="grid gap-4 md:grid-cols-3">
         
         {/* Fornecedores */}
         <Card 
@@ -174,18 +181,6 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Pesquisas */}
-        <Card className="rounded-2xl border-slate-200 opacity-75">
-          <CardHeader className="flex flex-row items-center justify-between pb-1.5">
-            <CardTitle className="text-xs font-bold text-slate-400 uppercase tracking-wider">Pesquisas</CardTitle>
-            <Search className="h-4 w-4 text-slate-400" />
-          </CardHeader>
-          <CardContent className="space-y-1">
-            <div className="text-2xl font-extrabold text-slate-400">—</div>
-            <p className="text-[10px] text-slate-400 leading-snug">Indisponível (TBD)</p>
-          </CardContent>
-        </Card>
-
         {/* Cotações */}
         <Card 
           className="rounded-2xl border-slate-200 hover:border-indigo-200 hover:shadow-sm transition-all duration-150 cursor-pointer"
@@ -207,17 +202,6 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Economia */}
-        <Card className="rounded-2xl border-slate-200 opacity-75">
-          <CardHeader className="flex flex-row items-center justify-between pb-1.5">
-            <CardTitle className="text-xs font-bold text-slate-400 uppercase tracking-wider">Economia (Saving)</CardTitle>
-            <TrendingDown className="h-4 w-4 text-slate-400" />
-          </CardHeader>
-          <CardContent className="space-y-1">
-            <div className="text-2xl font-extrabold text-slate-400">—</div>
-            <p className="text-[10px] text-slate-400 leading-snug">Indisponível (TBD)</p>
-          </CardContent>
-        </Card>
           </div>
         </div>
       </div>
@@ -252,7 +236,11 @@ export default function DashboardPage() {
               </div>
             </CardHeader>
             <CardContent className="p-6 space-y-3">
-              {loading ? (
+              {signalError ? (
+                <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-xs font-semibold text-red-700">
+                  {signalError}
+                </div>
+              ) : loading ? (
                 <p className="text-xs text-slate-400 font-semibold flex items-center gap-2 py-4">
                   <RefreshCw className="h-3.5 w-3.5 animate-spin text-indigo-500" /> Carregando insights da Hub.IA...
                 </p>
@@ -300,21 +288,21 @@ export default function DashboardPage() {
                         {/* Ações de Descarte/Resolução */}
                         <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-center">
                           <button
-                            onClick={() => handleAction(sig.id, 'lido')}
+                            onClick={() => handleAction(sig.id, 'read')}
                             className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-slate-700 transition-colors flex items-center gap-1 text-[9px] font-bold"
                             title="Marcar como lido"
                           >
                             <Eye className="h-3.5 w-3.5" /> Lido
                           </button>
                           <button
-                            onClick={() => handleAction(sig.id, 'resolvido')}
+                            onClick={() => handleAction(sig.id, 'resolved')}
                             className="p-1.5 hover:bg-green-55/10 rounded-lg text-green-650 hover:text-green-700 transition-colors flex items-center gap-1 text-[9px] font-extrabold"
                             title="Marcar como resolvido"
                           >
                             <CheckSquare className="h-3.5 w-3.5" /> Resolver
                           </button>
                           <button
-                            onClick={() => handleAction(sig.id, 'ignorado')}
+                            onClick={() => handleAction(sig.id, 'ignored')}
                             className="p-1.5 hover:bg-red-50 rounded-lg text-red-500 hover:text-red-750 transition-colors flex items-center gap-1 text-[9px] font-bold"
                             title="Ignorar alerta"
                           >
@@ -329,91 +317,6 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
 
-          <div className="grid gap-6 md:grid-cols-2">
-            <Card className="rounded-2xl border-slate-200 shadow-sm">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-sm font-bold text-slate-800">
-              <Search className="h-5 w-5 text-indigo-600" />
-              Produtos Mais Procurados
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {[
-                { name: 'Cabo Flexível 35mm', vol: '156 buscas' },
-                { name: 'Luva Nitrílica P', vol: '98 buscas' },
-                { name: 'Parafuso Sextavado M8', vol: '74 buscas' },
-                { name: 'Chave de Impacto Pneumática', vol: '45 buscas' },
-                { name: 'Caixas de Papelão', vol: '32 buscas' },
-              ].map((item, index) => (
-                <div key={index} className="flex items-center justify-between border-b border-slate-100 pb-3 last:border-0 last:pb-0">
-                  <span className="font-semibold text-xs text-slate-850">{item.name}</span>
-                  <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded">{item.vol}</span>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="rounded-2xl border-slate-200 shadow-sm">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-sm font-bold text-slate-800">
-              <Clock className="h-5 w-5 text-indigo-600" />
-              Últimos Produtos Cadastrados
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {[
-                { name: 'Cabo Flexível 35mm', supplier: 'Brasil Cabos', date: 'Hoje, 14:30' },
-                { name: 'Parafuso Sextavado M8', supplier: 'Fixação Industrial', date: 'Hoje, 10:15' },
-                { name: 'Luva Nitrílica P', supplier: 'Segurança Total', date: 'Ontem, 16:45' }
-              ].map((item, index) => (
-                <div key={index} className="flex items-center justify-between border-b border-slate-100 pb-3 last:border-0 last:pb-0">
-                  <div className="flex flex-col">
-                    <span className="font-semibold text-xs text-slate-850">{item.name}</span>
-                    <span className="text-[10px] text-slate-450 mt-0.5">{item.supplier}</span>
-                  </div>
-                  <div className="text-[10px] text-slate-400 font-mono">
-                    {item.date}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* PLACEHOLDERS PARA PRÓXIMAS SPRINTS */}
-      <div className="grid gap-6 md:grid-cols-2 mt-6">
-        <Card className="rounded-2xl border-indigo-100 bg-indigo-50/50 shadow-inner">
-          <CardContent className="p-8 flex flex-col items-center justify-center text-center space-y-4">
-            <div className="h-16 w-16 bg-indigo-100 rounded-full flex items-center justify-center border border-indigo-200">
-              <TrendingDown className="h-8 w-8 text-indigo-500" />
-            </div>
-            <div>
-              <h3 className="font-extrabold text-slate-900">Relatórios Analíticos (Power BI)</h3>
-              <p className="text-sm text-slate-500 mt-1 max-w-sm">Painéis avançados de visualização de dados (Saving, Spend, Lead Times) em breve.</p>
-            </div>
-            <span className="text-[10px] font-bold uppercase tracking-widest bg-indigo-100 text-indigo-600 px-3 py-1 rounded-full">Em Desenvolvimento</span>
-          </CardContent>
-        </Card>
-
-        <Card className="rounded-2xl border-amber-100 bg-amber-50/50 shadow-inner">
-          <CardContent className="p-8 flex flex-col items-center justify-center text-center space-y-4">
-            <div className="h-16 w-16 bg-amber-100 rounded-full flex items-center justify-center border border-amber-200">
-              <Sparkles className="h-8 w-8 text-amber-500" />
-            </div>
-            <div>
-              <h3 className="font-extrabold text-slate-900">Faça Upgrade para Hub.IA Premium</h3>
-              <p className="text-sm text-slate-500 mt-1 max-w-sm">Desbloqueie agentes de IA para negociação automática e análise de contratos.</p>
-            </div>
-            <button className="bg-amber-500 hover:bg-amber-600 text-white font-bold text-sm h-10 px-6 rounded-xl transition-colors shadow-sm">
-              Conhecer Planos
-            </button>
-          </CardContent>
-        </Card>
-      </div>
       </div>
       </div>
 

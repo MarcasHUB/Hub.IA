@@ -37,7 +37,6 @@ export function LinkSupplierModal({ isOpen, onClose, onLink, alreadyLinkedIds }:
     setLoading(true);
     try {
       const repo = new SupabaseSupplierRepository();
-      // "tenantId" mocked parameter, it's ignored by repo as it resolves session
       const data = await repo.findAll(identity?.organizationId || '');
       // Filter out those already linked
       const available = data.filter(s => !alreadyLinkedIds.includes(s.id));

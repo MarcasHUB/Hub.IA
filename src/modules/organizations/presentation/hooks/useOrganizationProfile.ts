@@ -77,6 +77,21 @@ export function useOrganizationProfile(authUserId: string, organizationId: strin
     enabled: Boolean(authUserId && organizationId),
   });
 
+  const cnaesQuery = useQuery({
+    queryKey: [...organizationProfileKeys.mine(authUserId, organizationId), 'cnaes'],
+    queryFn: async () => {
+      const { data: rows, error } = await supabase
+        .from('empresa_cnaes')
+        .select('cnae_code, description, is_primary')
+        .eq('organization_id', organizationId)
+        .order('is_primary', { ascending: false })
+        .order('cnae_code');
+      if (error) throw error;
+      return rows || [];
+    },
+    enabled: Boolean(authUserId && organizationId),
+  });
+
   // 2. Catálogo (Pode falhar sem quebrar o resto)
   // Process data safely with null fallbacks for fields
   const data = mainQuery.data;
@@ -105,12 +120,16 @@ export function useOrganizationProfile(authUserId: string, organizationId: strin
     raio_atendimento_km: data.raio_atendimento_km ?? parseLegacyRadius(data.service_radius) ?? null,
     cnae_principal: data.cnae_principal || '',
     commercialProfile: data.perfil_comercial || '',
-    profile_completion: data.profile_completion || 50,
+    profile_completion: data.profile_completion ?? 0,
   } : null;
 
-  const cnaes = normalizeStringArray(data?.empresa_cnaes?.map((c: any) => c.cnae_code));
+  const canonicalCnaes = cnaesQuery.data || data?.empresa_cnaes || [];
+  const formatCnae = (cnae: any) => cnae.description ? `${cnae.cnae_code} - ${cnae.description}` : cnae.cnae_code;
+  const cnaes = normalizeStringArray(canonicalCnaes.map(formatCnae));
+  const primaryCnaeRow = canonicalCnaes.find((c: any) => c.is_primary === true);
+  const primaryCnae = primaryCnaeRow ? formatCnae(primaryCnaeRow) : (organization?.cnae_principal || '');
     
-  const secondaryCnaes = normalizeStringArray(data?.empresa_cnaes?.filter((c: any) => c.is_primary === false).map((c: any) => c.cnae_code));
+  const secondaryCnaes = normalizeStringArray(canonicalCnaes.filter((c: any) => c.is_primary === false).map(formatCnae));
 
   const segments = normalizeStringArray(data?.organization_segments?.map((s: any) => s.segments?.nome));
 
@@ -121,6 +140,7 @@ export function useOrganizationProfile(authUserId: string, organizationId: strin
   return {
     organization,
     cnaes,
+    primaryCnae,
     secondaryCnaes,
     segments,
     certifications,

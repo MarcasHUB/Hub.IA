@@ -1,6 +1,6 @@
 import { supabase } from '../../../../infrastructure/supabase/client';
 import { mapOrganizationProfileToUpdate, normalizeCoverageRadius } from '../../application/mappers/mapOrganizationProfileToUpdate';
-import { calculateOrganizationProfileCompletion, OrganizationProfileCompletionInput } from '../../application/utils/profileCompletion';
+import { calculateOrganizationProfileCompletion, OrganizationProfileCompletionInput, parseCnaeEntry } from '../../application/utils/profileCompletion';
 
 export function normalizeCatalogValue(value: string): string {
   return value
@@ -115,16 +115,23 @@ export function useSaveOrganizationProfile() {
     }
 
     // CNAEs
-    if (formData.cnaes_secundarios !== undefined) {
+    if (formData.cnae_principal !== undefined || formData.cnaes_secundarios !== undefined) {
       const { error: delCnaeError } = await supabase.from('empresa_cnaes').delete().eq('organization_id', organizationId);
       if (delCnaeError) {
-        partialErrors.push('Não foi possível limpar CNAEs secundários antigos.');
+        partialErrors.push('Não foi possível atualizar os CNAEs canônicos.');
       } else {
-        const cnaes = Array.from(new Set(formData.cnaes_secundarios as string[]));
-        const cnaeRows = cnaes.map(cnae => ({ organization_id: organizationId, cnae_code: cnae, is_primary: false }));
+        const primary = parseCnaeEntry(formData.cnae_principal);
+        const secondary = Array.from(new Set((formData.cnaes_secundarios || []) as string[]))
+          .map(parseCnaeEntry)
+          .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry))
+          .filter(entry => entry.code !== primary?.code);
+        const cnaeRows = [
+          ...(primary ? [{ organization_id: organizationId, cnae_code: primary.code, description: primary.description, is_primary: true }] : []),
+          ...secondary.map(entry => ({ organization_id: organizationId, cnae_code: entry.code, description: entry.description, is_primary: false })),
+        ];
         if (cnaeRows.length > 0) {
           const { error: insCnaeError } = await supabase.from('empresa_cnaes').insert(cnaeRows);
-          if (insCnaeError) partialErrors.push('Não foi possível salvar os CNAEs secundários.');
+          if (insCnaeError) partialErrors.push('Não foi possível salvar os CNAEs canônicos.');
         }
       }
     }

@@ -1,253 +1,80 @@
-﻿import { useState, useRef, useEffect } from 'react';
-import { Bell, X, CheckCheck, ArrowRight, Wifi, TrendingDown, Lightbulb, Handshake, FileText, UserCheck, MessageSquare } from 'lucide-react';
-import { useNotifications, Notification } from '../context/NotificationContext';
+import { useEffect, useRef, useState } from 'react';
+import { ArrowRight, Bell, CheckCheck, FileText, Handshake, MessageSquare, Trash2, UserCheck, Wifi, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { Notification, useNotifications } from '../context/NotificationContext';
 import { useChatDrawer } from '@/modules/messages/presentation/context/ChatDrawerContext';
-import {
-  getNotificationConversationId,
-  isChatNotificationType,
-} from '@/modules/messages/application/services/chatDeepLink';
-
-// â”€â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+import { getNotificationConversationId, isChatNotificationType } from '@/modules/messages/application/services/chatDeepLink';
 
 function formatRelativeTime(isoDate: string): string {
-  const diff = Date.now() - new Date(isoDate).getTime();
-  const minutes = Math.floor(diff / 60000);
+  const minutes = Math.floor((Date.now() - new Date(isoDate).getTime()) / 60000);
   if (minutes < 1) return 'Agora';
-  if (minutes < 60) return `${minutes}min atrÃ¡s`;
+  if (minutes < 60) return `${minutes}min atrás`;
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h atrÃ¡s`;
-  const days = Math.floor(hours / 24);
-  return `${days}d atrÃ¡s`;
+  if (hours < 24) return `${hours}h atrás`;
+  return `${Math.floor(hours / 24)}d atrás`;
 }
 
-function getNotificationIcon(type: string) {
-  const iconProps = { className: 'h-5 w-5 flex-shrink-0' };
-  if (isChatNotificationType(type)) {
-    return <MessageSquare {...iconProps} className="h-5 w-5 flex-shrink-0 text-indigo-500" />;
-  }
-  switch (type) {
-    case 'connection_request_received': return <Wifi {...iconProps} className="h-5 w-5 flex-shrink-0 text-blue-500" />;
-    case 'connection_request_accepted': return <Handshake {...iconProps} className="h-5 w-5 flex-shrink-0 text-green-500" />;
-    case 'quotation_received':          return <FileText {...iconProps} className="h-5 w-5 flex-shrink-0 text-violet-500" />;
-    case 'quotation_responded':         return <UserCheck {...iconProps} className="h-5 w-5 flex-shrink-0 text-indigo-500" />;
-    case 'quotation_rejected':          return <X {...iconProps} className="h-5 w-5 flex-shrink-0 text-red-500" />;
-    case 'sla_overdue':                 return <Bell {...iconProps} className="h-5 w-5 flex-shrink-0 text-orange-500" />;
-    case 'price_anomaly':               return <TrendingDown {...iconProps} className="h-5 w-5 flex-shrink-0 text-yellow-500" />;
-    case 'sourcing_suggestion':         return <Lightbulb {...iconProps} className="h-5 w-5 flex-shrink-0 text-teal-500" />;
-    default:                            return <Bell {...iconProps} className="h-5 w-5 flex-shrink-0 text-slate-400" />;
-  }
+function iconFor(type: string) {
+  const style = 'h-5 w-5 flex-shrink-0';
+  if (isChatNotificationType(type)) return <MessageSquare className={`${style} text-indigo-500`} />;
+  if (type.includes('connection_request')) return <Wifi className={`${style} text-blue-500`} />;
+  if (type.includes('connection_accepted')) return <Handshake className={`${style} text-green-500`} />;
+  if (type.includes('quotation')) return <FileText className={`${style} text-violet-500`} />;
+  if (type.includes('approval')) return <UserCheck className={`${style} text-amber-500`} />;
+  return <Bell className={`${style} text-slate-400`} />;
 }
 
-function getNotificationAccent(type: string): string {
-  if (isChatNotificationType(type)) return 'border-l-indigo-400 bg-indigo-50/60';
-  switch (type) {
-    case 'connection_request_received': return 'border-l-blue-400 bg-blue-50/60';
-    case 'connection_request_accepted': return 'border-l-green-400 bg-green-50/60';
-    case 'quotation_received':          return 'border-l-violet-400 bg-violet-50/60';
-    case 'quotation_responded':         return 'border-l-indigo-400 bg-indigo-50/60';
-    case 'quotation_rejected':          return 'border-l-red-400 bg-red-50/60';
-    case 'sla_overdue':                 return 'border-l-orange-400 bg-orange-50/60';
-    case 'price_anomaly':               return 'border-l-yellow-400 bg-yellow-50/60';
-    case 'sourcing_suggestion':         return 'border-l-teal-400 bg-teal-50/60';
-    default:                            return 'border-l-slate-300 bg-slate-50/60';
-  }
-}
-
-// â”€â”€â”€ NotificationCard â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-
-function NotificationCard({ notification, onAction }: { notification: Notification; onAction: () => void }) {
+function NotificationCard({ notification, close }: { notification: Notification; close: () => void }) {
   const { markAsRead } = useNotifications();
   const { openConversation } = useChatDrawer();
   const navigate = useNavigate();
-
-  const handleClick = async () => {
+  const activate = async () => {
     await markAsRead(notification.id);
     if (isChatNotificationType(notification.type)) {
       const conversationId = getNotificationConversationId(notification.metadata);
-      if (conversationId && await openConversation(conversationId)) {
-        onAction();
-        return;
-      }
+      if (conversationId && await openConversation(conversationId)) { close(); return; }
     }
-
-    if (notification.action_url) {
-      navigate(notification.action_url);
-    }
-    onAction();
+    if (notification.action_url) navigate(notification.action_url);
+    close();
   };
-
   return (
-    <div
-      className={`
-        relative flex gap-3 p-4 rounded-lg border border-l-4 cursor-pointer
-        transition-all duration-150 hover:shadow-sm
-        ${(notification.read_at !== null)
-          ? 'border-slate-200 bg-white/60'
-          : `${getNotificationAccent(notification.type)} border-t border-r border-b border-t-slate-200 border-r-slate-200 border-b-slate-200`
-        }
-      `}
-      onClick={handleClick}
-    >
-      {/* Ãcone */}
-      <div className="mt-0.5">
-        {getNotificationIcon(notification.type)}
-      </div>
-
-      {/* ConteÃºdo */}
-      <div className="flex-1 min-w-0">
-        <div className="flex items-start justify-between gap-2">
-          <p className={`text-sm font-semibold leading-tight ${(notification.read_at !== null) ? 'text-slate-500' : 'text-slate-900'}`}>
-            {notification.title}
-          </p>
-          {!(notification.read_at !== null) && (
-            <span className="mt-1 h-2 w-2 rounded-full bg-indigo-500 flex-shrink-0" />
-          )}
-        </div>
-        <p className="mt-1 text-xs text-slate-500 leading-relaxed line-clamp-2">
-          {notification.body}
-        </p>
-        <div className="mt-2 flex items-center gap-3">
-          <span className="text-[10px] text-slate-400 font-medium">
-            {formatRelativeTime(notification.created_at)}
-          </span>
-          {notification.action_url && (
-            <span className="text-[10px] font-semibold text-indigo-600 flex items-center gap-1 hover:text-indigo-800">
-              Ver detalhes <ArrowRight className="h-3 w-3" />
-            </span>
-          )}
-        </div>
-      </div>
-    </div>
+    <button onClick={() => void activate()} className={`flex w-full gap-3 rounded-lg border border-l-4 p-4 text-left transition hover:shadow-sm ${notification.read_at ? 'border-slate-200 bg-white' : 'border-l-indigo-500 bg-indigo-50/60'}`}>
+      <div className="mt-0.5">{iconFor(notification.type)}</div>
+      <div className="min-w-0 flex-1"><div className="flex items-start justify-between gap-2"><p className={`text-sm font-semibold ${notification.read_at ? 'text-slate-500' : 'text-slate-900'}`}>{notification.title}</p>{!notification.read_at && <span className="mt-1 h-2 w-2 rounded-full bg-indigo-500" />}</div><p className="mt-1 line-clamp-2 text-xs leading-relaxed text-slate-500">{notification.body}</p><div className="mt-2 flex items-center gap-3"><span className="text-[10px] font-medium text-slate-400">{formatRelativeTime(notification.created_at)}</span>{notification.action_url && <span className="flex items-center gap-1 text-[10px] font-semibold text-indigo-600">Ver detalhes <ArrowRight className="h-3 w-3" /></span>}</div></div>
+    </button>
   );
 }
 
-// â”€â”€â”€ NotificationBell (componente principal) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-
 export function NotificationBell() {
-  const { notifications, unreadCount, markAllAsRead, isLoading } = useNotifications();
+  const { notifications, unreadCount, markAllAsRead, clearNotifications, isLoading } = useNotifications();
   const [isOpen, setIsOpen] = useState(false);
+  const [error, setError] = useState('');
   const panelRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
-
-  // Fechar ao clicar fora
   useEffect(() => {
-    function handleOutsideClick(e: MouseEvent) {
-      if (
-        panelRef.current && !panelRef.current.contains(e.target as Node) &&
-        buttonRef.current && !buttonRef.current.contains(e.target as Node)
-      ) {
-        setIsOpen(false);
-      }
-    }
-    if (isOpen) document.addEventListener('mousedown', handleOutsideClick);
-    return () => document.removeEventListener('mousedown', handleOutsideClick);
+    const outside = (event: MouseEvent) => {
+      if (panelRef.current && !panelRef.current.contains(event.target as Node) && buttonRef.current && !buttonRef.current.contains(event.target as Node)) setIsOpen(false);
+    };
+    if (isOpen) document.addEventListener('mousedown', outside);
+    return () => document.removeEventListener('mousedown', outside);
   }, [isOpen]);
 
-  const unread = notifications.filter((n) => n.read_at === null);
-  const read   = notifications.filter((n) =>  n.read_at !== null);
+  const unread = notifications.filter(notification => !notification.read_at);
+  const read = notifications.filter(notification => notification.read_at);
+  const run = async (action: () => Promise<void>) => {
+    setError('');
+    try { await action(); } catch (caught) { setError(caught instanceof Error ? caught.message : 'Não foi possível atualizar as notificações.'); }
+  };
 
   return (
     <div className="relative">
-      {/* BotÃ£o Sino */}
-      <button
-        ref={buttonRef}
-        id="notification-bell-btn"
-        onClick={() => setIsOpen((prev) => !prev)}
-        className="relative p-2 text-slate-600 hover:bg-slate-100 rounded-full transition-colors"
-        aria-label="NotificaÃ§Ãµes"
-      >
-        <Bell className="h-5 w-5" />
-        {unreadCount > 0 && (
-          <span className="absolute top-0.5 right-0.5 h-4 w-4 min-w-[1rem] rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center ">
-            {unreadCount > 9 ? '9+' : unreadCount}
-          </span>
-        )}
-      </button>
-
-      {/* Painel flutuante */}
-      {isOpen && (
-        <div
-          ref={panelRef}
-          id="notification-center-panel"
-          className="absolute right-0 top-12 w-[400px] max-h-[560px] flex flex-col bg-white border border-slate-200 rounded-2xl shadow-2xl z-[9999] overflow-hidden"
-          style={{ boxShadow: '0 8px 40px rgba(0,0,0,0.14)' }}
-        >
-          {/* Header do painel */}
-          <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 shrink-0">
-            <div>
-              <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                <Bell className="h-4 w-4 text-indigo-600" />
-                Central de NotificaÃ§Ãµes
-              </h3>
-              {unreadCount > 0 && (
-                <p className="text-xs text-slate-500 mt-0.5">{unreadCount} nÃ£o lida{unreadCount > 1 ? 's' : ''}</p>
-              )}
-            </div>
-            <div className="flex items-center gap-2">
-              {unreadCount > 0 && (
-                <button
-                  onClick={() => markAllAsRead()}
-                  className="flex items-center gap-1 text-xs font-medium text-indigo-600 hover:text-indigo-800 transition-colors px-2 py-1 rounded hover:bg-indigo-50"
-                >
-                  <CheckCheck className="h-3.5 w-3.5" />
-                  Marcar todas
-                </button>
-              )}
-              <button
-                onClick={() => setIsOpen(false)}
-                className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-          </div>
-
-          {/* Lista de notificaÃ§Ãµes */}
-          <div className="flex-1 overflow-y-auto p-3 space-y-2">
-            {isLoading ? (
-              <div className="flex items-center justify-center py-12 text-slate-400">
-                <div className="h-6 w-6 border-2 border-indigo-300 border-t-indigo-600 rounded-full animate-spin" />
-              </div>
-            ) : notifications.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-16 text-slate-400">
-                <Bell className="h-12 w-12 mb-3 text-slate-200" />
-                <p className="text-sm font-medium">Tudo em dia!</p>
-                <p className="text-xs mt-1">Nenhuma notificaÃ§Ã£o no momento.</p>
-              </div>
-            ) : (
-              <>
-                {/* NÃ£o lidas */}
-                {unread.length > 0 && (
-                  <div className="space-y-2">
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-1 pt-1">Novas</p>
-                    {unread.map((n) => (
-                      <NotificationCard key={n.id} notification={n} onAction={() => setIsOpen(false)} />
-                    ))}
-                  </div>
-                )}
-
-                {/* Lidas */}
-                {read.length > 0 && (
-                  <div className="space-y-2 mt-2">
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-1 pt-1">Anteriores</p>
-                    {read.map((n) => (
-                      <NotificationCard key={n.id} notification={n} onAction={() => setIsOpen(false)} />
-                    ))}
-                  </div>
-                )}
-              </>
-            )}
-          </div>
-
-          {/* Footer */}
-          <div className="border-t border-slate-100 px-4 py-3 shrink-0 bg-slate-50/80">
-            <p className="text-[10px] text-slate-400 text-center">
-              IA Hub.IA Â· NotificaÃ§Ãµes inteligentes em tempo real
-            </p>
-          </div>
-        </div>
-      )}
+      <button ref={buttonRef} id="notification-bell-btn" onClick={() => setIsOpen(open => !open)} className="relative rounded-full p-2 text-slate-600 transition-colors hover:bg-slate-100" aria-label="Notificações"><Bell className="h-5 w-5" />{unreadCount > 0 && <span className="absolute right-0.5 top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white">{unreadCount > 9 ? '9+' : unreadCount}</span>}</button>
+      {isOpen && <div ref={panelRef} id="notification-center-panel" className="absolute right-0 top-12 z-[9999] flex max-h-[560px] w-[420px] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
+        <div className="flex items-center justify-between border-b px-5 py-4"><div><h3 className="flex items-center gap-2 text-base font-bold text-slate-900"><Bell className="h-4 w-4 text-indigo-600" /> Central de Notificações</h3>{unreadCount > 0 && <p className="mt-0.5 text-xs text-slate-500">{unreadCount} não lida{unreadCount === 1 ? '' : 's'}</p>}</div><div className="flex items-center gap-1">{unreadCount > 0 && <button onClick={() => void run(markAllAsRead)} className="flex items-center gap-1 rounded px-2 py-1 text-xs font-medium text-indigo-600 hover:bg-indigo-50"><CheckCheck className="h-3.5 w-3.5" /> Marcar todas</button>}{notifications.length > 0 && <button onClick={() => { if (window.confirm('Limpar a caixa de entrada? O histórico será preservado.')) void run(clearNotifications); }} className="flex items-center gap-1 rounded px-2 py-1 text-xs font-medium text-slate-500 hover:bg-red-50 hover:text-red-700"><Trash2 className="h-3.5 w-3.5" /> Limpar</button>}<button onClick={() => setIsOpen(false)} className="rounded-full p-1.5 text-slate-400 hover:bg-slate-100"><X className="h-4 w-4" /></button></div></div>
+        {error && <p className="border-b border-red-200 bg-red-50 px-4 py-2 text-xs text-red-700">{error}</p>}
+        <div className="flex-1 space-y-2 overflow-y-auto p-3">{isLoading ? <div className="flex justify-center py-12"><div className="h-6 w-6 animate-spin rounded-full border-2 border-indigo-300 border-t-indigo-600" /></div> : notifications.length === 0 ? <div className="flex flex-col items-center py-16 text-slate-400"><Bell className="mb-3 h-12 w-12 text-slate-200" /><p className="text-sm font-medium">Tudo em dia!</p><p className="mt-1 text-xs">Nenhuma notificação no momento.</p></div> : <>{unread.length > 0 && <section className="space-y-2"><p className="px-1 pt-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">Novas</p>{unread.map(item => <NotificationCard key={item.id} notification={item} close={() => setIsOpen(false)} />)}</section>}{read.length > 0 && <section className="space-y-2 pt-2"><p className="px-1 pt-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">Anteriores</p>{read.map(item => <NotificationCard key={item.id} notification={item} close={() => setIsOpen(false)} />)}</section>}</>}</div>
+        <div className="border-t bg-slate-50/80 px-4 py-3"><p className="text-center text-[10px] text-slate-400">Hub.IA · Notificações em tempo real</p></div>
+      </div>}
     </div>
   );
 }
