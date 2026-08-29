@@ -202,23 +202,11 @@ export function AppLayout() {
             <Link
               to="/hubconnect"
               className={cn(
-                "text-[13px] font-black tracking-tight transition-colors",
+                "text-[20px] font-black tracking-tight transition-colors",
                 location.pathname.startsWith('/hubconnect') ? "text-indigo-700" : "text-slate-500 hover:text-indigo-700",
               )}
             >
               HubConnect+
-            </Link>
-            <div className="h-5 w-px bg-slate-200" />
-            <Link
-              to="/"
-              className="flex items-center hover:opacity-80 transition-opacity"
-            >
-              <span className="text-[22px] font-extrabold text-indigo-700 tracking-tight leading-none">
-                Hub.IA
-              </span>
-              <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest leading-none ml-2 mt-1">
-                Suprimentos
-              </span>
             </Link>
           </div>
 
