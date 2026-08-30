@@ -18,6 +18,7 @@ const ProductsListPage = React.lazy(() => import('../../modules/products/present
 const ProductFormPage = React.lazy(() => import('../../modules/products/presentation/pages/ProductFormPage'));
 const SearchResultsPage = React.lazy(() => import('../../modules/search/presentation/pages/SearchResultsPage'));
 const QuotationsListPage = React.lazy(() => import('../../modules/quotations/presentation/pages/QuotationsListPage'));
+const QuotationDetailsPage = React.lazy(() => import('../../modules/quotations/presentation/pages/QuotationDetailsPage'));
 const QuotationComparisonPage = React.lazy(() => import('../../modules/quotations/presentation/pages/QuotationComparisonPage'));
 // OrganizationPage was removed
 const OrganizationsListPage = React.lazy(() => import('../../modules/organizations/presentation/pages/OrganizationsListPage'));
@@ -149,6 +150,10 @@ export const router = createBrowserRouter([
       {
         path: '/quotations/new',
         element: <Navigate to="/products" replace />,
+      },
+      {
+        path: '/quotations/:id',
+        element: <SuspenseWrapper><QuotationDetailsPage /></SuspenseWrapper>,
       },
       {
         path: '/quotations/:id/compare',
