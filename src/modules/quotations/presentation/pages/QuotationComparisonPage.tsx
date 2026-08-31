@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { AlertCircle, CheckCircle2, FileText, PackageOpen, ShieldAlert } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Clock, FileText, PackageOpen, ShieldAlert, Trophy } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '@/infrastructure/supabase/client';
 import {
@@ -8,16 +8,37 @@ import {
   type QuotationRequestDetails,
   type SupplierQuotationSummary,
 } from '@/modules/quotations/infrastructure/repositories/SupabaseQuotationReadRepository';
+import {
+  buildSupplierMatrix,
+  type SupplierMatrixCell,
+} from '@/modules/quotations/presentation/viewModels/quotationComparisonViewModel';
 import { Button } from '@/shared/components/ui/Button';
 import { Card, CardContent } from '@/shared/components/ui/Card';
 
-type PriceRow = { supplier_quotation_id: string; quotation_item_id: string; unit_price: number | null; lead_time_days: number | null; status: string | null };
+type PriceRow = { supplier_quotation_id: string; quotation_item_id: string; unit_price: number | null; lead_time_days: number | null; status: string | null; refusal_reason: string | null; refusal_notes: string | null };
 type RecommendationRow = { id: string; recommended_supplier_id: string; recommended_supplier_quotation_id: string; score: number; estimated_total_cost: number; reasons: string[]; risk_flags: string[]; model_version: string; policy_version: string; suppliers: Array<{ trade_name: string | null; legal_name: string }> };
 type DecisionRow = { id: string; decision_type: string; approval_status: string | null };
 
 function errorMessage(error: unknown): string {
   if (error && typeof error === 'object' && 'message' in error) return String(error.message);
   return 'Não foi possível carregar a comparação.';
+}
+
+function formatCurrency(value: number | null): string {
+  if (value == null) return '—';
+  return Number(value).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
+
+function MatrixCellContent({ cell }: { cell: SupplierMatrixCell }) {
+  if (cell.state === 'quoted') {
+    return <><p className="text-base font-extrabold text-slate-900">{formatCurrency(cell.unitPrice)}</p><p className="mt-1 text-[11px] text-slate-500">{cell.leadTimeDays == null ? 'Prazo não informado' : `${cell.leadTimeDays} dias`}</p><p className="mt-2 text-[9px] font-bold uppercase tracking-wider text-emerald-600">{cell.status}</p></>;
+  }
+
+  if (cell.state === 'refused') {
+    return <><p className="text-xs font-bold text-rose-700">{cell.label}</p>{cell.refusalReason && <p className="mt-1 text-[11px] text-rose-600">{cell.refusalReason}</p>}{cell.refusalNotes && <p className="mt-1 text-[10px] leading-relaxed text-slate-500">{cell.refusalNotes}</p>}{cell.status && <p className="mt-2 text-[9px] font-bold uppercase tracking-wider text-rose-500">{cell.status}</p>}</>;
+  }
+
+  return <><p className="text-xs font-semibold text-slate-500">{cell.label}</p>{cell.status && <p className="mt-2 text-[9px] font-bold uppercase tracking-wider text-slate-400">{cell.status}</p>}</>;
 }
 
 export default function QuotationComparisonPage() {
@@ -53,7 +74,7 @@ export default function QuotationComparisonPage() {
       const proposalIds = nextProposals.map(proposal => proposal.id);
       let nextPrices: PriceRow[] = [];
       if (proposalIds.length > 0) {
-        const priceResult = await supabase.from('supplier_quotation_items').select('supplier_quotation_id, quotation_item_id, unit_price, lead_time_days, status').in('supplier_quotation_id', proposalIds);
+        const priceResult = await supabase.from('supplier_quotation_items').select('supplier_quotation_id, quotation_item_id, unit_price, lead_time_days, status, refusal_reason, refusal_notes').in('supplier_quotation_id', proposalIds);
         if (priceResult.error) throw priceResult.error;
         nextPrices = (priceResult.data ?? []) as PriceRow[];
       }
@@ -72,7 +93,7 @@ export default function QuotationComparisonPage() {
 
   useEffect(() => { void load(); }, [load]);
 
-  const priceMap = useMemo(() => new Map(prices.map(price => [`${price.supplier_quotation_id}:${price.quotation_item_id}`, price])), [prices]);
+  const supplierMatrix = useMemo(() => buildSupplierMatrix(items, proposals, prices), [items, proposals, prices]);
   const selectedProposal = proposals.find(proposal => proposal.supplier_id === selectedSupplierId);
   const isOverride = Boolean(recommendation && selectedSupplierId && selectedSupplierId !== recommendation.recommended_supplier_id);
   const financialDifference = selectedProposal?.total_amount == null || recommendation == null ? null : Number(selectedProposal.total_amount) - Number(recommendation.estimated_total_cost);
@@ -96,22 +117,122 @@ export default function QuotationComparisonPage() {
   if (error || !request) return <div className="rounded-xl border border-red-200 bg-red-50 p-5 text-sm text-red-700">Comparação indisponível: {error || 'Cotação não encontrada.'}</div>;
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-start justify-between"><div><h1 className="text-2xl font-extrabold text-slate-900">Comparação de Propostas</h1><p className="mt-1 text-sm text-slate-500">Cotação {request.title} · {items.length} itens · Solicitante: {request.requester_name_snapshot || 'não registrado'}</p></div><Button variant="outline" onClick={() => navigate('/quotations')}>Voltar</Button></div>
+    <div className="space-y-6 max-w-7xl mx-auto relative">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold tracking-tight text-slate-900">Comparação de Propostas</h2>
+          <p className="text-slate-500 text-sm">Cotação #{request.title} — {items.length} {items.length === 1 ? 'item' : 'itens'} · Solicitante: {request.requester_name_snapshot || 'não registrado'}</p>
+        </div>
+        <Button variant="outline" onClick={() => navigate('/quotations')}>Voltar</Button>
+      </div>
 
-      <Card className="border-indigo-200 bg-indigo-950 text-white"><CardContent className="p-6"><p className="text-xs font-bold uppercase tracking-wider text-indigo-300">Recomendação Hub.IA</p>{recommendation ? <><h2 className="mt-2 text-lg font-bold">{recommendation.suppliers?.[0]?.trade_name || recommendation.suppliers?.[0]?.legal_name}</h2><p className="mt-1 text-sm text-indigo-200">Score {Number(recommendation.score).toFixed(1)} · custo estimado {Number(recommendation.estimated_total_cost).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p><p className="mt-2 text-xs text-indigo-300">Modelo {recommendation.model_version} · política {recommendation.policy_version}</p></> : <><h2 className="mt-2 text-lg font-bold">Aguardando análise real</h2><p className="mt-1 text-sm text-indigo-200">Nenhuma recomendação é exibida até existir snapshot versionado produzido sobre propostas reais.</p></>}</CardContent></Card>
-
-      <Card><CardContent className="p-5"><h3 className="flex items-center gap-2 text-sm font-bold text-slate-800"><FileText className="h-4 w-4 text-indigo-600" /> Observações</h3><p className="mt-3 text-sm text-slate-600">{request.notes || 'Nenhuma observação registrada.'}</p></CardContent></Card>
-
-      <Card className="overflow-hidden">
-        <div className="border-b bg-slate-50 px-5 py-4"><h2 className="flex items-center gap-2 text-sm font-bold text-slate-800"><PackageOpen className="h-4 w-4 text-indigo-600" /> Itens da cotação</h2></div>
-        <CardContent className="p-0">
-          {items.length === 0 ? <p className="p-8 text-center text-sm text-slate-500">Nenhum item foi registrado para esta cotação.</p> : <div className="divide-y">{items.map(item => <div key={item.id} className="flex flex-col gap-2 p-5 sm:flex-row sm:items-center sm:justify-between"><div><p className="font-semibold text-slate-800">{item.product_name_snapshot || item.product_id}</p><p className="mt-1 text-xs text-slate-500">SKU {item.internal_sku_snapshot || 'não registrado'} · {item.category_name_snapshot || 'categoria não registrada'}</p></div><p className="text-sm font-bold text-indigo-700">{item.quantity} {item.unit || item.unit_snapshot || 'UN'}</p></div>)}</div>}
+      <Card className="border-0 shadow-md bg-indigo-900">
+        <CardContent className="p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <div className="h-12 w-12 rounded-full flex items-center justify-center shrink-0 bg-indigo-800">
+              <Trophy className="h-6 w-6 text-yellow-400" />
+            </div>
+            <div>
+              <p className="text-sm text-indigo-200">Recomendação da Inteligência Hub.IA</p>
+              {recommendation ? (
+                <>
+                  <h3 className="font-bold text-xl text-white">Fornecedor Recomendado: {recommendation.suppliers?.[0]?.trade_name || recommendation.suppliers?.[0]?.legal_name}</h3>
+                  <p className="text-sm text-indigo-200 mt-0.5">{recommendation.reasons?.length ? recommendation.reasons.join(' · ') : 'Recomendação persistida sem justificativa textual.'}</p>
+                  <p className="text-[10px] text-indigo-300 mt-2">Score persistido: {Number(recommendation.score).toFixed(1)} · Custo estimado: {formatCurrency(recommendation.estimated_total_cost)} · Modelo {recommendation.model_version} · Política {recommendation.policy_version}</p>
+                </>
+              ) : (
+                <>
+                  <h3 className="font-bold text-xl text-white">Aguardando análise real</h3>
+                  <p className="text-sm text-indigo-200 mt-0.5">Nenhuma recomendação é exibida até existir snapshot versionado produzido sobre propostas reais.</p>
+                </>
+              )}
+            </div>
+          </div>
         </CardContent>
       </Card>
 
-      {proposals.length === 0 ? <div className="rounded-xl border bg-white p-12 text-center"><AlertCircle className="mx-auto h-9 w-9 text-slate-300" /><p className="mt-3 text-sm font-bold text-slate-700">Nenhuma proposta persistida.</p><p className="mt-1 text-xs text-slate-500">Valores, prazos e scores não serão simulados.</p></div> : (
-        <div className="overflow-x-auto rounded-xl border bg-white shadow-sm"><table className="w-full text-left text-sm"><thead className="border-b bg-slate-50"><tr><th className="px-5 py-4"><span className="flex items-center gap-2"><PackageOpen className="h-4 w-4" /> Material</span></th>{proposals.map(proposal => <th key={proposal.id} className="border-l px-5 py-4 text-center">{proposal.supplier_name}<span className="mt-1 block text-[10px] font-normal uppercase text-slate-400">{proposal.status}</span></th>)}</tr></thead><tbody className="divide-y">{items.map(item => <tr key={item.id}><td className="px-5 py-4"><p className="font-semibold text-slate-800">{item.product_name_snapshot || item.product_id}</p><p className="mt-1 text-xs text-slate-500">{item.quantity} {item.unit} · SKU {item.internal_sku_snapshot || 'não registrado'}</p></td>{proposals.map(proposal => { const price = priceMap.get(`${proposal.id}:${item.id}`); return <td key={proposal.id} className="border-l px-5 py-4 text-center">{price?.unit_price != null ? <><p className="font-bold text-slate-900">{Number(price.unit_price).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p><p className="mt-1 text-xs text-slate-500">{price.lead_time_days == null ? 'Prazo não informado' : `${price.lead_time_days} dias`}</p></> : <span className="text-xs text-slate-400">Não cotado</span>}</td>; })}</tr>)}<tr className="bg-slate-50 font-bold"><td className="px-5 py-4 text-right text-xs uppercase text-slate-500">Total persistido</td>{proposals.map(proposal => <td key={proposal.id} className="border-l px-5 py-4 text-center">{proposal.total_amount == null ? '—' : Number(proposal.total_amount).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>)}</tr></tbody></table></div>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <Card className="lg:col-span-2 rounded-2xl border-slate-200 shadow-sm overflow-hidden flex flex-col">
+          <div className="px-6 py-4 border-b border-slate-100 bg-slate-50">
+            <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+              <PackageOpen className="h-4 w-4 text-indigo-600" /> Itens da Cotação
+            </h3>
+          </div>
+          <div className="flex-1 overflow-x-auto">
+            {items.length === 0 ? <p className="p-8 text-center text-sm text-slate-500">Nenhum item foi registrado para esta cotação.</p> : (
+              <table className="w-full text-sm text-left">
+                <thead className="bg-white text-slate-400 text-[10px] uppercase font-bold border-b border-slate-100">
+                  <tr><th className="px-6 py-3">Produto</th><th className="px-6 py-3">Fabricante / Código</th><th className="px-6 py-3 text-center">Qtd</th></tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {items.map(item => (
+                    <tr key={item.id} className="hover:bg-slate-50/50 transition-colors">
+                      <td className="px-6 py-3"><p className="font-semibold text-slate-700">{item.product_name_snapshot || item.product_id}</p><p className="mt-0.5 text-[10px] text-slate-400">{item.category_name_snapshot || 'Categoria não registrada'} · SKU {item.internal_sku_snapshot || 'não registrado'}</p></td>
+                      <td className="px-6 py-3 text-xs text-slate-500"><p>{item.manufacturer_name_snapshot || 'Não registrado'}</p><p className="mt-0.5 font-mono text-[10px]">{item.manufacturer_code_snapshot || 'Código não registrado'}</p></td>
+                      <td className="px-6 py-3 text-center font-bold text-slate-600">{item.quantity} {item.unit_snapshot || item.unit || 'UN'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </Card>
+
+        <div className="space-y-6">
+          <Card className="rounded-2xl border-slate-200 shadow-sm">
+            <div className="px-5 py-3 border-b border-slate-100 bg-slate-50">
+              <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2"><FileText className="h-4 w-4 text-indigo-600" /> Observações</h3>
+            </div>
+            <CardContent className="p-5"><p className="text-xs text-slate-500 leading-relaxed">{request.notes || 'Nenhuma observação registrada.'}</p></CardContent>
+          </Card>
+
+          <Card className="rounded-2xl border-slate-200 shadow-sm">
+            <div className="px-5 py-3 border-b border-slate-100 bg-slate-50">
+              <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2"><Clock className="h-4 w-4 text-indigo-600" /> Histórico</h3>
+            </div>
+            <CardContent className="p-5"><p className="text-xs text-slate-500 leading-relaxed">Histórico detalhado ainda não disponível.</p></CardContent>
+          </Card>
+        </div>
+      </div>
+
+      {proposals.length === 0 ? (
+        <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+          <div className="p-12 text-center">
+            <AlertCircle className="mx-auto h-9 w-9 text-slate-300" />
+            <p className="mt-3 text-sm font-bold text-slate-700">Nenhuma proposta persistida.</p>
+            <p className="mt-1 text-xs text-slate-500">Valores, prazos, fornecedores e scores não serão simulados. Os itens da cotação permanecem visíveis acima.</p>
+          </div>
+        </div>
+      ) : (
+        <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden overflow-x-auto">
+          <table className="w-full min-w-max text-sm text-left">
+            <thead className="bg-slate-50 text-slate-600 text-xs uppercase border-b border-slate-200">
+              <tr>
+                <th className="px-6 py-4 font-semibold min-w-[280px]">Produto (Qtd)</th>
+                {supplierMatrix.proposals.map(proposal => (
+                  <th key={proposal.id} className="px-6 py-4 font-semibold text-center border-l border-slate-200 min-w-[220px]">
+                    <div className="flex flex-col items-center justify-center gap-1.5">
+                      <span>{proposal.supplier_name}</span>
+                      <span className="inline-flex items-center rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-slate-500">{proposal.status}</span>
+                    </div>
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-200">
+              {supplierMatrix.rows.map(({ item, cells }) => (
+                <tr key={item.id} className="hover:bg-slate-50/50 transition-colors">
+                  <td className="px-6 py-4"><p className="font-semibold text-slate-900">{item.product_name_snapshot || item.product_id}</p><p className="text-xs text-slate-400 mt-0.5">{item.quantity} {item.unit_snapshot || item.unit || 'UN'} · SKU {item.internal_sku_snapshot || 'não registrado'}</p></td>
+                  {cells.map(cell => <td key={cell.supplierQuotationId} className="px-6 py-4 text-center border-l border-slate-200"><MatrixCellContent cell={cell} /></td>)}
+                </tr>
+              ))}
+              <tr className="bg-slate-50 font-bold border-t-2 border-slate-300">
+                <td className="px-6 py-4 text-right text-xs font-extrabold uppercase tracking-wide text-slate-500">Valor Global:</td>
+                {supplierMatrix.proposals.map(proposal => <td key={proposal.id} className="px-6 py-4 text-center text-base border-l border-slate-200 text-slate-900">{formatCurrency(proposal.total_amount)}</td>)}
+              </tr>
+            </tbody>
+          </table>
+        </div>
       )}
 
       {recommendation && proposals.some(proposal => proposal.status === 'submitted') && (

@@ -36,7 +36,7 @@ test('details renders persisted snapshots and an independent recipient empty sta
 });
 
 test('items render before and independently from the proposal empty state', () => {
-  const itemsSection = comparison.indexOf('Itens da cotação');
+  const itemsSection = comparison.toLocaleLowerCase('pt-BR').indexOf('itens da cotação');
   const proposalCondition = comparison.indexOf('proposals.length === 0');
   assert.ok(itemsSection >= 0);
   assert.ok(proposalCondition > itemsSection);
