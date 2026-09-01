@@ -43,7 +43,7 @@ test('TENANT_SAVE_DOES_NOT_UPDATE_MASTER', () => {
   const form = readFileSync(formPath, 'utf8');
   assert.match(form, /await repo\.saveTenantMaterial\(/u);
   assert.doesNotMatch(form, /from\('organization_materials'\)\.upsert/u);
-  assert.match(form, /if \(canEditGlobalMaterial && materialId\)/u);
+  assert.match(form, /if \(canEditGlobalMaterial && materialId && isEditing && !materialCreatedForSave\)/u);
 });
 
 test('ATOMIC_TENANT_MATERIAL_SAVE', () => {

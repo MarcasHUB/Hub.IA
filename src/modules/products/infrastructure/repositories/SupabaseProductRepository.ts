@@ -16,8 +16,8 @@ export type GlobalCatalogMaterial = {
 };
 
 export type OrganizationMaterialSaveInput = {
-    internalSku: string;
-    erpCode: string;
+    internalSku?: string;
+    internalSkuProvided?: boolean;
     displayName: string;
     isActive: boolean;
     commercialConfig: Record<string, unknown>;
@@ -168,6 +168,14 @@ export class SupabaseProductRepository implements IProductRepository {
             throw new Error('Selecione uma categoria interna válida para o material.');
         }
 
+        const internalSkuProvided = organizationMaterial?.internalSkuProvided ?? Boolean(organizationMaterial);
+        const organizationCodeParams = internalSkuProvided
+            ? {
+                p_internal_sku: organizationMaterial?.internalSku?.trim() || null,
+                p_internal_sku_provided: true,
+            }
+            : { p_internal_sku_provided: false };
+
         const { error } = await supabase.rpc('save_organization_material_product', {
             p_product_id: product.id,
             p_material_id: product.materialId || null,
@@ -191,8 +199,8 @@ export class SupabaseProductRepository implements IProductRepository {
                 status: product.status,
                 attachments: product.attachments || [],
             },
-            p_internal_sku: organizationMaterial?.internalSku || null,
-            p_erp_code: organizationMaterial?.erpCode || null,
+            ...organizationCodeParams,
+            p_erp_code_provided: false,
             p_display_name: organizationMaterial?.displayName || null,
             p_is_active: organizationMaterial?.isActive ?? true,
             p_commercial_config: organizationMaterial?.commercialConfig || {},

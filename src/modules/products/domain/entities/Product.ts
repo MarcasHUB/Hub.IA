@@ -40,12 +40,11 @@ export class Product {
 
     get isComplete(): boolean {
         return !!(
-            this.imageUrl?.trim() &&
             this.name?.trim() &&
             this.manufacturer?.trim() &&
             this.categoryId?.trim() &&
             this.manufacturerCode?.trim() &&
-            this.technicalDescription?.trim()
+            this.uom?.trim()
         );
     }
 }

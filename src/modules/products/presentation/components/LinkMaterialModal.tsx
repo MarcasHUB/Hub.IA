@@ -35,7 +35,6 @@ export function LinkMaterialModal({ organizationId, onClose, onLinked, initialMa
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<MaterialRow>();
   const [internalSku, setInternalSku] = useState('');
-  const [erpCode, setErpCode] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [availableForPurchase, setAvailableForPurchase] = useState(true);
   const [availableForSale, setAvailableForSale] = useState(false);
@@ -99,7 +98,6 @@ export function LinkMaterialModal({ organizationId, onClose, onLinked, initialMa
     setSelected(material);
     setDisplayName(material.official_name);
     setInternalSku('');
-    setErpCode('');
     setAvailableForPurchase(true);
     setAvailableForSale(false);
     setError('');
@@ -108,8 +106,6 @@ export function LinkMaterialModal({ organizationId, onClose, onLinked, initialMa
   const canLink = Boolean(
     selected?.category_id
     && displayName.trim()
-    && internalSku.trim()
-    && erpCode.trim()
     && (availableForPurchase || availableForSale),
   );
 
@@ -123,8 +119,7 @@ export function LinkMaterialModal({ organizationId, onClose, onLinked, initialMa
         organization_id: organizationId,
         material_id: selected.id,
         category_id: selected.category_id,
-        internal_sku: internalSku.trim(),
-        erp_code: erpCode.trim(),
+        internal_sku: internalSku.trim() || null,
         display_name: displayName.trim(),
         available_for_purchase: availableForPurchase,
         available_for_sale: availableForSale,
@@ -149,8 +144,6 @@ export function LinkMaterialModal({ organizationId, onClose, onLinked, initialMa
           organization_id: organizationId,
           material_id: selected.id,
           category_id: selected.category_id,
-          sku: internalSku.trim(),
-          erp_code: erpCode.trim(),
           name: displayName.trim(),
           description: selected.description,
           unit: selected.unit || 'UN',
@@ -180,7 +173,7 @@ export function LinkMaterialModal({ organizationId, onClose, onLinked, initialMa
     <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm">
       <div className="flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
         <div className="flex items-center justify-between border-b px-6 py-4">
-          <div><h3 className="flex items-center gap-2 text-lg font-extrabold text-slate-900"><Link2 className="h-5 w-5 text-indigo-600" /> Vincular material</h3><p className="text-xs text-slate-500">Use um material canônico existente sem criar duplicatas.</p></div>
+          <div><h3 className="flex items-center gap-2 text-lg font-extrabold text-slate-900"><Link2 className="h-5 w-5 text-indigo-600" /> Vincular produto</h3><p className="text-xs text-slate-500">Use um produto já disponível no catálogo sem criar duplicatas.</p></div>
           <button onClick={onClose} className="rounded-full p-2 hover:bg-slate-100"><X className="h-5 w-5" /></button>
         </div>
 
@@ -190,7 +183,7 @@ export function LinkMaterialModal({ organizationId, onClose, onLinked, initialMa
             <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
               {filtered.map(material => (
                 <button key={material.id} onClick={() => chooseMaterial(material)} className={`w-full rounded-xl border p-4 text-left transition-colors ${selected?.id === material.id ? 'border-indigo-500 bg-indigo-50' : 'border-slate-200 hover:border-indigo-200'}`}>
-                  <div className="flex items-start justify-between gap-3"><div><p className="font-bold text-slate-900">{material.official_name}</p><p className="mt-1 text-xs text-slate-500">{material.manufacturers?.[0]?.name || 'Sem fabricante'} · {material.manufacturer_code || 'Sem código'}</p><p className="mt-1 text-[10px] font-semibold text-indigo-600">{material.categories?.[0]?.name || 'Categoria master pendente'}</p></div><span className="shrink-0 rounded-full border bg-white px-2 py-1 text-[10px] font-bold text-slate-600">{STATUS_LABELS[material.validation_status]}</span></div>
+                  <div className="flex items-start justify-between gap-3"><div><p className="font-bold text-slate-900">{material.official_name}</p><p className="mt-1 text-xs text-slate-500">{material.manufacturers?.[0]?.name || 'Sem fabricante'} · {material.manufacturer_code || 'Sem código'}</p><p className="mt-1 text-[10px] font-semibold text-indigo-600">{material.categories?.[0]?.name || 'Categoria em revisão'}</p></div><span className="shrink-0 rounded-full border bg-white px-2 py-1 text-[10px] font-bold text-slate-600">{STATUS_LABELS[material.validation_status]}</span></div>
                 </button>
               ))}
               {isLoading && <p className="py-6 text-center text-sm text-slate-500">Carregando catálogo compartilhado...</p>}
@@ -204,9 +197,8 @@ export function LinkMaterialModal({ organizationId, onClose, onLinked, initialMa
               <div className="space-y-4">
                 <div><p className="text-[10px] font-bold uppercase text-slate-400">Material selecionado</p><p className="font-bold text-slate-900">{selected.official_name}</p></div>
                 <div><label className="mb-1 block text-xs font-bold text-slate-500">Nome de exibição *</label><Input value={displayName} onChange={event => setDisplayName(event.target.value)} /></div>
-                <div><label className="mb-1 block text-xs font-bold text-slate-500">SKU interno *</label><Input value={internalSku} onChange={event => setInternalSku(event.target.value)} placeholder="Código interno" /></div>
-                <div><label className="mb-1 block text-xs font-bold text-slate-500">Código ERP *</label><Input value={erpCode} onChange={event => setErpCode(event.target.value)} placeholder="Código no ERP" /></div>
-                <div className="rounded-xl border bg-slate-50 p-3"><p className="text-[10px] font-bold uppercase text-slate-400">Categoria Hub.IA *</p><p className="text-sm font-semibold text-slate-800">{selected.categories?.[0]?.name || 'Pendente de revisão master'}</p>{!selected.category_id && <p className="mt-1 text-xs text-amber-700">Este material precisa receber uma categoria master antes de ser vinculado.</p>}</div>
+                <div><label className="mb-1 block text-xs font-bold text-slate-500">Código interno da empresa</label><Input value={internalSku} onChange={event => setInternalSku(event.target.value)} placeholder="Opcional" /><p className="mt-1 text-xs text-slate-500">Código usado por esta empresa para identificar o produto em suas operações de compra ou venda.</p></div>
+                <div className="rounded-xl border bg-slate-50 p-3"><p className="text-[10px] font-bold uppercase text-slate-400">Categoria *</p><p className="text-sm font-semibold text-slate-800">{selected.categories?.[0]?.name || 'Categoria em revisão'}</p>{!selected.category_id && <p className="mt-1 text-xs text-amber-700">Este produto precisa ter uma categoria antes de ser vinculado.</p>}</div>
                 <label className="flex items-center gap-3 rounded-xl border p-3 text-sm"><input type="checkbox" checked={availableForPurchase} onChange={event => setAvailableForPurchase(event.target.checked)} /><span><strong className="block">Disponível para compra</strong><span className="text-xs text-slate-500">A empresa compra ou deseja cotar este material.</span></span></label>
                 <label className="flex items-center gap-3 rounded-xl border p-3 text-sm"><input type="checkbox" checked={availableForSale} onChange={event => setAvailableForSale(event.target.checked)} /><span><strong className="block">Disponível para venda</strong><span className="text-xs text-slate-500">A empresa comercializa este material.</span></span></label>
                 {error && <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-700">{error}</p>}

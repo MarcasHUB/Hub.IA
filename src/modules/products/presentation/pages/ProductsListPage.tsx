@@ -11,6 +11,7 @@ import { GlobalCatalogMaterial, SupabaseProductRepository } from '../../infrastr
 import ProductFormPage from './ProductFormPage';
 import { useAuthenticatedIdentity } from '@/modules/auth/presentation/hooks/useAuthenticatedIdentity';
 import { LinkMaterialModal } from '../components/LinkMaterialModal';
+import { supabase } from '@/infrastructure/supabase/client';
 
 const repo = new SupabaseProductRepository();
 
@@ -57,11 +58,25 @@ export default function ProductsListPage({
   async function loadProducts() {
     try {
       const data = await repo.findAll(tenantId);
+      const materialIds = data
+        .map(product => product.materialId)
+        .filter((materialId): materialId is string => Boolean(materialId));
+      const { data: organizationMaterials, error: organizationMaterialsError } = materialIds.length
+        ? await supabase
+          .from('organization_materials')
+          .select('material_id, internal_sku')
+          .eq('organization_id', tenantId)
+          .in('material_id', materialIds)
+        : { data: [], error: null };
+      if (organizationMaterialsError) throw organizationMaterialsError;
+      const internalCodeByMaterial = new Map(
+        (organizationMaterials || []).map(link => [link.material_id, link.internal_sku || '']),
+      );
       // Map domain to UI format
       setProducts(data.map(p => ({
         id: p.id,
         name: p.name,
-        sku: p.sku,
+        sku: p.materialId ? internalCodeByMaterial.get(p.materialId) || '' : '',
         unit: p.uom || 'UN',
         partNumber: p.manufacturerCode || '',
         supplier: p.supplierId || '',
@@ -313,13 +328,13 @@ export default function ProductsListPage({
                     <CardContent className="flex h-full flex-col p-5">
                       <div className="flex items-start justify-between gap-3"><div><p className="font-bold text-slate-900">{material.officialName}</p><p className="mt-1 text-xs text-slate-500">{material.manufacturer || 'Fabricante não informado'} · {material.manufacturerCode || 'Código não informado'}</p></div><Badge variant="outline">{material.unit}</Badge></div>
                       <p className="mt-3 line-clamp-2 text-xs text-slate-500">{material.description || 'Sem descrição técnica.'}</p>
-                      <p className="mt-3 text-[10px] font-bold uppercase tracking-wide text-indigo-600">{material.category || 'Categoria master pendente'}</p>
+                      <p className="mt-3 text-[10px] font-bold uppercase tracking-wide text-indigo-600">{material.category || 'Categoria em revisão'}</p>
                       <div className="mt-auto pt-5">{material.linked ? <div className="rounded-lg bg-emerald-50 px-3 py-2 text-center text-xs font-bold text-emerald-700">Vinculado à minha empresa</div> : <Button variant="outline" className="w-full" onClick={() => { setLinkMaterialId(material.id); setIsLinkMaterialOpen(true); }} disabled={!material.categoryId}><Plus className="mr-1 h-4 w-4" /> Vincular</Button>}</div>
                     </CardContent>
                   </Card>
                 ))}
               </div>
-              {!globalLoading && globalMaterials.length === 0 && <div className="rounded-xl border bg-white p-12 text-center text-sm text-slate-500">Nenhum material master disponível para os filtros informados.</div>}
+              {!globalLoading && globalMaterials.length === 0 && <div className="rounded-xl border bg-white p-12 text-center text-sm text-slate-500">Nenhum produto disponível para os filtros informados.</div>}
               {globalLoading && <p className="py-8 text-center text-sm text-slate-500">Carregando catálogo compartilhado...</p>}
               {globalHasMore && !globalLoading && <Button variant="outline" className="w-full" onClick={() => void loadGlobalMaterials(globalPage + 1, true)}>Carregar mais materiais</Button>}
             </div>
@@ -412,8 +427,8 @@ export default function ProductsListPage({
                           <p className="text-xs font-bold text-slate-700 truncate">{product.manufacturerCode || 'ND'}</p>
                         </div>
                         <div className="bg-slate-50 rounded-lg p-2 border border-slate-100 text-center">
-                          <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400 mb-0.5">SKU Forn.</p>
-                          <p className="text-xs font-bold text-slate-700 truncate">{product.sku || 'ND'}</p>
+                          <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400 mb-0.5">Cód. interno</p>
+                          <p className="text-xs font-bold text-slate-700 truncate">{product.sku || 'Não informado'}</p>
                         </div>
                       </div>
 

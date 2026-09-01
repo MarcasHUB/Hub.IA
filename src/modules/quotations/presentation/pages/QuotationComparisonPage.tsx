@@ -167,7 +167,7 @@ export default function QuotationComparisonPage() {
                 <tbody className="divide-y divide-slate-50">
                   {items.map(item => (
                     <tr key={item.id} className="hover:bg-slate-50/50 transition-colors">
-                      <td className="px-6 py-3"><p className="font-semibold text-slate-700">{item.product_name_snapshot || item.product_id}</p><p className="mt-0.5 text-[10px] text-slate-400">{item.category_name_snapshot || 'Categoria não registrada'} · SKU {item.internal_sku_snapshot || 'não registrado'}</p></td>
+                      <td className="px-6 py-3"><p className="font-semibold text-slate-700">{item.product_name_snapshot || item.product_id}</p><p className="mt-0.5 text-[10px] text-slate-400">{item.category_name_snapshot || 'Categoria não registrada'} · Cód. interno {item.internal_sku_snapshot || 'não informado'}</p></td>
                       <td className="px-6 py-3 text-xs text-slate-500"><p>{item.manufacturer_name_snapshot || 'Não registrado'}</p><p className="mt-0.5 font-mono text-[10px]">{item.manufacturer_code_snapshot || 'Código não registrado'}</p></td>
                       <td className="px-6 py-3 text-center font-bold text-slate-600">{item.quantity} {item.unit_snapshot || item.unit || 'UN'}</td>
                     </tr>
@@ -222,7 +222,7 @@ export default function QuotationComparisonPage() {
             <tbody className="divide-y divide-slate-200">
               {supplierMatrix.rows.map(({ item, cells }) => (
                 <tr key={item.id} className="hover:bg-slate-50/50 transition-colors">
-                  <td className="px-6 py-4"><p className="font-semibold text-slate-900">{item.product_name_snapshot || item.product_id}</p><p className="text-xs text-slate-400 mt-0.5">{item.quantity} {item.unit_snapshot || item.unit || 'UN'} · SKU {item.internal_sku_snapshot || 'não registrado'}</p></td>
+                  <td className="px-6 py-4"><p className="font-semibold text-slate-900">{item.product_name_snapshot || item.product_id}</p><p className="text-xs text-slate-400 mt-0.5">{item.quantity} {item.unit_snapshot || item.unit || 'UN'} · Cód. interno {item.internal_sku_snapshot || 'não informado'}</p></td>
                   {cells.map(cell => <td key={cell.supplierQuotationId} className="px-6 py-4 text-center border-l border-slate-200"><MatrixCellContent cell={cell} /></td>)}
                 </tr>
               ))}

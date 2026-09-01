@@ -102,7 +102,7 @@ export default function QuotationDetailsPage() {
                   <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
                     <div><dt className="text-[10px] font-bold uppercase text-slate-400">Fabricante</dt><dd className="mt-1 text-slate-700">{item.manufacturer_name_snapshot || 'Não registrado'}</dd></div>
                     <div><dt className="text-[10px] font-bold uppercase text-slate-400">Código do fabricante</dt><dd className="mt-1 text-slate-700">{item.manufacturer_code_snapshot || 'Não registrado'}</dd></div>
-                    <div><dt className="text-[10px] font-bold uppercase text-slate-400">SKU interno</dt><dd className="mt-1 text-slate-700">{item.internal_sku_snapshot || 'Não registrado'}</dd></div>
+                    <div><dt className="text-[10px] font-bold uppercase text-slate-400">Código interno da empresa</dt><dd className="mt-1 text-slate-700">{item.internal_sku_snapshot || 'Não informado'}</dd></div>
                     <div><dt className="text-[10px] font-bold uppercase text-slate-400">Unidade do snapshot</dt><dd className="mt-1 text-slate-700">{item.unit_snapshot || item.unit || 'Não registrada'}</dd></div>
                   </dl>
                   <p className="mt-4 text-sm text-slate-600">{item.description_snapshot || 'Sem descrição registrada.'}</p>
