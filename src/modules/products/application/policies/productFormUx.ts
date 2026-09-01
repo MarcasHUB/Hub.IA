@@ -91,3 +91,11 @@ export function needsManufacturerPairGuidance(
 ): boolean {
   return Boolean(manufacturer.trim()) !== Boolean(manufacturerCode.trim());
 }
+
+export function resolveProductImageUrl(
+  currentImageUrl: string,
+  persistedImageUrl: string,
+  imageChanged: boolean,
+): string {
+  return imageChanged ? currentImageUrl : currentImageUrl || persistedImageUrl;
+}

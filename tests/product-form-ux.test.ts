@@ -9,6 +9,7 @@ import {
   calculateGlobalEnrichmentPercentage,
   needsManufacturerPairGuidance,
   replacePrimaryAttachment,
+  resolveProductImageUrl,
   resolveProductStatusForSave,
   validateBasicProductInput,
   type ProductAttachment,
@@ -16,6 +17,10 @@ import {
 
 const productFormSource = readFileSync(
   join(process.cwd(), 'src/modules/products/presentation/pages/ProductFormPage.tsx'),
+  'utf8',
+);
+const productRepositorySource = readFileSync(
+  join(process.cwd(), 'src/modules/products/infrastructure/repositories/SupabaseProductRepository.ts'),
   'utf8',
 );
 const adminSectionIndex = productFormSource.indexOf('{canEditGlobalMaterial && (');
@@ -155,4 +160,29 @@ test('product list reads the company code from the organization link without leg
   assert.match(productsListSource, /Cód\. interno/u);
   assert.match(productsListSource, /Não informado/u);
   assert.doesNotMatch(productsListSource, /SKU Forn\.|internalCodeByMaterial\.get\(p\.materialId\)[^\n]*p\.sku/u);
+});
+
+test('PRODUCT_IMAGE_UPLOAD_VISIBLE: historical image selector and preview remain available', () => {
+  assert.match(productFormSource, /Foto do Produto \(Local\)/u);
+  assert.match(productFormSource, /onClick=\{\(\) => imageFileInputRef\.current\?\.click\(\)\}/u);
+  assert.match(productFormSource, /accept="image\/\*"/u);
+  assert.match(productFormSource, /onChange=\{handleImageUpload\}/u);
+  assert.match(productFormSource, /src=\{basicInfo\.imageUrl\} alt="Preview da imagem do produto"/u);
+  assert.match(productFormSource, /URL da imagem \(Opcional\)/u);
+});
+
+test('EXISTING_IMAGE_PRESERVED_ON_UNRELATED_EDIT: loaded image flows unchanged into save', () => {
+  assert.match(productFormSource, /imageUrl: product\.imageUrl \|\| ''/u);
+  assert.match(productFormSource, /setPersistedImageUrl\(product\.imageUrl \|\| ''\)/u);
+  assert.match(productFormSource, /resolveProductImageUrl\(basicInfo\.imageUrl, persistedImageUrl, imageUrlChanged\)/u);
+  assert.match(productRepositorySource, /row\.image_url \|\| meta\.image_url \|\| ''/u);
+});
+
+test('IMAGE_URL_NOT_CLEARED_WHEN_OMITTED: repository persists the form image value', () => {
+  assert.equal(resolveProductImageUrl('', 'https://example.com/existing.png', false), 'https://example.com/existing.png');
+  assert.equal(resolveProductImageUrl('', 'https://example.com/existing.png', true), '');
+  assert.equal(resolveProductImageUrl('data:image/png;base64,NEW', 'https://example.com/existing.png', true), 'data:image/png;base64,NEW');
+  assert.match(productRepositorySource, /p_image_url: product\.imageUrl \|\| null/u);
+  assert.match(productRepositorySource, /image_url: product\.imageUrl/u);
+  assert.match(productFormSource, /setImageUrlChanged\(true\)/u);
 });

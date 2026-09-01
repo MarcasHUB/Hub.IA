@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, Briefcase, FileText, History, Package, Plus, Save, ShieldCheck, Tags, Truck, Upload, Users } from 'lucide-react';
+import { ArrowLeft, Briefcase, FileText, History, Image as ImageIcon, Package, Plus, Save, ShieldCheck, Tags, Truck, Upload, Users } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuthenticatedIdentity } from '@/modules/auth/presentation/hooks/useAuthenticatedIdentity';
 import { ActionModal } from '@/shared/components/ui/ActionModal';
@@ -16,6 +16,7 @@ import {
   calculateGlobalEnrichmentPercentage,
   needsManufacturerPairGuidance,
   replacePrimaryAttachment,
+  resolveProductImageUrl,
   resolveProductStatusForSave,
   type ProductAttachment,
   validateBasicProductInput,
@@ -62,6 +63,7 @@ export default function ProductFormPage({
   const id = productId || routeId;
   const isEditing = Boolean(id);
   const canEditGlobalMaterial = canMaintainGlobalMaster(identity?.isPlatformAdmin, masterMaintenanceMode);
+  const imageFileInputRef = useRef<HTMLInputElement>(null);
   const primaryFileInputRef = useRef<HTMLInputElement>(null);
   const [activeTab, setActiveTab] = useState('basic');
 
@@ -106,6 +108,8 @@ export default function ProductFormPage({
   const [persistedLogisticsConfig, setPersistedLogisticsConfig] = useState<Record<string, unknown>>({});
   const [persistedRelationshipType, setPersistedRelationshipType] = useState<OrganizationMaterialSaveInput['relationshipType']>();
   const [persistedProductSku, setPersistedProductSku] = useState('');
+  const [persistedImageUrl, setPersistedImageUrl] = useState('');
+  const [imageUrlChanged, setImageUrlChanged] = useState(false);
   const [persistedCompanyInternalCode, setPersistedCompanyInternalCode] = useState('');
   const [suppliers, setSuppliers] = useState<{ id: string; name: string; document: string }[]>([]);
   const [isLinkModalOpen, setIsLinkModalOpen] = useState(false);
@@ -144,6 +148,18 @@ export default function ProductFormPage({
     else navigate('/products');
   };
 
+  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setImageUrlChanged(true);
+      setBasicInfo(current => ({ ...current, imageUrl: reader.result as string }));
+    };
+    reader.readAsDataURL(file);
+  };
+
   const handlePrimaryFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -165,6 +181,7 @@ export default function ProductFormPage({
       };
       setAttachmentsList(current => replacePrimaryAttachment(current, nextAttachment));
       if (file.type.startsWith('image/')) {
+        setImageUrlChanged(true);
         setBasicInfo(current => ({ ...current, imageUrl: base64 }));
       }
     };
@@ -276,6 +293,7 @@ export default function ProductFormPage({
           status: product.status === ProductStatus.DRAFT ? 'Draft' : 'Active',
           materialId: product.materialId || '',
         }));
+        setPersistedImageUrl(product.imageUrl || '');
         setPersistedProductSku(product.sku || '');
         setClassification({
           category: product.categoryId || '',
@@ -457,7 +475,7 @@ export default function ProductFormPage({
         basicInfo.manufacturerCode.trim(),
         basicInfo.availableForPurchase,
         basicInfo.availableForSale,
-        basicInfo.imageUrl,
+        resolveProductImageUrl(basicInfo.imageUrl, persistedImageUrl, imageUrlChanged),
         basicInfo.technicalDescription,
         attachmentsList,
       );
@@ -607,6 +625,42 @@ export default function ProductFormPage({
                   <div className="space-y-2 md:col-span-2"><Label htmlFor="company-internal-code">Código interno da empresa</Label><Input id="company-internal-code" value={basicInfo.companyInternalCode} onChange={event => setBasicInfo(current => ({ ...current, companyInternalCode: event.target.value }))} placeholder="Opcional" disabled={!basicInfo.materialId} /><p className="text-xs text-slate-500">Código usado por esta empresa para identificar o produto em suas operações de compra ou venda.</p>{!basicInfo.materialId && <p className="text-xs text-amber-700">Disponível após o produto ser vinculado ao catálogo global.</p>}</div>
                   <div className="flex flex-wrap items-end gap-3 rounded-xl border border-slate-100 bg-slate-50 p-3"><label className="flex h-9 cursor-pointer items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700"><input type="checkbox" checked={basicInfo.availableForPurchase} onChange={event => setBasicInfo(current => ({ ...current, availableForPurchase: event.target.checked }))} className="h-4 w-4 rounded border-slate-300 text-indigo-600" />Compra este produto</label><label className="flex h-9 cursor-pointer items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700"><input type="checkbox" checked={basicInfo.availableForSale} onChange={event => setBasicInfo(current => ({ ...current, availableForSale: event.target.checked }))} className="h-4 w-4 rounded border-slate-300 text-indigo-600" />Vende este produto</label></div>
                   <div className="space-y-2 md:col-span-2"><Label htmlFor="product-description">Descrição curta</Label><textarea id="product-description" value={basicInfo.description} onChange={event => setBasicInfo(current => ({ ...current, description: event.target.value }))} maxLength={500} placeholder="Características importantes para reconhecer o produto." className="min-h-20 w-full resize-y rounded-lg border border-slate-300 bg-white p-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" /></div>
+                  <div className="border-t border-slate-100 pt-5 md:col-span-2">
+                    <div className="w-full space-y-3 md:w-64">
+                      <Label>Foto do Produto (Local)</Label>
+                      <button
+                        type="button"
+                        className="group relative flex aspect-[4/3] w-full cursor-pointer flex-col items-center justify-center overflow-hidden rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50 text-slate-400 transition-colors hover:border-slate-300 hover:bg-slate-100"
+                        onClick={() => imageFileInputRef.current?.click()}
+                      >
+                        {basicInfo.imageUrl ? (
+                          <img src={basicInfo.imageUrl} alt="Preview da imagem do produto" className="h-full w-full object-cover" />
+                        ) : (
+                          <>
+                            <ImageIcon className="mb-2 h-8 w-8 text-slate-300" />
+                            <span className="text-xs font-medium">Upload Imagem</span>
+                          </>
+                        )}
+                      </button>
+                      <input
+                        ref={imageFileInputRef}
+                        type="file"
+                        className="hidden"
+                        accept="image/*"
+                        onChange={handleImageUpload}
+                      />
+                      <Input
+                        aria-label="URL da imagem"
+                        placeholder="URL da imagem (Opcional)"
+                        value={basicInfo.imageUrl}
+                        onChange={event => {
+                          setImageUrlChanged(true);
+                          setBasicInfo(current => ({ ...current, imageUrl: event.target.value }));
+                        }}
+                        className="h-9 text-xs"
+                      />
+                    </div>
+                  </div>
                 </div>
                 <div className="rounded-xl border border-slate-200 bg-slate-50 p-4"><div className="flex items-center justify-between gap-4"><div><p className="text-sm font-bold text-slate-800">Enriquecimento do cadastro global</p><p className="mt-1 text-xs text-slate-500">{missingGlobalIdentificationFields.length === 0 ? 'Identificação mínima completa.' : `Faltam: ${missingGlobalIdentificationFields.join(', ')}.`}</p></div><span className="text-lg font-extrabold text-indigo-700">{globalEnrichmentPercentage}%</span></div></div>
                 {canEditGlobalMaterial && (
