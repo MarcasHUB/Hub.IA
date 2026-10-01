@@ -1,5 +1,12 @@
 import { supabase } from '@/infrastructure/supabase/client';
-import { Operator, OperatorStatus } from '../../domain/entities/Operator';
+import {
+  AccessChannel,
+  Operator,
+  OperatorAccessSettings,
+  OperatorPermissions,
+  OperatorStatus,
+  PreferredInterface,
+} from '../../domain/entities/Operator';
 import { Invitation } from '../../domain/entities/Invitation';
 import { IOperatorRepository } from '../../domain/repositories/IOperatorRepository';
 import { hashToken } from '@/shared/utils/tokenUtils';
@@ -54,6 +61,30 @@ export class SupabaseOperatorRepository implements IOperatorRepository {
       ...operator,
       categories: Array.isArray(operator.category_ids) ? operator.category_ids : [],
     })) as Operator[];
+  }
+
+  async getOperatorAccess(userId: string): Promise<OperatorAccessSettings> {
+    const { data, error } = await (supabase as any).rpc('get_user_access_for_admin', {
+      p_target_user_id: userId,
+    });
+    if (error) throw error;
+    if (!data) throw new Error('Configuração de acesso não encontrada.');
+    return data as OperatorAccessSettings;
+  }
+
+  async setOperatorAccess(
+    userId: string,
+    accessChannel: AccessChannel,
+    preferredInterface: PreferredInterface,
+    permissions: OperatorPermissions,
+  ): Promise<void> {
+    const { error } = await (supabase as any).rpc('set_user_access', {
+      p_target_user_id: userId,
+      p_access_channel: accessChannel,
+      p_preferred_interface: preferredInterface,
+      p_permissions: permissions,
+    });
+    if (error) throw error;
   }
 
   async cancelInvite(email: string, operatorId: string): Promise<void> {
