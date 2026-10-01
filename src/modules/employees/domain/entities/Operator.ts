@@ -57,6 +57,8 @@ export interface Operator {
   deleted_at?: string;
   categories?: string[];
   todas_categorias?: boolean;
+  access_channel?: AccessChannel;
+  preferred_interface?: PreferredInterface;
   avatar_url?: string;
   display_name?: string;
   full_name?: string;
