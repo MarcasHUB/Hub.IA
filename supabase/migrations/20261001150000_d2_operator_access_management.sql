@@ -83,16 +83,13 @@ begin
   if v_target_platform_master and not v_caller_platform_master then
     raise exception 'Somente um Master da plataforma pode alterar outro Master';
   end if;
-
   if coalesce((p_permissions->>'platform_master')::boolean,false) and not v_caller_platform_master then
     raise exception 'Somente um Master da plataforma pode conceder acesso Master';
   end if;
-
   if coalesce((p_permissions->>'organization_admin')::boolean,false)
      and not (v_caller_org_admin or v_caller_platform_master) then
     raise exception 'Somente um administrador pode conceder administração da organização';
   end if;
-
   if p_access_channel not in ('web','mobile','both','disabled') then raise exception 'Canal de acesso inválido'; end if;
   if p_preferred_interface not in ('web','mobile') then raise exception 'Interface preferida inválida'; end if;
 
@@ -103,6 +100,12 @@ begin
       status = case when p_access_channel = 'disabled' then 'inactive' else 'active' end,
       updated_at = now()
   where user_id = p_target_user_id;
+
+  update public.operators
+  set status = case when p_access_channel = 'disabled' then 'inativo'::public.operator_status else 'ativo'::public.operator_status end,
+      updated_at = now()
+  where id = p_target_user_id
+    and deleted_at is null;
 
   insert into public.user_permissions (
     user_id, organization_id,
