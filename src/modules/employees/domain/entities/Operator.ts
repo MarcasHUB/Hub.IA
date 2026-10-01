@@ -1,16 +1,41 @@
 // ─── Operator Domain Entity ────────────────────────────────────────────────────
 
 export type OperatorPerfil =
-  "administrador" | "gestor" | "comprador" | "solicitante" | "auditor";
+  | 'administrador'
+  | 'gestor'
+  | 'comprador'
+  | 'solicitante'
+  | 'auditor';
 
 export type OperatorStatus =
-  | "pendente"
-  | "ativo"
-  | "inativo"
-  | "bloqueado"
-  | "ferias"
-  | "substituido"
-  | "cancelado";
+  | 'pendente'
+  | 'ativo'
+  | 'inativo'
+  | 'bloqueado'
+  | 'ferias'
+  | 'substituido'
+  | 'cancelado';
+
+export type AccessChannel = 'web' | 'mobile' | 'both' | 'disabled';
+export type PreferredInterface = 'web' | 'mobile';
+
+export interface OperatorPermissions {
+  can_request_materials: boolean;
+  can_manage_quotations: boolean;
+  can_approve_requests: boolean;
+  can_issue_purchase_orders: boolean;
+  can_manage_users: boolean;
+  organization_admin: boolean;
+  platform_master: boolean;
+}
+
+export interface OperatorAccessSettings {
+  user_id: string;
+  organization_id: string;
+  access_channel: AccessChannel;
+  preferred_interface: PreferredInterface;
+  permissions: OperatorPermissions;
+}
 
 export interface Operator {
   id: string;
@@ -30,12 +55,8 @@ export interface Operator {
   created_at: string;
   updated_at: string;
   deleted_at?: string;
-
-  // Relacionamentos opcionais (carregados via join)
-  categories?: string[]; // IDs das categorias autorizadas
+  categories?: string[];
   todas_categorias?: boolean;
-
-  // Dados de profile populados em memória
   avatar_url?: string;
   display_name?: string;
   full_name?: string;
@@ -44,10 +65,10 @@ export interface Operator {
 export function resolveOperatorName(op: Operator): string {
   if (op.display_name) return op.display_name;
   if (op.full_name) return op.full_name;
-  const opName = `${op.nome || ""} ${op.sobrenome || ""}`.trim();
+  const opName = `${op.nome || ''} ${op.sobrenome || ''}`.trim();
   if (opName) return opName;
   if (op.email) return op.email;
-  return "Usuário";
+  return 'Usuário';
 }
 
 export function operatorFullName(op: Operator): string {
@@ -56,30 +77,34 @@ export function operatorFullName(op: Operator): string {
 
 export function operatorStatusLabel(status: OperatorStatus): string {
   const map: Record<OperatorStatus, string> = {
-    pendente: "Pendente",
-    ativo: "Ativo",
-    inativo: "Inativo",
-    bloqueado: "Bloqueado",
-    ferias: "Férias",
-    substituido: "Substituído",
-    cancelado: "Cancelado",
+    pendente: 'Pendente',
+    ativo: 'Ativo',
+    inativo: 'Inativo',
+    bloqueado: 'Bloqueado',
+    ferias: 'Férias',
+    substituido: 'Substituído',
+    cancelado: 'Cancelado',
   };
   return map[status];
 }
 
 export function operatorPerfilLabel(perfil: OperatorPerfil): string {
   const map: Record<OperatorPerfil, string> = {
-    administrador: "Administrador",
-    gestor: "Gestor",
-    comprador: "Comprador",
-    solicitante: "Solicitante",
-    auditor: "Auditor",
+    administrador: 'Administrador',
+    gestor: 'Gestor',
+    comprador: 'Comprador',
+    solicitante: 'Solicitante',
+    auditor: 'Auditor',
   };
   return map[perfil];
 }
 
 export type MacroProfile =
-  "Solicitante" | "Comprador" | "Gestor" | "Administrador" | "Auditor";
+  | 'Solicitante'
+  | 'Comprador'
+  | 'Gestor'
+  | 'Administrador'
+  | 'Auditor';
 
 export const MACRO_PROFILES: Record<
   MacroProfile,
@@ -93,79 +118,43 @@ export const MACRO_PROFILES: Record<
   }
 > = {
   Solicitante: {
-    perfil: "solicitante",
-    cargo: "[APP] Solicitante",
+    perfil: 'solicitante',
+    cargo: '[APP] Solicitante',
     mobile: true,
     desktop: false,
-    perms: [
-      "Criar solicitações.",
-      "Consultar andamento das solicitações.",
-      "Acompanhar aprovações.",
-    ],
-    rests: [
-      "Não aprova solicitações.",
-      "Não realiza compras.",
-      "Não acessa módulos administrativos.",
-    ],
+    perms: ['Criar solicitações.', 'Consultar andamento das solicitações.', 'Acompanhar aprovações.'],
+    rests: ['Não aprova solicitações.', 'Não realiza compras.', 'Não acessa módulos administrativos.'],
   },
   Comprador: {
-    perfil: "comprador",
-    cargo: "[DESKTOP] Comprador",
+    perfil: 'comprador',
+    cargo: '[DESKTOP] Comprador',
     mobile: true,
     desktop: true,
-    perms: [
-      "Receber solicitações.",
-      "Realizar cotações.",
-      "Comparar fornecedores.",
-      "Emitir orçamentos.",
-      "Conduzir processos de compra.",
-      "Acompanhar negociações.",
-    ],
+    perms: ['Receber solicitações.', 'Realizar cotações.', 'Comparar fornecedores.', 'Emitir orçamentos.', 'Conduzir processos de compra.', 'Acompanhar negociações.'],
     rests: [],
   },
   Gestor: {
-    perfil: "gestor",
-    cargo: "[DESKTOP] Gestor",
+    perfil: 'gestor',
+    cargo: '[DESKTOP] Gestor',
     mobile: true,
     desktop: true,
-    perms: [
-      "Aprovar solicitações.",
-      "Aprovar valores conforme política.",
-      "Acompanhar solicitações da equipe.",
-      "Delegar aprovações quando permitido.",
-    ],
+    perms: ['Aprovar solicitações.', 'Aprovar valores conforme política.', 'Acompanhar solicitações da equipe.', 'Delegar aprovações quando permitido.'],
     rests: [],
   },
   Administrador: {
-    perfil: "administrador",
-    cargo: "[DESKTOP] Administrador",
+    perfil: 'administrador',
+    cargo: '[DESKTOP] Administrador',
     mobile: true,
     desktop: true,
-    perms: [
-      "Administração do sistema.",
-      "Gestão de usuários.",
-      "Configurações gerais.",
-      "Gestão operacional completa.",
-    ],
+    perms: ['Administração do sistema.', 'Gestão de usuários.', 'Configurações gerais.', 'Gestão operacional completa.'],
     rests: [],
   },
   Auditor: {
-    perfil: "auditor",
-    cargo: "[DESKTOP] Auditor",
+    perfil: 'auditor',
+    cargo: '[DESKTOP] Auditor',
     mobile: false,
     desktop: true,
-    perms: [
-      "Consulta de informações.",
-      "Consulta de históricos.",
-      "Consulta de aprovações.",
-      "Consulta de processos encerrados.",
-    ],
-    rests: [
-      "Não cria solicitações.",
-      "Não aprova solicitações.",
-      "Não realiza compras.",
-      "Não altera registros.",
-      "Não acessa funções administrativas.",
-    ],
+    perms: ['Consulta de informações.', 'Consulta de históricos.', 'Consulta de aprovações.', 'Consulta de processos encerrados.'],
+    rests: ['Não cria solicitações.', 'Não aprova solicitações.', 'Não realiza compras.', 'Não altera registros.', 'Não acessa funções administrativas.'],
   },
 };
