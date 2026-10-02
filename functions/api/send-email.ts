@@ -98,13 +98,14 @@ export async function onRequestPost(context: any) {
         .join('');
 
       const { data: invite, error: fetchError } = await supabase
-        .from('operator_invitations')
-        .select('*')
-        .eq('token_hash', hashedToken)
-        .eq('status', 'pendente')
-        .single();
+        .rpc('get_operator_invitation_for_email_delivery', { p_token_hash: hashedToken });
 
       if (fetchError || !invite || new Date(invite.expires_at).getTime() <= Date.now()) {
+        console.error('[operator_invite] secure lookup failed', {
+          hasInvite: Boolean(invite),
+          error: fetchError?.message || null,
+          userId: user.id,
+        });
         return new Response(JSON.stringify({ error: 'Convite não encontrado, bloqueado ou expirado' }), {
           status: 404,
           headers: { 'Content-Type': 'application/json', ...corsHeaders }
