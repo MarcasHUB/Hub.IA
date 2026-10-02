@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, ChevronDown, ChevronUp, FileText, Image as ImageIcon, Plus, RefreshCw, Smartphone } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/infrastructure/supabase/client';
 import { useAuthenticatedIdentity } from '@/modules/auth/presentation/hooks/useAuthenticatedIdentity';
 import { Button } from '@/shared/components/ui/Button';
@@ -14,6 +14,7 @@ const STATUS_LABEL:Record<string,string>={draft:'Rascunho',sent:'Enviada',pendin
 
 export default function QuotationsListPage(){
   const navigate=useNavigate();
+  const [searchParams]=useSearchParams();
   const {data:identity}=useAuthenticatedIdentity();
   const organizationId=identity?.organizationId||'';
   const [tab,setTab]=useState<Tab>('sent');
@@ -24,6 +25,7 @@ export default function QuotationsListPage(){
   const [loading,setLoading]=useState(true);
   const [error,setError]=useState('');
   const [converting,setConverting]=useState<string|null>(null);
+  const [linkPrompt,setLinkPrompt]=useState<{requestId:string;materialId:string;materialName:string}|null>(null);
 
   const load=useCallback(async()=>{
     if(!organizationId)return;
@@ -40,6 +42,12 @@ export default function QuotationsListPage(){
 
   useEffect(()=>{void load();},[load]);
 
+  useEffect(()=>{
+    if(searchParams.get('tab')==='internal') setTab('internal');
+    const requestId=searchParams.get('request');
+    if(requestId) setExpanded(requestId);
+  },[searchParams]);
+
   const visible=useMemo(()=>rows.filter(row=>{
     if(tab==='received')return row.target_organization_id===organizationId;
     if(tab==='drafts')return row.organization_id===organizationId&&row.status==='draft';
@@ -50,11 +58,39 @@ export default function QuotationsListPage(){
   const convertToQuotation=async(row:InternalRow)=>{
     setConverting(row.id);
     setError('');
+
+    const materialIds=row.internal_request_items.map(item=>item.material_id).filter((id): id is string=>Boolean(id));
+    if(materialIds.length){
+      const {data:links}=await supabase
+        .from('organization_materials')
+        .select('material_id,internal_sku,available_for_purchase')
+        .eq('organization_id',organizationId)
+        .in('material_id',materialIds);
+
+      const linkByMaterial=new Map((links||[]).map(link=>[link.material_id,link]));
+      const missing=row.internal_request_items.find(item=>{
+        if(!item.material_id)return false;
+        const link=linkByMaterial.get(item.material_id);
+        return !link || !String(link.internal_sku||'').trim() || link.available_for_purchase===false;
+      });
+
+      if(missing?.material_id){
+        setConverting(null);
+        setLinkPrompt({
+          requestId:row.id,
+          materialId:missing.material_id,
+          materialName:missing.description,
+        });
+        return;
+      }
+    }
+
     const {data,error:convertError}=await (supabase as any).rpc('convert_internal_request_to_quotation',{p_request_id:row.id});
     setConverting(null);
     if(convertError){
       const msg=String(convertError.message||'');
       if(msg.includes('APP_CAMPO_ITEM_REQUIRES_CLASSIFICATION')) setError('Esta solicitação possui item por descrição livre. Classifique o material antes de criar a cotação.');
+      else if(msg.includes('APP_CAMPO_COMPANY_ITEM_CODE_REQUIRED')) setError('O material precisa ter o código interno da empresa antes de seguir para cotação.');
       else if(msg.includes('APP_CAMPO_MATERIAL_NOT_PURCHASABLE')) setError('Um dos materiais ainda não está disponível para compra no catálogo da empresa.');
       else setError('Não foi possível criar a cotação a partir desta solicitação.');
       return;
@@ -77,7 +113,30 @@ export default function QuotationsListPage(){
     }
   };
 
-  return <div className="space-y-6">
+  const confirmCatalogLink=()=>{
+    if(!linkPrompt)return;
+    const target=`/products?link=1&source=app-campo&material=${encodeURIComponent(linkPrompt.materialId)}&returnRequest=${encodeURIComponent(linkPrompt.requestId)}`;
+    setLinkPrompt(null);
+    navigate(target);
+  };
+
+  return <>
+  {linkPrompt&&<div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm">
+    <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+      <h3 className="text-lg font-black text-slate-900">Adicionar item ao catálogo da empresa?</h3>
+      <p className="mt-2 text-sm leading-relaxed text-slate-600">
+        O material <strong>{linkPrompt.materialName}</strong> existe no Catálogo Global, mas ainda não está pronto para compra nesta empresa.
+      </p>
+      <p className="mt-3 text-xs leading-relaxed text-slate-500">
+        Ao continuar, o material abrirá já selecionado. Preencha o <strong>código interno da empresa</strong> e clique em Vincular material.
+      </p>
+      <div className="mt-5 flex justify-end gap-2">
+        <Button variant="outline" onClick={()=>setLinkPrompt(null)}>Agora não</Button>
+        <Button onClick={confirmCatalogLink} className="bg-indigo-600 text-white">Sim, adicionar</Button>
+      </div>
+    </div>
+  </div>}
+  <div className="space-y-6">
     <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
       <div><h1 className="flex items-center gap-2 text-2xl font-extrabold text-slate-900"><FileText className="h-6 w-6 text-indigo-600"/>Cotações</h1><p className="mt-1 text-sm text-slate-500">Solicitações internas, cotações e propostas do processo de compras.</p></div>
       <div className="flex gap-2"><Button variant="outline" onClick={()=>void load()}><RefreshCw className="mr-2 h-4 w-4"/>Atualizar</Button><Button onClick={()=>navigate('/products')} className="bg-indigo-600 text-white"><Plus className="mr-2 h-4 w-4"/>Nova Cotação</Button></div>
@@ -120,5 +179,6 @@ export default function QuotationsListPage(){
     ):visible.length===0?<div className="rounded-xl border bg-white p-12 text-center"><FileText className="mx-auto h-9 w-9 text-slate-300"/><p className="mt-3 text-sm font-semibold text-slate-700">Nenhum registro nesta visão.</p></div>:(
       <div className="overflow-x-auto rounded-xl border bg-white shadow-sm"><table className="min-w-[900px] w-full text-left text-sm"><thead className="border-b bg-slate-50 text-[10px] uppercase text-slate-500"><tr><th className="px-5 py-3">Código</th><th className="px-5 py-3">Tipo</th><th className="px-5 py-3">Solicitante</th><th className="px-5 py-3">Itens</th><th className="px-5 py-3">Data</th><th className="px-5 py-3">Status</th><th className="px-5 py-3 text-right">Ações</th></tr></thead><tbody className="divide-y">{visible.map(row=><tr key={row.id}><td className="px-5 py-4"><button onClick={()=>navigate(`/quotations/${row.id}`)} className="font-bold text-indigo-700">{row.title}</button></td><td className="px-5 py-4">{row.request_type||'Legado'}</td><td className="px-5 py-4">{row.requester_name_snapshot||'Não registrado'}</td><td className="px-5 py-4">{row.quotation_items?.[0]?.count??0}</td><td className="px-5 py-4">{new Date(row.created_at).toLocaleDateString('pt-BR')}</td><td className="px-5 py-4">{STATUS_LABEL[row.status]||row.status}</td><td className="px-5 py-4 text-right"><Button variant="outline" onClick={()=>navigate(`/quotations/${row.id}`)} className="h-9 text-xs">Ver detalhes</Button></td></tr>)}</tbody></table></div>
     )}
-  </div>;
+  </div>
+  </>;
 }
