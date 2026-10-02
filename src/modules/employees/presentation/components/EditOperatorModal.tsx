@@ -321,7 +321,7 @@ export function EditOperatorModal({ authUserId, operator, orgId, operators, onCl
                         if (op.status === 'cancelado' || op.id === operator.id) return false;
                         if (activeMacro === 'Auditor' || activeMacro === 'Gestor') return op.perfil === 'administrador';
                         if (activeMacro === 'Comprador') return op.perfil === 'administrador' || op.perfil === 'gestor';
-                        if (activeMacro === 'Solicitante') return op.perfil === 'gestor';
+                        if (activeMacro === 'Solicitante') return op.perfil === 'administrador' || op.perfil === 'gestor';
                         return false;
                       }).map(op => <option key={op.id} value={op.id}>{op.nome} {op.sobrenome}</option>)}
                     </select>
