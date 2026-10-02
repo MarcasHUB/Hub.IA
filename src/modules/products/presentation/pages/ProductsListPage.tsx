@@ -102,7 +102,11 @@ export default function ProductsListPage({
   }, [tenantId]);
 
   useEffect(() => {
-    if (searchParams.get('link') === '1') setIsLinkMaterialOpen(true);
+    if (searchParams.get('link') === '1') {
+      const materialId = searchParams.get('material') || undefined;
+      setLinkMaterialId(materialId);
+      setIsLinkMaterialOpen(true);
+    }
   }, [searchParams]);
   
   const [search, setSearch] = useState('');
@@ -502,7 +506,16 @@ export default function ProductsListPage({
           organizationId={tenantId}
           initialMaterialId={linkMaterialId}
           onClose={() => setIsLinkMaterialOpen(false)}
-          onLinked={() => { void loadProducts(); if (catalogScope !== 'MINE') void loadGlobalMaterials(0); }}
+          requireInternalSku={searchParams.get('source') === 'app-campo'}
+          onLinked={() => {
+            void loadProducts();
+            if (catalogScope !== 'MINE') void loadGlobalMaterials(0);
+            const returnRequest = searchParams.get('returnRequest');
+            if (returnRequest) {
+              setIsLinkMaterialOpen(false);
+              navigate(`/quotations?tab=internal&request=${encodeURIComponent(returnRequest)}`, { replace: true });
+            }
+          }}
         />
       )}
 
