@@ -23,6 +23,7 @@ export default function QuotationsListPage(){
   const [signedPhotos,setSignedPhotos]=useState<Record<string,string>>({});
   const [loading,setLoading]=useState(true);
   const [error,setError]=useState('');
+  const [converting,setConverting]=useState<string|null>(null);
 
   const load=useCallback(async()=>{
     if(!organizationId)return;
@@ -45,6 +46,22 @@ export default function QuotationsListPage(){
     if(tab==='internal')return false;
     return row.organization_id===organizationId&&row.status!=='draft';
   }),[organizationId,rows,tab]);
+
+  const convertToQuotation=async(row:InternalRow)=>{
+    setConverting(row.id);
+    setError('');
+    const {data,error:convertError}=await (supabase as any).rpc('convert_internal_request_to_quotation',{p_request_id:row.id});
+    setConverting(null);
+    if(convertError){
+      const msg=String(convertError.message||'');
+      if(msg.includes('APP_CAMPO_ITEM_REQUIRES_CLASSIFICATION')) setError('Esta solicitação possui item por descrição livre. Classifique o material antes de criar a cotação.');
+      else if(msg.includes('APP_CAMPO_MATERIAL_NOT_PURCHASABLE')) setError('Um dos materiais ainda não está disponível para compra no catálogo da empresa.');
+      else setError('Não foi possível criar a cotação a partir desta solicitação.');
+      return;
+    }
+    await load();
+    if(data) navigate(`/quotations/${data}`);
+  };
 
   const toggleInternal=async(row:InternalRow)=>{
     if(expanded===row.id){setExpanded(null);return;}
@@ -88,7 +105,16 @@ export default function QuotationsListPage(){
               <div className="min-w-0"><p className="text-sm font-extrabold text-slate-900">{item.description}</p><p className="mt-1 text-xs font-bold text-indigo-700">{item.quantity} {item.uom}</p>{item.item_notes&&<p className="mt-2 text-xs text-slate-500">{item.item_notes}</p>}<p className="mt-2 text-[10px] font-semibold text-slate-400">{item.material_id?'Material vinculado ao catálogo':'Descrição livre — comprador deve classificar antes da cotação'}</p></div>
             </div>
           </div>)}</div>
-          <div className="mt-4 rounded-xl border border-indigo-100 bg-indigo-50 p-3 text-xs text-indigo-800"><strong>Próxima etapa:</strong> o comprador revisa/classifica os itens e então cria a cotação com fornecedores. O solicitante não acessa a criação de RFQ.</div>
+          <div className="mt-4 flex flex-col gap-3 rounded-xl border border-indigo-100 bg-indigo-50 p-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-xs text-indigo-800"><strong>Próxima etapa:</strong> revisar os itens e gerar o rascunho da cotação. Itens por descrição livre precisam ser classificados antes.</p>
+            <Button
+              onClick={()=>void convertToQuotation(row)}
+              disabled={converting===row.id || row.internal_request_items.some(item=>!item.material_id)}
+              className="shrink-0 bg-indigo-600 text-white disabled:opacity-50"
+            >
+              {converting===row.id?'Criando...':'Criar cotação'}
+            </Button>
+          </div>
         </div>}
       </div>)}</div>
     ):visible.length===0?<div className="rounded-xl border bg-white p-12 text-center"><FileText className="mx-auto h-9 w-9 text-slate-300"/><p className="mt-3 text-sm font-semibold text-slate-700">Nenhum registro nesta visão.</p></div>:(
