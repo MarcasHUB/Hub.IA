@@ -34,6 +34,8 @@ export default function LoginPage() {
       setErrorMsg('Sua empresa foi inativada. Entre em contato com o suporte da Hub.IA.');
     } else if (reason === 'identity_inconsistent') {
       setErrorMsg('Não foi possível confirmar sua identidade e empresa. Entre em contato com o suporte.');
+    } else if (reason === 'access_disabled') {
+      setErrorMsg('Seu acesso está desativado. Entre em contato com o administrador da empresa.');
     }
   }, [searchParams]);
 
@@ -63,7 +65,22 @@ export default function LoginPage() {
       if (!data.user) throw new Error('AUTH_SESSION_INVALID');
 
       await transitionTo(data.user.id);
-      navigate('/dashboard');
+
+      const { data: accessProfile } = await supabase
+        .from('profiles')
+        .select('access_channel, preferred_interface, is_active')
+        .eq('user_id', data.user.id)
+        .maybeSingle();
+
+      if (accessProfile?.is_active === false || accessProfile?.access_channel === 'disabled') {
+        throw new Error('Seu acesso está desativado. Entre em contato com o administrador da empresa.');
+      }
+
+      const mobileFirst =
+        accessProfile?.access_channel === 'mobile'
+        || (accessProfile?.access_channel === 'both' && accessProfile?.preferred_interface === 'mobile');
+
+      navigate(mobileFirst ? '/app' : '/dashboard', { replace: true });
     } catch (error) {
       await supabase.auth.signOut({ scope: 'local' });
       await transitionTo(null);
