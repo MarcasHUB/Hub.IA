@@ -24,11 +24,12 @@ const STATUS_LABELS: Record<string, string> = {
   validated: 'Validado',
 };
 
-export function LinkMaterialModal({ organizationId, onClose, onLinked, initialMaterialId }: {
+export function LinkMaterialModal({ organizationId, onClose, onLinked, initialMaterialId, requireInternalSku = false }: {
   organizationId: string;
   onClose: () => void;
   onLinked: () => void;
   initialMaterialId?: string;
+  requireInternalSku?: boolean;
 }) {
   const [materials, setMaterials] = useState<MaterialRow[]>([]);
   const [linkedIds, setLinkedIds] = useState<Set<string>>(new Set());
@@ -106,6 +107,7 @@ export function LinkMaterialModal({ organizationId, onClose, onLinked, initialMa
   const canLink = Boolean(
     selected?.category_id
     && displayName.trim()
+    && (!requireInternalSku || internalSku.trim())
     && (availableForPurchase || availableForSale),
   );
 
@@ -197,7 +199,7 @@ export function LinkMaterialModal({ organizationId, onClose, onLinked, initialMa
               <div className="space-y-4">
                 <div><p className="text-[10px] font-bold uppercase text-slate-400">Material selecionado</p><p className="font-bold text-slate-900">{selected.official_name}</p></div>
                 <div><label className="mb-1 block text-xs font-bold text-slate-500">Nome de exibição *</label><Input value={displayName} onChange={event => setDisplayName(event.target.value)} /></div>
-                <div><label className="mb-1 block text-xs font-bold text-slate-500">Código interno da empresa</label><Input value={internalSku} onChange={event => setInternalSku(event.target.value)} placeholder="Opcional" /><p className="mt-1 text-xs text-slate-500">Código usado por esta empresa para identificar o produto em suas operações de compra ou venda.</p></div>
+                <div><label className="mb-1 block text-xs font-bold text-slate-500">Código interno da empresa{requireInternalSku ? ' *' : ''}</label><Input value={internalSku} onChange={event => setInternalSku(event.target.value)} placeholder={requireInternalSku ? 'Obrigatório para seguir' : 'Opcional'} /><p className="mt-1 text-xs text-slate-500">{requireInternalSku ? 'Informe o código utilizado pela sua empresa. Sem ele, o material não poderá seguir para cotação.' : 'Código usado por esta empresa para identificar o produto em suas operações de compra ou venda.'}</p></div>
                 <div className="rounded-xl border bg-slate-50 p-3"><p className="text-[10px] font-bold uppercase text-slate-400">Categoria *</p><p className="text-sm font-semibold text-slate-800">{selected.categories?.[0]?.name || 'Categoria em revisão'}</p>{!selected.category_id && <p className="mt-1 text-xs text-amber-700">Este produto precisa ter uma categoria antes de ser vinculado.</p>}</div>
                 <label className="flex items-center gap-3 rounded-xl border p-3 text-sm"><input type="checkbox" checked={availableForPurchase} onChange={event => setAvailableForPurchase(event.target.checked)} /><span><strong className="block">Disponível para compra</strong><span className="text-xs text-slate-500">A empresa compra ou deseja cotar este material.</span></span></label>
                 <label className="flex items-center gap-3 rounded-xl border p-3 text-sm"><input type="checkbox" checked={availableForSale} onChange={event => setAvailableForSale(event.target.checked)} /><span><strong className="block">Disponível para venda</strong><span className="text-xs text-slate-500">A empresa comercializa este material.</span></span></label>
