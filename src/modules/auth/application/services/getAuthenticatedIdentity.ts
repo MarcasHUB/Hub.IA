@@ -11,6 +11,15 @@ export interface AuthenticatedIdentity {
   appRole: string | null;
   organizationName: string;
   organizationLogoUrl: string | null;
+  accessChannel: 'web' | 'mobile' | 'both' | 'disabled';
+  preferredInterface: 'web' | 'mobile';
+  isActive: boolean;
+}
+
+interface AccessProfileRow {
+  access_channel: 'web' | 'mobile' | 'both' | 'disabled' | null;
+  preferred_interface: 'web' | 'mobile' | null;
+  is_active: boolean | null;
 }
 
 interface IdentityContextRow {
@@ -41,6 +50,15 @@ export async function getAuthenticatedIdentity(expectedUserId?: string): Promise
     throw new Error('AUTH_IDENTITY_INCONSISTENT');
   }
 
+  const { data: accessData } = await supabase
+    .from('profiles')
+    .select('access_channel, preferred_interface, is_active')
+    .eq('user_id', data.user_id)
+    .maybeSingle();
+
+  const access = accessData as AccessProfileRow | null;
+  const fallbackChannel = data.operator_profile === 'solicitante' ? 'mobile' : 'web';
+
   return {
     userId: data.user_id,
     organizationId: data.organization_id,
@@ -51,5 +69,8 @@ export async function getAuthenticatedIdentity(expectedUserId?: string): Promise
     appRole: data.app_role || null,
     organizationName: data.organization_name || 'Empresa',
     organizationLogoUrl: data.organization_logo_url || null,
+    accessChannel: access?.access_channel || fallbackChannel,
+    preferredInterface: access?.preferred_interface || (fallbackChannel === 'mobile' ? 'mobile' : 'web'),
+    isActive: access?.is_active !== false,
   };
 }
