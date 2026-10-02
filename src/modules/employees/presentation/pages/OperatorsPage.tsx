@@ -180,7 +180,7 @@ function InviteModal({ onClose, onInvite, operators, authUserId, organizationId 
       if (op.status === 'cancelado') return false;
       if (form.macroProfile === 'Auditor' || form.macroProfile === 'Gestor') return op.perfil === 'administrador';
       if (form.macroProfile === 'Comprador') return op.perfil === 'administrador' || op.perfil === 'gestor';
-      if (form.macroProfile === 'Solicitante') return op.perfil === 'gestor';
+      if (form.macroProfile === 'Solicitante') return op.perfil === 'administrador' || op.perfil === 'gestor';
       return false;
     });
 
@@ -318,7 +318,7 @@ function InviteModal({ onClose, onInvite, operators, authUserId, organizationId 
                           if (op.status === 'cancelado') return false;
                           if (form.macroProfile === 'Auditor' || form.macroProfile === 'Gestor') return op.perfil === 'administrador';
                           if (form.macroProfile === 'Comprador') return op.perfil === 'administrador' || op.perfil === 'gestor';
-                          if (form.macroProfile === 'Solicitante') return op.perfil === 'gestor';
+                          if (form.macroProfile === 'Solicitante') return op.perfil === 'administrador' || op.perfil === 'gestor';
                           return false;
                         })
                         .map(op => (
