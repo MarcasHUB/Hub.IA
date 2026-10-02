@@ -23,6 +23,15 @@ type MaterialOption = {
   linked_to_company?: boolean;
 };
 
+type RequestItemSummary = {
+  id: string;
+  description: string;
+  quantity: number;
+  uom: string;
+  item_notes: string | null;
+  photo_path: string | null;
+};
+
 type InternalRequest = {
   id: string;
   priority: string;
@@ -31,7 +40,7 @@ type InternalRequest = {
   department: string | null;
   notes: string | null;
   created_at: string;
-  internal_request_items?: Array<{ count?: number }> | null;
+  internal_request_items?: RequestItemSummary[] | null;
 };
 
 type DraftItem = {
@@ -73,6 +82,8 @@ export default function MobileRequesterPage() {
   const [department,setDepartment] = useState('');
   const [notes,setNotes] = useState('');
   const [items,setItems] = useState<DraftItem[]>([newItem()]);
+  const [selectedRequest,setSelectedRequest] = useState<InternalRequest|null>(null);
+  const [requestPhotos,setRequestPhotos] = useState<Record<string,string>>({});
 
   const load = async () => {
     if (!identity?.userId) return;
@@ -80,7 +91,7 @@ export default function MobileRequesterPage() {
     setError('');
     const [requestsResult,materialsResult] = await Promise.all([
       supabase.from('internal_requests')
-        .select('id, priority, status, expected_date, department, notes, created_at, internal_request_items(count)')
+        .select('id, priority, status, expected_date, department, notes, created_at, internal_request_items(id,description,quantity,uom,item_notes,photo_path)')
         .eq('requester_id',identity.userId).order('created_at',{ascending:false}),
       (supabase as any).rpc('get_requestable_materials'),
     ]);
@@ -163,6 +174,18 @@ export default function MobileRequesterPage() {
     }finally{setSaving(false);}
   };
 
+  const openRequestSummary=async(request:InternalRequest)=>{
+    setSelectedRequest(request);
+    const withPhotos=(request.internal_request_items||[]).filter(item=>item.photo_path);
+    if(!withPhotos.length)return;
+    const urls:Record<string,string>={};
+    await Promise.all(withPhotos.map(async item=>{
+      const {data}=await supabase.storage.from('request-attachments').createSignedUrl(item.photo_path!,3600);
+      if(data?.signedUrl)urls[item.id]=data.signedUrl;
+    }));
+    if(Object.keys(urls).length)setRequestPhotos(current=>({...current,...urls}));
+  };
+
   const signOut=async()=>{await supabase.auth.signOut({scope:'local'});await transitionTo(null);navigate('/login',{replace:true});};
   const firstName=identity?.fullName?.split(' ')[0]||'Solicitante';
 
@@ -205,9 +228,9 @@ export default function MobileRequesterPage() {
           </div>
           {loading?<div className="rounded-2xl border bg-white p-8 text-center text-sm text-slate-500">Carregando...</div>:
           requests.length===0?<div className="rounded-3xl border border-dashed bg-white p-8 text-center"><PackageSearch className="mx-auto h-8 w-8 text-slate-300"/><p className="mt-3 text-sm font-bold">Nenhuma solicitação</p></div>:
-          <div className="space-y-3">{requests.map(r=><article key={r.id} className="rounded-2xl border bg-white p-4 shadow-sm">
+          <div className="space-y-3">{requests.map(r=><article key={r.id} onClick={()=>void openRequestSummary(r)} className="cursor-pointer rounded-2xl border bg-white p-4 shadow-sm transition active:scale-[0.995]">
             <div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="text-[10px] font-black uppercase text-slate-400">{new Date(r.created_at).toLocaleDateString('pt-BR')}</p><h4 className="mt-1 truncate text-sm font-extrabold">{r.department||'Solicitação de compra'}</h4></div><span className="shrink-0 rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-extrabold">{STATUS_LABEL[r.status]}</span></div>
-            <div className="mt-3 flex items-center justify-between text-xs text-slate-500"><span>{r.internal_request_items?.[0]?.count??0} item(ns)</span><span>{r.priority==='emergencial'?'Emergencial':'Normal'}</span></div>
+            <div className="mt-3 flex items-center justify-between text-xs text-slate-500"><span>{r.internal_request_items?.length??0} item(ns)</span><span>{r.priority==='emergencial'?'Emergencial':'Normal'}</span></div>
             {r.expected_date&&<div className="mt-2 flex items-center gap-1.5 text-[11px] text-slate-500"><CalendarDays className="h-3.5 w-3.5"/>Necessidade: {new Date(r.expected_date+'T12:00:00').toLocaleDateString('pt-BR')}</div>}
           </article>)}</div>}
         </section>
@@ -218,6 +241,43 @@ export default function MobileRequesterPage() {
           <button onClick={()=>setShowNew(true)} className="flex flex-col items-center justify-center gap-1 text-slate-500"><div className="flex h-9 w-9 items-center justify-center rounded-full bg-indigo-600 text-white"><Plus className="h-5 w-5"/></div><span className="text-[10px] font-bold">Solicitar</span></button>
           <button className="flex flex-col items-center justify-center gap-1 text-slate-500"><UserRound className="h-5 w-5"/><span className="text-[10px] font-bold">Perfil</span></button></div>
       </nav>
+
+      {selectedRequest&&<div className="fixed inset-0 z-50 flex items-end bg-slate-950/60 sm:items-center sm:justify-center sm:p-4">
+        <div className="max-h-[92dvh] w-full overflow-y-auto rounded-t-3xl bg-white p-4 pb-8 shadow-2xl sm:max-w-xl sm:rounded-3xl">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-[.18em] text-indigo-600">Resumo da solicitação</p>
+              <h3 className="mt-1 text-xl font-black text-slate-900">{selectedRequest.department||'Solicitação de compra'}</h3>
+              <p className="mt-1 text-xs text-slate-500">Enviada em {new Date(selectedRequest.created_at).toLocaleString('pt-BR')}</p>
+            </div>
+            <button onClick={()=>setSelectedRequest(null)} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100"><X className="h-4 w-4"/></button>
+          </div>
+
+          <div className="mt-4 grid grid-cols-2 gap-2">
+            <div className="rounded-2xl bg-slate-50 p-3"><p className="text-[10px] font-black uppercase text-slate-400">Status</p><p className="mt-1 text-sm font-extrabold">{STATUS_LABEL[selectedRequest.status]}</p></div>
+            <div className="rounded-2xl bg-slate-50 p-3"><p className="text-[10px] font-black uppercase text-slate-400">Prioridade</p><p className="mt-1 text-sm font-extrabold">{selectedRequest.priority==='emergencial'?'Emergencial':'Normal'}</p></div>
+            <div className="rounded-2xl bg-slate-50 p-3"><p className="text-[10px] font-black uppercase text-slate-400">Data necessária</p><p className="mt-1 text-sm font-extrabold">{selectedRequest.expected_date?new Date(selectedRequest.expected_date+'T12:00:00').toLocaleDateString('pt-BR'):'Não informada'}</p></div>
+            <div className="rounded-2xl bg-slate-50 p-3"><p className="text-[10px] font-black uppercase text-slate-400">Itens</p><p className="mt-1 text-sm font-extrabold">{selectedRequest.internal_request_items?.length??0}</p></div>
+          </div>
+
+          <div className="mt-5 space-y-3">
+            <h4 className="text-sm font-black">Itens solicitados</h4>
+            {(selectedRequest.internal_request_items||[]).map(item=><div key={item.id} className="rounded-2xl border bg-white p-3">
+              <div className="flex gap-3">
+                {requestPhotos[item.id]?<img src={requestPhotos[item.id]} alt="" className="h-20 w-20 shrink-0 rounded-xl object-cover"/>:item.photo_path?<div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-xl bg-slate-100"><ImageIcon className="h-5 w-5 text-slate-400"/></div>:null}
+                <div className="min-w-0">
+                  <p className="text-sm font-extrabold text-slate-900">{item.description}</p>
+                  <p className="mt-1 text-sm font-black text-indigo-700">{item.quantity} {item.uom}</p>
+                  {item.item_notes&&<p className="mt-2 text-xs leading-relaxed text-slate-500">{item.item_notes}</p>}
+                </div>
+              </div>
+            </div>)}
+          </div>
+
+          {selectedRequest.notes&&<div className="mt-4 rounded-2xl border bg-slate-50 p-3"><p className="text-[10px] font-black uppercase text-slate-400">Observação</p><p className="mt-1 text-xs leading-relaxed text-slate-700">{selectedRequest.notes}</p></div>}
+          <button onClick={()=>setSelectedRequest(null)} className="mt-5 h-11 w-full rounded-xl bg-slate-900 text-sm font-extrabold text-white">Fechar</button>
+        </div>
+      </div>}
 
       {showNew&&<div className="fixed inset-0 z-50 flex items-end bg-slate-950/60 sm:items-center sm:justify-center sm:p-4">
         <div className="max-h-[96dvh] w-full overflow-y-auto rounded-t-3xl bg-white p-4 pb-8 shadow-2xl sm:max-w-xl sm:rounded-3xl">
