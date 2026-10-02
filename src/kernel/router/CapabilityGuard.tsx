@@ -35,5 +35,30 @@ export function IdentityGuard({ children }: { children: ReactNode }) {
   if (isError || !identity) {
     return <Navigate to="/login" replace state={{ from: location.pathname }} />;
   }
+  if (!identity.isActive || identity.accessChannel === 'disabled') {
+    return <Navigate to="/login?reason=access_disabled" replace />;
+  }
+  if (identity.accessChannel === 'mobile') {
+    return <Navigate to="/app" replace />;
+  }
+  return <>{children}</>;
+}
+
+export function MobileIdentityGuard({ children }: { children: ReactNode }) {
+  const location = useLocation();
+  const { data: identity, isLoading, isError } = useAuthenticatedIdentity();
+
+  if (isLoading) {
+    return <div className="flex min-h-screen items-center justify-center"><Loader2 className="h-6 w-6 animate-spin" /></div>;
+  }
+  if (isError || !identity) {
+    return <Navigate to="/login" replace state={{ from: location.pathname }} />;
+  }
+  if (!identity.isActive || identity.accessChannel === 'disabled') {
+    return <Navigate to="/login?reason=access_disabled" replace />;
+  }
+  if (identity.accessChannel === 'web') {
+    return <Navigate to="/dashboard" replace />;
+  }
   return <>{children}</>;
 }
