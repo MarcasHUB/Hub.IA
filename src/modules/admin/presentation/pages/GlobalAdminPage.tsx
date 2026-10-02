@@ -8,6 +8,7 @@ import { CategoriesPage } from '../../../categories/presentation/pages/Categorie
 import SegmentsPage from '../../../employees/presentation/pages/SegmentsPage';
 import SupportAdminView from '../../../support/presentation/components/SupportAdminView';
 import CertificationsPage from './CertificationsPage';
+import AppCampoAdminPage from './AppCampoAdminPage';
 
 const ADMIN_SECTIONS = [
   {
@@ -132,19 +133,7 @@ export default function GlobalAdminPage() {
             {activeTab === 'segmentos' && <SegmentsPage />}
             {activeTab === 'certificacoes' && <CertificationsPage />}
             {activeTab === 'suporte' && <SupportAdminView />}
-            {activeTab === 'campo' && (
-              <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-200">
-                <h2 className="text-xl font-bold text-slate-800 mb-4">App Campo</h2>
-                <p className="text-slate-600 mb-6">Ambiente de homologação e atualizações do aplicativo de operação de campo antes de colocar em operação.</p>
-                <Link 
-                  to="/pwa-choice"
-                  className="bg-indigo-600 hover:bg-indigo-700 text-white h-10 px-5 rounded-xl font-bold inline-flex items-center shadow-md transition-colors"
-                  title="Testar Acesso APP / Solicitação de Campo"
-                >
-                  Testar Acesso APP Campo
-                </Link>
-              </div>
-            )}
+            {activeTab === 'campo' && <AppCampoAdminPage />}
           </main>
         </div>
       </div>
