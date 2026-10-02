@@ -1,502 +1,247 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  CalendarDays,
-  CheckCircle2,
-  ChevronRight,
-  ClipboardList,
-  Clock3,
-  LogOut,
-  PackagePlus,
-  Plus,
-  RefreshCw,
-  Trash2,
-  UserRound,
-  X,
+  CalendarDays, Camera, CheckCircle2, ChevronRight, ClipboardList, Clock3,
+  Image as ImageIcon, LogOut, PackageSearch, Plus, RefreshCw, Search,
+  Smartphone, Trash2, UserRound, X,
 } from 'lucide-react';
 import { supabase } from '@/infrastructure/supabase/client';
 import { useAuthenticatedIdentity } from '@/modules/auth/presentation/hooks/useAuthenticatedIdentity';
 import { usePrivateSession } from '@/modules/auth/presentation/context/PrivateSessionBoundary';
 
-type RequestStatus =
-  | 'pendente'
-  | 'em_aprovacao'
-  | 'aprovada'
-  | 'rejeitada'
-  | 'em_cotacao'
-  | 'pedido_emitido'
-  | 'entregue'
-  | 'cancelada';
+type RequestStatus = 'pendente'|'em_aprovacao'|'aprovada'|'rejeitada'|'em_cotacao'|'pedido_emitido'|'entregue'|'cancelada';
+type Priority = 'normal'|'emergencial';
 
-type Priority = 'baixa' | 'normal' | 'alta' | 'urgente' | 'emergencial';
+type MaterialOption = {
+  material_id: string;
+  name: string;
+  description: string | null;
+  unit: string;
+  internal_sku: string | null;
+  erp_code: string | null;
+  category_id: string | null;
+};
 
-interface InternalRequest {
+type InternalRequest = {
   id: string;
-  priority: Priority;
+  priority: string;
   status: RequestStatus;
   expected_date: string | null;
   department: string | null;
   notes: string | null;
   created_at: string;
   internal_request_items?: Array<{ count?: number }> | null;
-}
+};
 
-interface DraftItem {
+type DraftItem = {
   id: string;
+  material_id: string | null;
+  material_name: string;
   description: string;
   quantity: string;
   uom: string;
-}
-
-const STATUS_LABEL: Record<RequestStatus, string> = {
-  pendente: 'Pendente',
-  em_aprovacao: 'Em aprovação',
-  aprovada: 'Aprovada',
-  rejeitada: 'Rejeitada',
-  em_cotacao: 'Em cotação',
-  pedido_emitido: 'Pedido emitido',
-  entregue: 'Entregue',
-  cancelada: 'Cancelada',
+  notes: string;
+  photo: File | null;
 };
 
-const PRIORITY_LABEL: Record<Priority, string> = {
-  baixa: 'Baixa',
-  normal: 'Normal',
-  alta: 'Alta',
-  urgente: 'Urgente',
-  emergencial: 'Emergencial',
+const STATUS_LABEL: Record<RequestStatus,string> = {
+  pendente:'Recebida', em_aprovacao:'Em aprovação', aprovada:'Aprovada',
+  rejeitada:'Rejeitada', em_cotacao:'Em cotação', pedido_emitido:'Pedido emitido',
+  entregue:'Entregue', cancelada:'Cancelada',
 };
 
-function newItem(): DraftItem {
-  return {
-    id: crypto.randomUUID(),
-    description: '',
-    quantity: '1',
-    uom: 'UN',
-  };
-}
+const newItem = (): DraftItem => ({
+  id: crypto.randomUUID(), material_id:null, material_name:'', description:'',
+  quantity:'1', uom:'UN', notes:'', photo:null,
+});
 
 export default function MobileRequesterPage() {
   const navigate = useNavigate();
   const { data: identity } = useAuthenticatedIdentity();
   const { transitionTo } = usePrivateSession();
-  const [requests, setRequests] = useState<InternalRequest[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState('');
-  const [showNewRequest, setShowNewRequest] = useState(false);
-  const [priority, setPriority] = useState<Priority>('normal');
-  const [expectedDate, setExpectedDate] = useState('');
-  const [department, setDepartment] = useState('');
-  const [notes, setNotes] = useState('');
-  const [items, setItems] = useState<DraftItem[]>([newItem()]);
+  const [requests,setRequests] = useState<InternalRequest[]>([]);
+  const [materials,setMaterials] = useState<MaterialOption[]>([]);
+  const [loading,setLoading] = useState(true);
+  const [saving,setSaving] = useState(false);
+  const [error,setError] = useState('');
+  const [showNew,setShowNew] = useState(false);
+  const [materialSearch,setMaterialSearch] = useState('');
+  const [priority,setPriority] = useState<Priority>('normal');
+  const [expectedDate,setExpectedDate] = useState('');
+  const [department,setDepartment] = useState('');
+  const [notes,setNotes] = useState('');
+  const [items,setItems] = useState<DraftItem[]>([newItem()]);
 
-  const loadRequests = async () => {
+  const load = async () => {
     if (!identity?.userId) return;
     setLoading(true);
     setError('');
-
-    const { data, error: requestError } = await supabase
-      .from('internal_requests')
-      .select('id, priority, status, expected_date, department, notes, created_at, internal_request_items(count)')
-      .eq('requester_id', identity.userId)
-      .order('created_at', { ascending: false });
-
-    if (requestError) {
-      setError('Não foi possível carregar suas solicitações.');
-      setRequests([]);
-    } else {
-      setRequests((data || []) as InternalRequest[]);
-    }
-
+    const [requestsResult,materialsResult] = await Promise.all([
+      supabase.from('internal_requests')
+        .select('id, priority, status, expected_date, department, notes, created_at, internal_request_items(count)')
+        .eq('requester_id',identity.userId).order('created_at',{ascending:false}),
+      (supabase as any).rpc('get_requestable_materials'),
+    ]);
+    if (requestsResult.error) setError('Não foi possível carregar suas solicitações.');
+    setRequests((requestsResult.data || []) as InternalRequest[]);
+    setMaterials((Array.isArray(materialsResult.data) ? materialsResult.data : []) as MaterialOption[]);
     setLoading(false);
   };
 
-  useEffect(() => {
-    void loadRequests();
-  }, [identity?.userId]);
+  useEffect(()=>{ void load(); },[identity?.userId]);
 
-  const stats = useMemo(() => {
-    const open = requests.filter((request) =>
-      ['pendente', 'em_aprovacao', 'aprovada', 'em_cotacao', 'pedido_emitido'].includes(request.status),
-    ).length;
-    const waiting = requests.filter((request) => ['pendente', 'em_aprovacao'].includes(request.status)).length;
-    const done = requests.filter((request) => request.status === 'entregue').length;
-    return { open, waiting, done };
-  }, [requests]);
+  const filteredMaterials = useMemo(()=>{
+    const q=materialSearch.trim().toLowerCase();
+    if (!q) return materials.slice(0,20);
+    return materials.filter(m =>
+      [m.name,m.description,m.internal_sku,m.erp_code].some(v=>String(v||'').toLowerCase().includes(q))
+    ).slice(0,30);
+  },[materials,materialSearch]);
 
-  const resetForm = () => {
-    setPriority('normal');
-    setExpectedDate('');
-    setDepartment('');
-    setNotes('');
-    setItems([newItem()]);
+  const stats=useMemo(()=>({
+    open:requests.filter(r=>['pendente','em_aprovacao','aprovada','em_cotacao','pedido_emitido'].includes(r.status)).length,
+    quote:requests.filter(r=>r.status==='em_cotacao').length,
+    done:requests.filter(r=>r.status==='entregue').length,
+  }),[requests]);
+
+  const reset=()=>{setPriority('normal');setExpectedDate('');setDepartment('');setNotes('');setItems([newItem()]);setMaterialSearch('');setError('');};
+  const close=()=>{if(!saving){setShowNew(false);reset();}};
+  const patchItem=(id:string,patch:Partial<DraftItem>)=>setItems(v=>v.map(i=>i.id===id?{...i,...patch}:i));
+  const selectMaterial=(itemId:string,m:MaterialOption)=>patchItem(itemId,{
+    material_id:m.material_id,material_name:m.name,description:m.name,uom:m.unit||'UN'
+  });
+
+  const uploadPhoto = async (requestId:string,item:DraftItem) => {
+    if (!item.photo || !identity) return null;
+    const safeName=item.photo.name.replace(/[^a-zA-Z0-9._-]/g,'_');
+    const path=`${identity.organizationId}/${requestId}/${item.id}-${safeName}`;
+    const { error: uploadError }=await supabase.storage.from('request-attachments').upload(path,item.photo,{upsert:false});
+    if(uploadError) throw uploadError;
+    return path;
   };
 
-  const closeForm = () => {
-    if (saving) return;
-    setShowNewRequest(false);
-    resetForm();
-    setError('');
-  };
-
-  const updateItem = (id: string, field: keyof Omit<DraftItem, 'id'>, value: string) => {
-    setItems((current) => current.map((item) => (item.id === id ? { ...item, [field]: value } : item)));
-  };
-
-  const addItem = () => setItems((current) => [...current, newItem()]);
-
-  const removeItem = (id: string) => {
-    setItems((current) => (current.length === 1 ? current : current.filter((item) => item.id !== id)));
-  };
-
-  const submitRequest = async (event: FormEvent) => {
-    event.preventDefault();
-    if (!identity) return;
-
-    const validItems = items
-      .map((item) => ({
-        ...item,
-        description: item.description.trim(),
-        quantityNumber: Number(item.quantity.replace(',', '.')),
-        uom: item.uom.trim().toUpperCase(),
-      }))
-      .filter((item) => item.description && Number.isFinite(item.quantityNumber) && item.quantityNumber > 0 && item.uom);
-
-    if (validItems.length !== items.length) {
-      setError('Preencha a descrição, quantidade e unidade de todos os itens.');
-      return;
+  const submit=async(e:FormEvent)=>{
+    e.preventDefault();
+    if(!identity) return;
+    if(!expectedDate){setError('Informe a data necessária para recebimento.');return;}
+    if(items.some(i=>!i.description.trim()||Number(i.quantity.replace(',','.'))<=0)){
+      setError('Preencha material/descrição e quantidade de todos os itens.');return;
     }
+    setSaving(true);setError('');
+    try{
+      const {data:created,error:createError}=await supabase.from('internal_requests').insert({
+        organization_id:identity.organizationId,requester_id:identity.userId,
+        requested_by_name:identity.fullName,priority,status:'pendente',expected_date:expectedDate,
+        department:department.trim()||null,notes:notes.trim()||null,
+      }).select('id').single();
+      if(createError||!created?.id) throw createError||new Error('REQUEST_CREATE_FAILED');
 
-    setSaving(true);
-    setError('');
-
-    const { data: created, error: createError } = await supabase
-      .from('internal_requests')
-      .insert({
-        organization_id: identity.organizationId,
-        requester_id: identity.userId,
-        requested_by_name: identity.fullName,
-        priority,
-        expected_date: expectedDate || null,
-        department: department.trim() || null,
-        notes: notes.trim() || null,
-      })
-      .select('id')
-      .single();
-
-    if (createError || !created?.id) {
-      setSaving(false);
-      setError('Não foi possível criar a solicitação. Verifique os dados e tente novamente.');
-      return;
-    }
-
-    const { error: itemsError } = await supabase.from('internal_request_items').insert(
-      validItems.map((item) => ({
-        request_id: created.id,
-        description: item.description,
-        quantity: item.quantityNumber,
-        uom: item.uom,
-      })),
-    );
-
-    if (itemsError) {
-      await supabase.from('internal_requests').delete().eq('id', created.id).eq('requester_id', identity.userId);
-      setSaving(false);
-      setError('A solicitação não foi concluída porque um ou mais itens não puderam ser salvos.');
-      return;
-    }
-
-    setSaving(false);
-    setShowNewRequest(false);
-    resetForm();
-    await loadRequests();
+      const rows=[];
+      for(const item of items){
+        const photoPath=await uploadPhoto(created.id,item);
+        rows.push({
+          request_id:created.id,material_id:item.material_id,description:item.description.trim(),
+          quantity:Number(item.quantity.replace(',','.')),uom:item.uom.trim().toUpperCase()||'UN',
+          category_id:null,product_id:null,photo_path:photoPath,item_notes:item.notes.trim()||null,
+        });
+      }
+      const {error:itemsError}=await supabase.from('internal_request_items').insert(rows);
+      if(itemsError) throw itemsError;
+      setShowNew(false);reset();await load();
+    }catch(err){
+      console.error(err);
+      setError('Não foi possível enviar a solicitação. Revise os dados e tente novamente.');
+    }finally{setSaving(false);}
   };
 
-  const signOut = async () => {
-    await supabase.auth.signOut({ scope: 'local' });
-    await transitionTo(null);
-    navigate('/login', { replace: true });
-  };
-
-  const firstName = identity?.fullName?.split(' ')[0] || 'Solicitante';
+  const signOut=async()=>{await supabase.auth.signOut({scope:'local'});await transitionTo(null);navigate('/login',{replace:true});};
+  const firstName=identity?.fullName?.split(' ')[0]||'Solicitante';
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-24 text-slate-900">
+    <div className="min-h-[100dvh] w-full overflow-x-hidden bg-slate-50 pb-24 text-slate-900">
       <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur">
-        <div className="mx-auto flex h-16 max-w-lg items-center justify-between px-4">
-          <div>
-            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-600">SupplyHub.IA</p>
-            <h1 className="text-sm font-extrabold text-slate-900">{identity?.organizationName || 'Minha empresa'}</h1>
+        <div className="mx-auto flex h-16 w-full max-w-xl items-center justify-between px-4">
+          <div className="min-w-0">
+            <p className="text-[10px] font-black uppercase tracking-[.18em] text-indigo-600">SupplyHub • App Campo</p>
+            <h1 className="truncate text-sm font-extrabold">{identity?.organizationName||'Minha empresa'}</h1>
           </div>
-          <button
-            type="button"
-            onClick={signOut}
-            className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 shadow-sm"
-            aria-label="Sair"
-          >
-            <LogOut className="h-4 w-4" />
+          <button onClick={signOut} className="ml-3 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border bg-white text-slate-500" aria-label="Sair">
+            <LogOut className="h-4 w-4"/>
           </button>
         </div>
       </header>
 
-      <main className="mx-auto max-w-lg space-y-6 px-4 py-5">
+      <main className="mx-auto w-full max-w-xl space-y-5 px-4 py-4">
         <section className="rounded-3xl bg-slate-900 p-5 text-white shadow-xl">
-          <p className="text-xs font-semibold text-slate-300">Olá, {firstName}</p>
-          <div className="mt-1 flex items-end justify-between gap-4">
-            <div>
-              <h2 className="text-2xl font-black tracking-tight">O que você precisa?</h2>
-              <p className="mt-1 max-w-[260px] text-xs leading-relaxed text-slate-400">
-                Abra uma solicitação de material e acompanhe o fluxo até a entrega.
-              </p>
+          <div className="flex items-start justify-between gap-4">
+            <div><p className="text-xs text-slate-300">Olá, {firstName}</p><h2 className="mt-1 text-2xl font-black">Solicitar material</h2>
+              <p className="mt-1 text-xs leading-relaxed text-slate-400">Escolha o item, informe quantidade e necessidade. Compras recebe e conduz a cotação.</p>
             </div>
-            <div className="rounded-2xl bg-indigo-500/20 p-3 text-indigo-300">
-              <PackagePlus className="h-7 w-7" />
-            </div>
+            <div className="rounded-2xl bg-indigo-500/20 p-3 text-indigo-300"><Smartphone className="h-7 w-7"/></div>
           </div>
-          <button
-            type="button"
-            onClick={() => setShowNewRequest(true)}
-            className="mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-indigo-600 text-sm font-extrabold text-white shadow-lg shadow-indigo-950/30 active:scale-[0.99]"
-          >
-            <Plus className="h-5 w-5" />
-            Nova solicitação
+          <button onClick={()=>setShowNew(true)} className="mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-indigo-600 text-sm font-extrabold">
+            <Plus className="h-5 w-5"/>Nova solicitação
           </button>
         </section>
 
-        <section className="grid grid-cols-3 gap-3">
-          <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
-            <ClipboardList className="h-4 w-4 text-indigo-600" />
-            <p className="mt-3 text-xl font-black">{stats.open}</p>
-            <p className="text-[10px] font-semibold text-slate-500">Em andamento</p>
-          </div>
-          <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
-            <Clock3 className="h-4 w-4 text-amber-500" />
-            <p className="mt-3 text-xl font-black">{stats.waiting}</p>
-            <p className="text-[10px] font-semibold text-slate-500">Aguardando</p>
-          </div>
-          <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
-            <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-            <p className="mt-3 text-xl font-black">{stats.done}</p>
-            <p className="text-[10px] font-semibold text-slate-500">Entregues</p>
-          </div>
+        <section className="grid grid-cols-3 gap-2">
+          {[['Em andamento',stats.open,ClipboardList],['Em cotação',stats.quote,Clock3],['Entregues',stats.done,CheckCircle2]].map(([label,value,Icon]:any)=>(
+            <div key={label} className="min-w-0 rounded-2xl border bg-white p-3 shadow-sm"><Icon className="h-4 w-4 text-indigo-600"/><p className="mt-2 text-xl font-black">{value}</p><p className="truncate text-[10px] font-semibold text-slate-500">{label}</p></div>
+          ))}
         </section>
 
         <section>
-          <div className="mb-3 flex items-center justify-between">
-            <div>
-              <h3 className="text-base font-black">Minhas solicitações</h3>
-              <p className="text-xs text-slate-500">Acompanhe o status das solicitações abertas por você.</p>
-            </div>
-            <button
-              type="button"
-              onClick={() => void loadRequests()}
-              className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500"
-              aria-label="Atualizar"
-            >
-              <RefreshCw className="h-4 w-4" />
-            </button>
+          <div className="mb-3 flex items-center justify-between"><div><h3 className="text-base font-black">Minhas solicitações</h3><p className="text-xs text-slate-500">Acompanhe o processo de compra.</p></div>
+            <button onClick={()=>void load()} className="flex h-9 w-9 items-center justify-center rounded-xl border bg-white text-slate-500"><RefreshCw className="h-4 w-4"/></button>
           </div>
-
-          {error && !showNewRequest && (
-            <div className="mb-3 rounded-2xl border border-red-200 bg-red-50 p-3 text-xs font-semibold text-red-700">{error}</div>
-          )}
-
-          {loading ? (
-            <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-500">
-              Carregando solicitações...
-            </div>
-          ) : requests.length === 0 ? (
-            <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-8 text-center">
-              <ClipboardList className="mx-auto h-8 w-8 text-slate-300" />
-              <h4 className="mt-3 text-sm font-extrabold">Nenhuma solicitação ainda</h4>
-              <p className="mt-1 text-xs text-slate-500">Use o botão acima para criar a primeira.</p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {requests.map((request) => (
-                <article key={request.id} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">
-                        {new Date(request.created_at).toLocaleDateString('pt-BR')}
-                      </p>
-                      <h4 className="mt-1 truncate text-sm font-extrabold">
-                        {request.department || 'Solicitação de material'}
-                      </h4>
-                    </div>
-                    <span className="shrink-0 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[10px] font-extrabold text-slate-700">
-                      {STATUS_LABEL[request.status]}
-                    </span>
-                  </div>
-                  <div className="mt-4 flex items-center justify-between text-xs text-slate-500">
-                    <span>{request.internal_request_items?.[0]?.count ?? 0} item(ns)</span>
-                    <span>{PRIORITY_LABEL[request.priority]}</span>
-                  </div>
-                  {request.expected_date && (
-                    <div className="mt-3 flex items-center gap-1.5 text-[11px] font-semibold text-slate-500">
-                      <CalendarDays className="h-3.5 w-3.5" />
-                      Necessidade: {new Date(request.expected_date + 'T12:00:00').toLocaleDateString('pt-BR')}
-                    </div>
-                  )}
-                  <div className="mt-3 flex items-center justify-end text-[11px] font-extrabold text-indigo-600">
-                    Acompanhar <ChevronRight className="h-4 w-4" />
-                  </div>
-                </article>
-              ))}
-            </div>
-          )}
+          {loading?<div className="rounded-2xl border bg-white p-8 text-center text-sm text-slate-500">Carregando...</div>:
+          requests.length===0?<div className="rounded-3xl border border-dashed bg-white p-8 text-center"><PackageSearch className="mx-auto h-8 w-8 text-slate-300"/><p className="mt-3 text-sm font-bold">Nenhuma solicitação</p></div>:
+          <div className="space-y-3">{requests.map(r=><article key={r.id} className="rounded-2xl border bg-white p-4 shadow-sm">
+            <div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="text-[10px] font-black uppercase text-slate-400">{new Date(r.created_at).toLocaleDateString('pt-BR')}</p><h4 className="mt-1 truncate text-sm font-extrabold">{r.department||'Solicitação de compra'}</h4></div><span className="shrink-0 rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-extrabold">{STATUS_LABEL[r.status]}</span></div>
+            <div className="mt-3 flex items-center justify-between text-xs text-slate-500"><span>{r.internal_request_items?.[0]?.count??0} item(ns)</span><span>{r.priority==='emergencial'?'Emergencial':'Normal'}</span></div>
+            {r.expected_date&&<div className="mt-2 flex items-center gap-1.5 text-[11px] text-slate-500"><CalendarDays className="h-3.5 w-3.5"/>Necessidade: {new Date(r.expected_date+'T12:00:00').toLocaleDateString('pt-BR')}</div>}
+          </article>)}</div>}
         </section>
       </main>
 
-      <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-slate-200 bg-white/95 backdrop-blur">
-        <div className="mx-auto grid h-20 max-w-lg grid-cols-3 px-6">
-          <button type="button" className="flex flex-col items-center justify-center gap-1 text-indigo-600">
-            <ClipboardList className="h-5 w-5" />
-            <span className="text-[10px] font-extrabold">Início</span>
-          </button>
-          <button type="button" onClick={() => setShowNewRequest(true)} className="flex flex-col items-center justify-center gap-1 text-slate-500">
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-indigo-600 text-white shadow-md">
-              <Plus className="h-5 w-5" />
-            </div>
-            <span className="text-[10px] font-extrabold">Solicitar</span>
-          </button>
-          <button type="button" className="flex flex-col items-center justify-center gap-1 text-slate-500">
-            <UserRound className="h-5 w-5" />
-            <span className="text-[10px] font-extrabold">Perfil</span>
-          </button>
-        </div>
+      <nav className="fixed inset-x-0 bottom-0 z-30 border-t bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur">
+        <div className="mx-auto grid h-16 max-w-xl grid-cols-3 px-6"><button className="flex flex-col items-center justify-center gap-1 text-indigo-600"><ClipboardList className="h-5 w-5"/><span className="text-[10px] font-bold">Início</span></button>
+          <button onClick={()=>setShowNew(true)} className="flex flex-col items-center justify-center gap-1 text-slate-500"><div className="flex h-9 w-9 items-center justify-center rounded-full bg-indigo-600 text-white"><Plus className="h-5 w-5"/></div><span className="text-[10px] font-bold">Solicitar</span></button>
+          <button className="flex flex-col items-center justify-center gap-1 text-slate-500"><UserRound className="h-5 w-5"/><span className="text-[10px] font-bold">Perfil</span></button></div>
       </nav>
 
-      {showNewRequest && (
-        <div className="fixed inset-0 z-50 flex items-end bg-slate-950/60 sm:items-center sm:justify-center sm:p-4">
-          <div className="max-h-[94vh] w-full overflow-y-auto rounded-t-3xl bg-white p-5 shadow-2xl sm:max-w-lg sm:rounded-3xl">
-            <div className="mb-5 flex items-start justify-between">
-              <div>
-                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-600">Nova solicitação</p>
-                <h3 className="mt-1 text-xl font-black">Informe o que você precisa</h3>
-              </div>
-              <button
-                type="button"
-                onClick={closeForm}
-                className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-slate-500"
-                aria-label="Fechar"
-              >
-                <X className="h-4 w-4" />
-              </button>
+      {showNew&&<div className="fixed inset-0 z-50 flex items-end bg-slate-950/60 sm:items-center sm:justify-center sm:p-4">
+        <div className="max-h-[96dvh] w-full overflow-y-auto rounded-t-3xl bg-white p-4 pb-8 shadow-2xl sm:max-w-xl sm:rounded-3xl">
+          <div className="mb-4 flex items-start justify-between"><div><p className="text-[10px] font-black uppercase tracking-[.18em] text-indigo-600">App Campo</p><h3 className="text-xl font-black">Nova solicitação de compra</h3></div><button onClick={close} className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100"><X className="h-4 w-4"/></button></div>
+          <form onSubmit={submit} className="space-y-5">
+            {error&&<div className="rounded-2xl border border-red-200 bg-red-50 p-3 text-xs font-semibold text-red-700">{error}</div>}
+            <div className="grid grid-cols-2 gap-2">
+              <button type="button" onClick={()=>setPriority('normal')} className={`h-11 rounded-xl border text-sm font-extrabold ${priority==='normal'?'border-indigo-600 bg-indigo-50 text-indigo-700':'border-slate-200'}`}>Normal</button>
+              <button type="button" onClick={()=>setPriority('emergencial')} className={`h-11 rounded-xl border text-sm font-extrabold ${priority==='emergencial'?'border-red-500 bg-red-50 text-red-700':'border-slate-200'}`}>Emergencial</button>
             </div>
+            <label className="block text-xs font-bold">Data necessária *
+              <input required type="date" value={expectedDate} onChange={e=>setExpectedDate(e.target.value)} className="mt-1.5 h-11 w-full rounded-xl border px-3 text-sm"/>
+            </label>
+            <label className="block text-xs font-bold">Área / setor
+              <input value={department} onChange={e=>setDepartment(e.target.value)} placeholder="Ex.: Manutenção, Produção..." className="mt-1.5 h-11 w-full rounded-xl border px-3 text-sm"/>
+            </label>
 
-            <form onSubmit={submitRequest} className="space-y-5">
-              {error && (
-                <div className="rounded-2xl border border-red-200 bg-red-50 p-3 text-xs font-semibold text-red-700">{error}</div>
-              )}
-
-              <div className="grid grid-cols-2 gap-3">
-                <label className="space-y-1.5 text-xs font-bold text-slate-700">
-                  Prioridade
-                  <select
-                    value={priority}
-                    onChange={(event) => setPriority(event.target.value as Priority)}
-                    className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-indigo-500"
-                  >
-                    {Object.entries(PRIORITY_LABEL).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-                  </select>
-                </label>
-                <label className="space-y-1.5 text-xs font-bold text-slate-700">
-                  Data necessária
-                  <input
-                    type="date"
-                    value={expectedDate}
-                    onChange={(event) => setExpectedDate(event.target.value)}
-                    className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none focus:border-indigo-500"
-                  />
-                </label>
-              </div>
-
-              <label className="block space-y-1.5 text-xs font-bold text-slate-700">
-                Área / departamento
-                <input
-                  type="text"
-                  value={department}
-                  onChange={(event) => setDepartment(event.target.value)}
-                  placeholder="Ex.: Manutenção, Qualidade, Produção"
-                  className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none focus:border-indigo-500"
-                />
-              </label>
-
-              <div>
-                <div className="mb-3 flex items-center justify-between">
-                  <div>
-                    <p className="text-xs font-black text-slate-800">Itens solicitados</p>
-                    <p className="text-[10px] text-slate-500">Adicione um ou mais materiais.</p>
-                  </div>
-                  <button type="button" onClick={addItem} className="flex items-center gap-1 text-xs font-extrabold text-indigo-600">
-                    <Plus className="h-4 w-4" /> Item
-                  </button>
-                </div>
-
-                <div className="space-y-3">
-                  {items.map((item, index) => (
-                    <div key={item.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-                      <div className="mb-2 flex items-center justify-between">
-                        <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">Item {index + 1}</span>
-                        {items.length > 1 && (
-                          <button type="button" onClick={() => removeItem(item.id)} className="text-slate-400" aria-label="Remover item">
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        )}
-                      </div>
-                      <input
-                        required
-                        value={item.description}
-                        onChange={(event) => updateItem(item.id, 'description', event.target.value)}
-                        placeholder="Descrição do material"
-                        className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-indigo-500"
-                      />
-                      <div className="mt-2 grid grid-cols-[1fr_100px] gap-2">
-                        <input
-                          required
-                          inputMode="decimal"
-                          value={item.quantity}
-                          onChange={(event) => updateItem(item.id, 'quantity', event.target.value)}
-                          placeholder="Qtd."
-                          className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-indigo-500"
-                        />
-                        <input
-                          required
-                          value={item.uom}
-                          onChange={(event) => updateItem(item.id, 'uom', event.target.value)}
-                          placeholder="UN"
-                          className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm uppercase outline-none focus:border-indigo-500"
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <label className="block space-y-1.5 text-xs font-bold text-slate-700">
-                Observações
-                <textarea
-                  rows={3}
-                  value={notes}
-                  onChange={(event) => setNotes(event.target.value)}
-                  placeholder="Detalhes importantes para a compra..."
-                  className="w-full resize-none rounded-xl border border-slate-200 p-3 text-sm outline-none focus:border-indigo-500"
-                />
-              </label>
-
-              <button
-                type="submit"
-                disabled={saving}
-                className="flex h-12 w-full items-center justify-center rounded-2xl bg-indigo-600 text-sm font-extrabold text-white disabled:opacity-50"
-              >
-                {saving ? 'Enviando...' : 'Enviar solicitação'}
-              </button>
-            </form>
-          </div>
+            {items.map((item,index)=><div key={item.id} className="rounded-2xl border bg-slate-50 p-3">
+              <div className="mb-2 flex items-center justify-between"><span className="text-[10px] font-black uppercase text-slate-500">Item {index+1}</span>{items.length>1&&<button type="button" onClick={()=>setItems(v=>v.filter(x=>x.id!==item.id))}><Trash2 className="h-4 w-4 text-slate-400"/></button>}</div>
+              <div className="relative"><Search className="absolute left-3 top-3.5 h-4 w-4 text-slate-400"/><input value={item.material_name||materialSearch} onFocus={()=>setMaterialSearch('')} onChange={e=>{patchItem(item.id,{material_id:null,material_name:e.target.value,description:e.target.value});setMaterialSearch(e.target.value)}} placeholder="Buscar material ou digitar descrição" className="h-11 w-full rounded-xl border bg-white pl-9 pr-3 text-sm"/></div>
+              {!item.material_id && materialSearch && <div className="mt-2 max-h-48 overflow-y-auto rounded-xl border bg-white shadow-lg">{filteredMaterials.map(m=><button type="button" key={m.material_id} onClick={()=>{selectMaterial(item.id,m);setMaterialSearch('')}} className="block w-full border-b px-3 py-3 text-left last:border-0"><p className="text-sm font-bold">{m.name}</p><p className="mt-0.5 text-[10px] text-slate-500">{[m.internal_sku,m.erp_code,m.unit].filter(Boolean).join(' • ')}</p></button>)}</div>}
+              <div className="mt-2 grid grid-cols-[1fr_90px] gap-2"><input required inputMode="decimal" value={item.quantity} onChange={e=>patchItem(item.id,{quantity:e.target.value})} placeholder="Quantidade" className="h-11 rounded-xl border bg-white px-3 text-sm"/><input value={item.uom} onChange={e=>patchItem(item.id,{uom:e.target.value})} className="h-11 rounded-xl border bg-white px-3 text-sm uppercase"/></div>
+              <textarea value={item.notes} onChange={e=>patchItem(item.id,{notes:e.target.value})} rows={2} placeholder="Descrição complementar / especificação" className="mt-2 w-full resize-none rounded-xl border bg-white p-3 text-sm"/>
+              <label className="mt-2 flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border border-dashed bg-white px-3 text-xs font-bold text-slate-600"><Camera className="h-4 w-4"/>{item.photo?<span className="truncate">{item.photo.name}</span>:'Adicionar foto do item'}<input type="file" accept="image/*" capture="environment" className="hidden" onChange={e=>patchItem(item.id,{photo:e.target.files?.[0]||null})}/></label>
+            </div>)}
+            <button type="button" onClick={()=>setItems(v=>[...v,newItem()])} className="flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50 text-xs font-extrabold text-indigo-700"><Plus className="h-4 w-4"/>Adicionar outro item</button>
+            <label className="block text-xs font-bold">Observação geral
+              <textarea value={notes} onChange={e=>setNotes(e.target.value)} rows={3} className="mt-1.5 w-full resize-none rounded-xl border p-3 text-sm" placeholder="Informações para o comprador..."/>
+            </label>
+            <button disabled={saving} className="flex h-12 w-full items-center justify-center rounded-2xl bg-indigo-600 text-sm font-extrabold text-white disabled:opacity-50">{saving?'Enviando...':'Enviar para Compras'}</button>
+          </form>
         </div>
-      )}
+      </div>}
     </div>
   );
 }
