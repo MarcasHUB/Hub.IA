@@ -2,7 +2,7 @@ import React, { Suspense, lazy } from 'react';
 import { createBrowserRouter, Outlet, Navigate } from 'react-router-dom';
 import { AppLayout } from '../layouts/AppLayout';
 import { AuthLayout } from '../layouts/AuthLayout';
-import { CapabilityGuard, IdentityGuard } from './CapabilityGuard';
+import { CapabilityGuard, IdentityGuard, MobileIdentityGuard } from './CapabilityGuard';
 import LandingPage from '../../modules/landing/presentation/pages/LandingPage'; // imported directly for speed
 
 const GlobalAdminPage = lazy(() => import('../../modules/admin/presentation/pages/GlobalAdminPage'));
@@ -28,6 +28,7 @@ const MinhaEmpresaPage = React.lazy(() => import('../../modules/organizations/pr
 const AcceptInvitePage = React.lazy(() => import('../../modules/employees/presentation/pages/AcceptInvitePage'));
 const AppAccessChoicePage = React.lazy(() => import('../../modules/landing/presentation/pages/AppAccessChoicePage'));
 const MyProfilePage = React.lazy(() => import('../../modules/users/presentation/pages/MyProfilePage').then(module => ({ default: module.MyProfilePage })));
+const MobileRequesterPage = React.lazy(() => import('../../modules/requests/presentation/pages/MobileRequesterPage'));
 
 class ChunkErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean }> {
   constructor(props: { children: React.ReactNode }) {
@@ -99,6 +100,10 @@ export const router = createBrowserRouter([
   {
     path: '/aceitar-convite',
     element: <SuspenseWrapper><AcceptInvitePage /></SuspenseWrapper>,
+  },
+  {
+    path: '/app',
+    element: <MobileIdentityGuard><SuspenseWrapper><MobileRequesterPage /></SuspenseWrapper></MobileIdentityGuard>,
   },
   {
     element: <IdentityGuard><AppLayout /></IdentityGuard>,
