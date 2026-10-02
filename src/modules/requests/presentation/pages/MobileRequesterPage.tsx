@@ -20,6 +20,7 @@ type MaterialOption = {
   internal_sku: string | null;
   erp_code: string | null;
   category_id: string | null;
+  linked_to_company?: boolean;
 };
 
 type InternalRequest = {
@@ -66,6 +67,7 @@ export default function MobileRequesterPage() {
   const [error,setError] = useState('');
   const [showNew,setShowNew] = useState(false);
   const [materialSearch,setMaterialSearch] = useState('');
+  const [catalogItemId,setCatalogItemId] = useState<string|null>(null);
   const [priority,setPriority] = useState<Priority>('normal');
   const [expectedDate,setExpectedDate] = useState('');
   const [department,setDepartment] = useState('');
@@ -104,12 +106,19 @@ export default function MobileRequesterPage() {
     done:requests.filter(r=>r.status==='entregue').length,
   }),[requests]);
 
-  const reset=()=>{setPriority('normal');setExpectedDate('');setDepartment('');setNotes('');setItems([newItem()]);setMaterialSearch('');setError('');};
+  const reset=()=>{setPriority('normal');setExpectedDate('');setDepartment('');setNotes('');setItems([newItem()]);setMaterialSearch('');setCatalogItemId(null);setError('');};
   const close=()=>{if(!saving){setShowNew(false);reset();}};
   const patchItem=(id:string,patch:Partial<DraftItem>)=>setItems(v=>v.map(i=>i.id===id?{...i,...patch}:i));
-  const selectMaterial=(itemId:string,m:MaterialOption)=>patchItem(itemId,{
-    material_id:m.material_id,material_name:m.name,description:m.name,uom:m.unit||'UN'
-  });
+  const selectMaterial=(itemId:string,m:MaterialOption)=>{
+    patchItem(itemId,{
+      material_id:m.material_id,
+      material_name:m.name,
+      description:m.description?.trim() || m.name,
+      uom:m.unit||'UN'
+    });
+    setMaterialSearch('');
+    setCatalogItemId(null);
+  };
 
   const uploadPhoto = async (requestId:string,item:DraftItem) => {
     if (!item.photo || !identity) return null;
@@ -228,8 +237,49 @@ export default function MobileRequesterPage() {
 
             {items.map((item,index)=><div key={item.id} className="rounded-2xl border bg-slate-50 p-3">
               <div className="mb-2 flex items-center justify-between"><span className="text-[10px] font-black uppercase text-slate-500">Item {index+1}</span>{items.length>1&&<button type="button" onClick={()=>setItems(v=>v.filter(x=>x.id!==item.id))}><Trash2 className="h-4 w-4 text-slate-400"/></button>}</div>
-              <div className="relative"><Search className="absolute left-3 top-3.5 h-4 w-4 text-slate-400"/><input value={item.material_name||materialSearch} onFocus={()=>setMaterialSearch('')} onChange={e=>{patchItem(item.id,{material_id:null,material_name:e.target.value,description:e.target.value});setMaterialSearch(e.target.value)}} placeholder="Buscar material ou digitar descrição" className="h-11 w-full rounded-xl border bg-white pl-9 pr-3 text-sm"/></div>
-              {!item.material_id && materialSearch && <div className="mt-2 max-h-48 overflow-y-auto rounded-xl border bg-white shadow-lg">{filteredMaterials.map(m=><button type="button" key={m.material_id} onClick={()=>{selectMaterial(item.id,m);setMaterialSearch('')}} className="block w-full border-b px-3 py-3 text-left last:border-0"><p className="text-sm font-bold">{m.name}</p><p className="mt-0.5 text-[10px] text-slate-500">{[m.internal_sku,m.erp_code,m.unit].filter(Boolean).join(' • ')}</p></button>)}</div>}
+              <div className="relative">
+                <Search className="absolute left-3 top-3.5 h-4 w-4 text-slate-400"/>
+                <input
+                  value={item.material_name}
+                  onFocus={()=>{setCatalogItemId(item.id);setMaterialSearch(item.material_name)}}
+                  onChange={e=>{
+                    patchItem(item.id,{material_id:null,material_name:e.target.value,description:e.target.value});
+                    setCatalogItemId(item.id);
+                    setMaterialSearch(e.target.value);
+                  }}
+                  placeholder="Pesquisar no Catálogo Global"
+                  className="h-11 w-full rounded-xl border bg-white pl-9 pr-3 text-sm"
+                />
+              </div>
+              {catalogItemId===item.id && <div className="mt-2 overflow-hidden rounded-xl border bg-white shadow-lg">
+                <div className="flex items-center justify-between border-b bg-slate-50 px-3 py-2">
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-wider text-indigo-600">Catálogo Global de Materiais</p>
+                    <p className="text-[10px] text-slate-500">{materials.length} materiais disponíveis</p>
+                  </div>
+                  <button type="button" onClick={()=>setCatalogItemId(null)} className="rounded-lg p-1 text-slate-400"><X className="h-4 w-4"/></button>
+                </div>
+                <div className="max-h-56 overflow-y-auto">
+                  {filteredMaterials.length===0
+                    ? <div className="p-4 text-center text-xs text-slate-500">Nenhum material encontrado. Você ainda pode usar uma descrição livre.</div>
+                    : filteredMaterials.map(m=><button type="button" key={m.material_id} onClick={()=>selectMaterial(item.id,m)} className="block w-full border-b px-3 py-3 text-left last:border-0 hover:bg-indigo-50">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="text-sm font-bold text-slate-900">{m.name}</p>
+                            {m.description&&<p className="mt-0.5 line-clamp-2 text-[10px] text-slate-500">{m.description}</p>}
+                            <p className="mt-1 text-[10px] font-semibold text-slate-400">{[m.internal_sku,m.erp_code,m.unit].filter(Boolean).join(' • ') || m.unit}</p>
+                          </div>
+                          <span className={`shrink-0 rounded-full px-2 py-1 text-[9px] font-black ${m.linked_to_company?'bg-emerald-50 text-emerald-700':'bg-indigo-50 text-indigo-700'}`}>
+                            {m.linked_to_company?'Já vinculado':'Global'}
+                          </span>
+                        </div>
+                      </button>)}
+                </div>
+              </div>}
+              {item.material_id&&<div className="mt-2 flex items-center justify-between rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2">
+                <div><p className="text-[10px] font-black uppercase text-emerald-700">Material selecionado</p><p className="text-xs font-semibold text-emerald-900">{item.material_name}</p></div>
+                <button type="button" onClick={()=>{patchItem(item.id,{material_id:null});setCatalogItemId(item.id);setMaterialSearch(item.material_name)}} className="text-[10px] font-black text-indigo-700">Trocar</button>
+              </div>}
               <div className="mt-2 grid grid-cols-[1fr_90px] gap-2"><input required inputMode="decimal" value={item.quantity} onChange={e=>patchItem(item.id,{quantity:e.target.value})} placeholder="Quantidade" className="h-11 rounded-xl border bg-white px-3 text-sm"/><input value={item.uom} onChange={e=>patchItem(item.id,{uom:e.target.value})} className="h-11 rounded-xl border bg-white px-3 text-sm uppercase"/></div>
               <textarea value={item.notes} onChange={e=>patchItem(item.id,{notes:e.target.value})} rows={2} placeholder="Descrição complementar / especificação" className="mt-2 w-full resize-none rounded-xl border bg-white p-3 text-sm"/>
               <label className="mt-2 flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border border-dashed bg-white px-3 text-xs font-bold text-slate-600"><Camera className="h-4 w-4"/>{item.photo?<span className="truncate">{item.photo.name}</span>:'Adicionar foto do item'}<input type="file" accept="image/*" capture="environment" className="hidden" onChange={e=>patchItem(item.id,{photo:e.target.files?.[0]||null})}/></label>
