@@ -1,26 +1,26 @@
 {
-  "id": "/app",
+  "id": "/app-campo",
   "name": "SupplyHub.IA App Campo",
   "short_name": "SupplyHub",
   "description": "App Campo do SupplyHub.IA para solicitações internas de compra.",
   "start_url": "/app",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#f8fafc",
-  "theme_color": "#4f46e5",
+  "background_color": "#05070a",
+  "theme_color": "#05070a",
   "lang": "pt-BR",
   "orientation": "portrait-primary",
   "prefer_related_applications": false,
   "icons": [
     {
-      "src": "/supplyhub-icon-192.png?v=7",
+      "src": "/app-icon-sh-ia-192-v8.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/supplyhub-icon-192.png?v=7",
-      "sizes": "192x192",
+      "src": "/app-icon-sh-ia-512-v8.png",
+      "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
     }
