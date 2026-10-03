@@ -14,28 +14,51 @@ function shouldReloadForChunkError(message: string) {
     message.includes('Importing a module script failed') ||
     message.includes('ChunkLoadError') ||
     message.includes('Loading chunk') ||
-    message.includes('dynamically imported module')
+    message.includes('dynamically imported module') ||
+    message.includes('not a valid JavaScript MIME type') ||
+    message.includes('MIME type for module script')
   );
 }
 
-const handleChunkError = (message: string) => {
-  if (shouldReloadForChunkError(message)) {
-    const alreadyReloaded = sessionStorage.getItem(CHUNK_RELOAD_KEY);
-    if (!alreadyReloaded) {
-      sessionStorage.setItem(CHUNK_RELOAD_KEY, 'true');
-      console.warn('Falha no lazy load do Vite detectada. Forçando reload...');
-      window.location.reload();
+const handleChunkError = async (message: string) => {
+  if (!shouldReloadForChunkError(message)) return;
+
+  const alreadyReloaded = sessionStorage.getItem(CHUNK_RELOAD_KEY);
+  if (alreadyReloaded) return;
+
+  sessionStorage.setItem(CHUNK_RELOAD_KEY, 'true');
+  console.warn('Versão antiga do App Campo detectada. Limpando cache e atualizando...');
+
+  try {
+    if ('caches' in window) {
+      const keys = await caches.keys();
+      await Promise.all(
+        keys
+          .filter((key) => key.startsWith('supplyhub-pwa-'))
+          .map((key) => caches.delete(key))
+      );
     }
+
+    if ('serviceWorker' in navigator) {
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(registrations.map((registration) => registration.update()));
+    }
+  } catch (error) {
+    console.warn('[SupplyHub PWA] Não foi possível limpar todo o cache:', error);
   }
+
+  const url = new URL(window.location.href);
+  url.searchParams.set('_appv', Date.now().toString());
+  window.location.replace(url.toString());
 };
 
 window.addEventListener('error', (event) => {
-  handleChunkError(event.message || '');
+  void handleChunkError(event.message || '');
 });
 
 window.addEventListener('unhandledrejection', (event) => {
   const message = String(event.reason?.message || event.reason || '');
-  handleChunkError(message);
+  void handleChunkError(message);
 });
 
 // Limpa a flag se renderizou com sucesso
@@ -67,8 +90,10 @@ console.log("Cache bust v2");
 
 if ('serviceWorker' in navigator && import.meta.env.PROD) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').catch((error) => {
-      console.warn('[SupplyHub PWA] Falha ao registrar service worker:', error);
-    });
+    navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' })
+      .then((registration) => registration.update())
+      .catch((error) => {
+        console.warn('[SupplyHub PWA] Falha ao registrar service worker:', error);
+      });
   });
 }
