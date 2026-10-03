@@ -10,4 +10,14 @@ if (!supabaseUrl || !supabaseKey) {
   throw new Error('VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY são obrigatórios para iniciar o runtime.');
 }
 
-export const supabase = createClient(supabaseUrl, supabaseKey);
+const authStorage = typeof window !== 'undefined' ? window.localStorage : undefined;
+
+export const supabase = createClient(supabaseUrl, supabaseKey, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: true,
+    storage: authStorage,
+    storageKey: 'sb-supplyhub-auth-v1',
+  },
+});
