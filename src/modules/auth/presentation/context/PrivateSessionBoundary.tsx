@@ -70,9 +70,20 @@ export function PrivateSessionBoundary({ children }: { children: ReactNode }) {
   useEffect(() => {
     let mounted = true;
 
-    void supabase.auth.getUser().then(({ data, error }) => {
+    void supabase.auth.getSession().then(({ data, error }) => {
       if (!mounted) return;
-      void transitionTo(error ? null : data.user?.id ?? null);
+
+      // A sessão persistida no dispositivo é a fonte inicial. Não derrubamos
+      // o usuário por uma falha transitória de rede ao reabrir Safari/PWA.
+      const sessionUserId = data.session?.user?.id ?? null;
+      if (sessionUserId) {
+        void transitionTo(sessionUserId);
+        return;
+      }
+
+      if (!error) {
+        void transitionTo(null);
+      }
     });
 
     const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
