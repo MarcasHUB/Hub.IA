@@ -41,6 +41,11 @@ type InternalRequest = {
   notes: string | null;
   created_at: string;
   internal_request_items?: RequestItemSummary[] | null;
+  quotation_id?: string | null;
+  quotation_title?: string | null;
+  quotation_status?: string | null;
+  quotation_destination_label?: string | null;
+  quotation_destinations?: string[];
 };
 
 type DraftItem = {
@@ -89,14 +94,35 @@ export default function MobileRequesterPage() {
     if (!identity?.userId) return;
     setLoading(true);
     setError('');
-    const [requestsResult,materialsResult] = await Promise.all([
+    const [requestsResult,materialsResult,progressResult] = await Promise.all([
       supabase.from('internal_requests')
         .select('id, priority, status, expected_date, department, notes, created_at, internal_request_items(id,description,quantity,uom,item_notes,photo_path)')
         .eq('requester_id',identity.userId).order('created_at',{ascending:false}),
       (supabase as any).rpc('get_requestable_materials'),
+      (supabase as any).rpc('get_my_app_campo_quotation_progress'),
     ]);
     if (requestsResult.error) setError('Não foi possível carregar suas solicitações.');
-    setRequests((requestsResult.data || []) as InternalRequest[]);
+    const progressRows=(Array.isArray(progressResult.data) ? progressResult.data : []) as Array<{
+      request_id:string;
+      quotation_id:string|null;
+      quotation_title:string|null;
+      quotation_status:string|null;
+      destination_label:string|null;
+      destinations:string[];
+    }>;
+    const progressByRequest=new Map(progressRows.map(row=>[row.request_id,row]));
+    const enriched=((requestsResult.data || []) as InternalRequest[]).map(request=>{
+      const progress=progressByRequest.get(request.id);
+      return {
+        ...request,
+        quotation_id:progress?.quotation_id||null,
+        quotation_title:progress?.quotation_title||null,
+        quotation_status:progress?.quotation_status||null,
+        quotation_destination_label:progress?.destination_label||null,
+        quotation_destinations:progress?.destinations||[],
+      };
+    });
+    setRequests(enriched);
     setMaterials((Array.isArray(materialsResult.data) ? materialsResult.data : []) as MaterialOption[]);
     setLoading(false);
   };
@@ -232,6 +258,11 @@ export default function MobileRequesterPage() {
             <div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="text-[10px] font-black uppercase text-slate-400">{new Date(r.created_at).toLocaleDateString('pt-BR')}</p><h4 className="mt-1 truncate text-sm font-extrabold">{r.department||'Solicitação de compra'}</h4></div><span className="shrink-0 rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-extrabold">{STATUS_LABEL[r.status]}</span></div>
             <div className="mt-3 flex items-center justify-between text-xs text-slate-500"><span>{r.internal_request_items?.length??0} item(ns)</span><span>{r.priority==='emergencial'?'Emergencial':'Normal'}</span></div>
             {r.expected_date&&<div className="mt-2 flex items-center gap-1.5 text-[11px] text-slate-500"><CalendarDays className="h-3.5 w-3.5"/>Necessidade: {new Date(r.expected_date+'T12:00:00').toLocaleDateString('pt-BR')}</div>}
+            {r.quotation_title&&<div className="mt-3 rounded-xl border border-indigo-100 bg-indigo-50 px-3 py-2">
+              <p className="text-[10px] font-black uppercase tracking-wider text-indigo-600">Cotação</p>
+              <p className="mt-0.5 text-xs font-extrabold text-indigo-900">{r.quotation_title}</p>
+              <p className="mt-0.5 text-[10px] text-indigo-700">{r.quotation_destinations?.length ? `Enviada para: ${r.quotation_destinations.join(', ')}` : (r.quotation_destination_label||'Em processamento por Compras')}</p>
+            </div>}
           </article>)}</div>}
         </section>
       </main>
@@ -275,6 +306,15 @@ export default function MobileRequesterPage() {
           </div>
 
           {selectedRequest.notes&&<div className="mt-4 rounded-2xl border bg-slate-50 p-3"><p className="text-[10px] font-black uppercase text-slate-400">Observação</p><p className="mt-1 text-xs leading-relaxed text-slate-700">{selectedRequest.notes}</p></div>}
+          {selectedRequest.quotation_title&&<div className="mt-4 rounded-2xl border border-indigo-200 bg-indigo-50 p-4">
+            <p className="text-[10px] font-black uppercase tracking-wider text-indigo-600">Cotação gerada por Compras</p>
+            <p className="mt-1 text-base font-black text-indigo-950">{selectedRequest.quotation_title}</p>
+            <p className="mt-2 text-xs font-semibold text-indigo-800">
+              {selectedRequest.quotation_destinations?.length
+                ? `Enviada para: ${selectedRequest.quotation_destinations.join(', ')}`
+                : (selectedRequest.quotation_destination_label||'Aguardando definição dos fornecedores')}
+            </p>
+          </div>}
           <button onClick={()=>setSelectedRequest(null)} className="mt-5 h-11 w-full rounded-xl bg-slate-900 text-sm font-extrabold text-white">Fechar</button>
         </div>
       </div>}
