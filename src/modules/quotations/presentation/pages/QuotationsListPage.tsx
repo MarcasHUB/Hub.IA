@@ -43,10 +43,17 @@ export default function QuotationsListPage(){
   useEffect(()=>{void load();},[load]);
 
   useEffect(()=>{
-    if(searchParams.get('tab')==='internal') setTab('internal');
+    const requestedTab=searchParams.get('tab');
+    if(requestedTab==='internal') setTab('internal');
+    if(requestedTab==='sent') setTab('sent');
     const requestId=searchParams.get('request');
     if(requestId) setExpanded(requestId);
   },[searchParams]);
+
+  const activeInternalRows=useMemo(
+    ()=>internalRows.filter(row=>['pendente','em_aprovacao','aprovada'].includes(row.status)),
+    [internalRows],
+  );
 
   const visible=useMemo(()=>rows.filter(row=>{
     if(tab==='received')return row.target_organization_id===organizationId;
@@ -96,7 +103,7 @@ export default function QuotationsListPage(){
       return;
     }
     await load();
-    if(data) navigate(`/quotations/${data}`);
+    if(data) navigate('/quotations?tab=sent', { replace:true });
   };
 
   const toggleInternal=async(row:InternalRow)=>{
@@ -148,8 +155,8 @@ export default function QuotationsListPage(){
 
     {error&&<div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</div>}
     {loading?<div className="rounded-xl border bg-white p-12 text-center text-sm text-slate-500">Carregando...</div>:tab==='internal'?(
-      internalRows.length===0?<div className="rounded-xl border bg-white p-12 text-center"><Smartphone className="mx-auto h-9 w-9 text-slate-300"/><p className="mt-3 text-sm font-semibold text-slate-700">Nenhuma solicitação recebida do App Campo.</p><p className="mt-1 text-xs text-slate-500">Quando um solicitante enviar um pedido pelo app, ele aparecerá aqui.</p></div>:
-      <div className="space-y-3">{internalRows.map(row=><div key={row.id} className="overflow-hidden rounded-xl border bg-white shadow-sm">
+      activeInternalRows.length===0?<div className="rounded-xl border bg-white p-12 text-center"><Smartphone className="mx-auto h-9 w-9 text-slate-300"/><p className="mt-3 text-sm font-semibold text-slate-700">Nenhuma solicitação aguardando Compras no App Campo.</p><p className="mt-1 text-xs text-slate-500">Solicitações convertidas em cotação passam automaticamente para Enviadas.</p></div>:
+      <div className="space-y-3">{activeInternalRows.map(row=><div key={row.id} className="overflow-hidden rounded-xl border bg-white shadow-sm">
         <button onClick={()=>void toggleInternal(row)} className="grid w-full grid-cols-1 gap-3 p-4 text-left md:grid-cols-[1.2fr_1fr_120px_130px_120px_36px] md:items-center">
           <div><div className="flex items-center gap-2"><Smartphone className="h-4 w-4 text-indigo-600"/><span className="text-sm font-extrabold text-slate-900">{row.requested_by_name}</span></div><p className="mt-1 text-xs text-slate-500">{row.department||'Área não informada'} • {row.internal_request_items.length} item(ns)</p></div>
           <div className="text-xs text-slate-600">{row.notes||'Sem observação geral'}</div>
@@ -166,13 +173,13 @@ export default function QuotationsListPage(){
           </div>)}</div>
           <div className="mt-4 flex flex-col gap-3 rounded-xl border border-indigo-100 bg-indigo-50 p-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-xs text-indigo-800"><strong>Próxima etapa:</strong> revisar os itens e gerar o rascunho da cotação. Itens por descrição livre precisam ser classificados antes.</p>
-            <Button
+            {['pendente','em_aprovacao','aprovada'].includes(row.status)&&<Button
               onClick={()=>void convertToQuotation(row)}
               disabled={converting===row.id || row.internal_request_items.some(item=>!item.material_id)}
               className="shrink-0 bg-indigo-600 text-white disabled:opacity-50"
             >
               {converting===row.id?'Criando...':'Criar cotação'}
-            </Button>
+            </Button>}
           </div>
         </div>}
       </div>)}</div>
