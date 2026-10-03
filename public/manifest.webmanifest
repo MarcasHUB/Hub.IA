@@ -13,15 +13,15 @@
   "prefer_related_applications": false,
   "icons": [
     {
-      "src": "/supplyhub-app-icon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
+      "src": "/supplyhub-icon-192.png?v=6",
+      "sizes": "192x192",
+      "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/supplyhub-app-icon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
+      "src": "/supplyhub-icon-192.png?v=6",
+      "sizes": "192x192",
+      "type": "image/png",
       "purpose": "any maskable"
     }
   ],
