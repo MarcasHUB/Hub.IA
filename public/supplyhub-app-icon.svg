@@ -1,6 +1,65 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="112" fill="#0f172a"/>
-  <rect x="88" y="88" width="336" height="336" rx="84" fill="#4f46e5"/>
-  <path d="M166 178h180v42H208v51h121v42H208v21h138v42H166V178Z" fill="#fff"/>
-  <circle cx="353" cy="157" r="28" fill="#a5b4fc"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#07111f"/>
+      <stop offset=".55" stop-color="#020817"/>
+      <stop offset="1" stop-color="#071a38"/>
+    </linearGradient>
+    <linearGradient id="blue" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#22d3ee"/>
+      <stop offset=".45" stop-color="#0ea5e9"/>
+      <stop offset="1" stop-color="#2563eb"/>
+    </linearGradient>
+    <linearGradient id="metal" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset=".45" stop-color="#dbe7f5"/>
+      <stop offset="1" stop-color="#7d91aa"/>
+    </linearGradient>
+    <filter id="glow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="12" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="soft" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="14" flood-color="#000" flood-opacity=".5"/>
+    </filter>
+  </defs>
+
+  <rect width="1024" height="1024" rx="190" fill="url(#bg)"/>
+  <rect x="26" y="26" width="972" height="972" rx="168" fill="none" stroke="#0ea5e9" stroke-width="10"/>
+  <rect x="45" y="45" width="934" height="934" rx="152" fill="none" stroke="#2563eb" stroke-width="4" opacity=".8"/>
+
+  <circle cx="512" cy="474" r="394" fill="none" stroke="url(#blue)" stroke-width="24" filter="url(#glow)" opacity=".95"/>
+  <circle cx="512" cy="474" r="365" fill="#020713" opacity=".86"/>
+
+  <g filter="url(#soft)">
+    <text x="512" y="485" text-anchor="middle" font-family="Arial Black, Arial, sans-serif" font-size="350" font-weight="900" font-style="italic" letter-spacing="-42">
+      <tspan fill="url(#metal)">S</tspan><tspan fill="url(#blue)">H</tspan>
+    </text>
+  </g>
+
+  <g transform="translate(0 20)">
+    <text x="505" y="666" text-anchor="middle" font-family="Arial, sans-serif" font-size="96" font-weight="800" letter-spacing="-4">
+      <tspan fill="url(#metal)">Supply</tspan><tspan fill="url(#blue)">HUB</tspan>
+    </text>
+    <rect x="753" y="587" width="126" height="88" rx="20" fill="#020713" stroke="#22d3ee" stroke-width="7"/>
+    <text x="816" y="650" text-anchor="middle" font-family="Arial Black, Arial, sans-serif" font-size="56" font-weight="900" fill="#fff">IA</text>
+  </g>
+
+  <line x1="180" y1="730" x2="844" y2="730" stroke="#1d9bf0" stroke-width="5" opacity=".9"/>
+
+  <g transform="translate(0 10)" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <g stroke="#dbe7f5" stroke-width="13" transform="translate(250 790)">
+      <path d="M0 0h34l18 73h94l23-52H50"/>
+      <circle cx="72" cy="98" r="10"/><circle cx="143" cy="98" r="10"/>
+    </g>
+    <g stroke="#22d3ee" stroke-width="13" transform="translate(448 790)">
+      <path d="M0 80V20l64-42 64 42v60"/>
+      <path d="M31 80V37h66v43"/>
+      <path d="M47 54h34"/>
+    </g>
+    <g stroke="#60a5fa" stroke-width="13" transform="translate(694 790)">
+      <path d="M0 91V55h27v36M50 91V33h27v58M100 91V5h27v86"/>
+      <path d="M-3 20l42-28 35 11 53-45"/>
+    </g>
+  </g>
 </svg>
